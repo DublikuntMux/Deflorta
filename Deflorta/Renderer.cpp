@@ -1,15 +1,15 @@
 #include "Renderer.hpp"
 
+#include <string>
+#include <format>
+#include <chrono>
+#include <optional>
+
 #include <d2d1_1.h>
 #include <dwrite.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
-
-#include <string>
-#include <format>
-#include <chrono>
-#include <optional>
 
 using Microsoft::WRL::ComPtr;
 
@@ -144,7 +144,7 @@ void Renderer::drawFPS()
         textBrush.Get());
 }
 
-void Renderer::render()
+void Renderer::beginFrame()
 {
     if (!swapChain_)
     {
@@ -156,20 +156,10 @@ void Renderer::render()
 
     d2dContext_->BeginDraw();
     d2dContext_->Clear(D2D1::ColorF(D2D1::ColorF::Black));
+}
 
-    const auto [width, height] = d2dContext_->GetSize();
-    constexpr float margin = 50.0f;
-
-    const D2D1_RECT_F rect{margin, margin, width - margin, height - margin};
-    d2dContext_->FillRectangle(rect, brush_.Get());
-    d2dContext_->DrawRectangle(rect, brush_.Get(), 2.0f);
-
-    const D2D1_ELLIPSE ellipse{
-        D2D1::Point2F(width / 2.f, height / 2.f),
-        80.f, 80.f
-    };
-    d2dContext_->DrawEllipse(ellipse, brush_.Get(), 4.0f);
-
+void Renderer::render()
+{
     drawFPS();
 
     const HRESULT hr = d2dContext_->EndDraw();

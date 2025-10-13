@@ -1,37 +1,31 @@
 ﻿#include <memory>
 
-#include "Renderer.hpp"
+#include "Game.hpp"
+#include "Input.hpp"
 #include "resource.h"
 
-static std::unique_ptr<Renderer> g_renderer;
+static std::unique_ptr<Game> g_game;
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
     case WM_KEYDOWN:
-        if (wParam == VK_F1 && g_renderer)
-            g_renderer->toggleFPS();
+        Input::handleKeyDown(wParam);
+        if (wParam == VK_F1 && g_game)
+            g_game->toggleFPS();
         break;
 
-    case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            BeginPaint(hWnd, &ps);
-            if (g_renderer)
-                g_renderer->render();
-            EndPaint(hWnd, &ps);
-        }
+    case WM_KEYUP:
+        Input::handleKeyUp(wParam);
         break;
 
     case WM_SIZE:
-        if (g_renderer)
-            g_renderer->resize(LOWORD(lParam), HIWORD(lParam));
+        if (g_game)
+            g_game->resize(LOWORD(lParam), HIWORD(lParam));
         break;
 
     case WM_DESTROY:
-        if (g_renderer)
-            g_renderer->cleanup();
         PostQuitMessage(0);
         break;
 
@@ -60,36 +54,18 @@ static ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
-static BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-{
-    const HWND hWnd = CreateWindowW(L"Destolfa", L"Destolfa",
-                                    WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, 960, 640,
-                                    nullptr, nullptr, hInstance, nullptr);
-
-    if (!hWnd) return FALSE;
-
-    g_renderer = std::make_unique<Renderer>();
-    if (!g_renderer->initialize(hWnd))
-        return FALSE;
-
-    ShowWindow(hWnd, nCmdShow);
-    UpdateWindow(hWnd);
-    return TRUE;
-}
-
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
     MyRegisterClass(hInstance);
-    if (!InitInstance(hInstance, nCmdShow))
-        return FALSE;
+    const HWND hWnd = CreateWindowW(L"Destolfa", L"Destolfa",
+                                    WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, 854, 480,
+                                    nullptr, nullptr, hInstance, nullptr);
 
-    MSG msg{};
-    while (GetMessage(&msg, nullptr, 0, 0))
-    {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
+    if (!hWnd) return FALSE;
+    ShowWindow(hWnd, nCmdShow);
 
-    g_renderer.reset();
-    return static_cast<int>(msg.wParam);
+    g_game = std::make_unique<Game>(hWnd);
+    g_game->run();
+    g_game.reset();
+    return 0;
 }

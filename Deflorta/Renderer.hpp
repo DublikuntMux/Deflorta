@@ -16,6 +16,7 @@ class Renderer final
 public:
     bool initialize(HWND hwnd);
     void resize(UINT width, UINT height);
+    void beginFrame();
     void render();
     void cleanup();
     void toggleFPS();
