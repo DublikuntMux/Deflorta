@@ -17,13 +17,12 @@ public:
     template <typename T, typename... Args>
     void setScene(Args&&... args)
     {
-        if (scene_) scene_->onExit();
-        scene_ = std::make_unique<T>(std::forward<Args>(args)...);
-        scene_->onEnter();
+        next_scene_ = std::make_unique<T>(std::forward<Args>(args)...);
     }
 
 private:
     HWND hwnd_;
     std::unique_ptr<Scene> scene_;
+    std::unique_ptr<Scene> next_scene_;
     bool running_ = true;
 };

@@ -117,7 +117,7 @@
         <ItemGroup>
             <ResourceFiles Include="$(SourceDir)**\*.*"/>
         </ItemGroup>
-        <Copy SourceFiles="@(ResourceFiles)" DestinationFiles="@(ResourceFiles->'$(OutDir)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true"/>
+        <Copy SourceFiles="@(ResourceFiles)" DestinationFiles="@(ResourceFiles->'$(OutDir)\resources\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true"/>
     </Target>
     <PropertyGroup Label="Vcpkg">
         <VcpkgEnableManifest>true</VcpkgEnableManifest>

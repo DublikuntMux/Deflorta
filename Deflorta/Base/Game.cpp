@@ -39,6 +39,13 @@ void Game::run()
             DispatchMessage(&msg);
         }
 
+        if (next_scene_)
+        {
+            if (scene_) scene_->onExit();
+            scene_ = std::move(next_scene_);
+            scene_->onEnter();
+        }
+
         Time::tick();
         Renderer::beginFrame();
         if (scene_)
