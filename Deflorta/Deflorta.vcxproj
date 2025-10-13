@@ -47,14 +47,14 @@
         <ClCompile>
             <WarningLevel>Level3</WarningLevel>
             <SDLCheck>true</SDLCheck>
-            <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+            <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp23</LanguageStandard>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib</AdditionalDependencies>
+            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib;xaudio2.lib</AdditionalDependencies>
         </Link>
     </ItemDefinitionGroup>
     <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -63,35 +63,16 @@
             <FunctionLevelLinking>true</FunctionLevelLinking>
             <IntrinsicFunctions>true</IntrinsicFunctions>
             <SDLCheck>true</SDLCheck>
-            <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+            <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp23</LanguageStandard>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
-            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib</AdditionalDependencies>
+            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib;xaudio2.lib</AdditionalDependencies>
         </Link>
     </ItemDefinitionGroup>
-    <ItemGroup>
-        <ClInclude Include="Game.hpp"/>
-        <ClInclude Include="GameObject.hpp"/>
-        <ClInclude Include="Input.hpp"/>
-        <ClInclude Include="Renderer.hpp"/>
-        <ClInclude Include="Resource.h"/>
-        <ClInclude Include="Scene.hpp"/>
-        <ClInclude Include="targetver.h"/>
-        <ClInclude Include="Time.hpp"/>
-        <ClInclude Include="Transform.hpp"/>
-    </ItemGroup>
-    <ItemGroup>
-        <ClCompile Include="Game.cpp"/>
-        <ClCompile Include="GameObject.cpp"/>
-        <ClCompile Include="Input.cpp"/>
-        <ClCompile Include="Renderer.cpp"/>
-        <ClCompile Include="Main.cpp"/>
-        <ClCompile Include="Time.cpp"/>
-    </ItemGroup>
     <ItemGroup>
         <ResourceCompile Include="Deflorta.rc"/>
     </ItemGroup>
@@ -99,7 +80,37 @@
         <Image Include="Deflorta.ico"/>
         <Image Include="small.ico"/>
     </ItemGroup>
+    <ItemGroup>
+      <ClCompile Include="Base\AudioManager.cpp" />
+      <ClCompile Include="Base\Game.cpp" />
+      <ClCompile Include="Base\GameObject.cpp" />
+      <ClCompile Include="Base\Input.cpp" />
+      <ClCompile Include="Base\Renderer.cpp" />
+      <ClCompile Include="Base\Time.cpp" />
+      <ClCompile Include="Main.cpp" />
+    </ItemGroup>
+    <ItemGroup>
+      <ClInclude Include="Base\AudioManager.hpp" />
+      <ClInclude Include="Base\Game.hpp" />
+      <ClInclude Include="Base\GameObject.hpp" />
+      <ClInclude Include="Base\Input.hpp" />
+      <ClInclude Include="Base\Renderer.hpp" />
+      <ClInclude Include="Base\Time.hpp" />
+      <ClInclude Include="Base\Transform.hpp" />
+      <ClInclude Include="resource.h" />
+      <ClInclude Include="Scene\Scene.hpp" />
+      <ClInclude Include="targetver.h" />
+    </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
     <ImportGroup Label="ExtensionTargets">
     </ImportGroup>
+    <Target Name="CopyResources" AfterTargets="Build">
+        <PropertyGroup>
+            <SourceDir>$(SolutionDir)resources\</SourceDir>
+        </PropertyGroup>
+        <ItemGroup>
+            <ResourceFiles Include="$(SourceDir)**\*.*"/>
+        </ItemGroup>
+        <Copy SourceFiles="@(ResourceFiles)" DestinationFiles="@(ResourceFiles->'$(OutDir)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true"/>
+    </Target>
 </Project>

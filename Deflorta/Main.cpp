@@ -1,7 +1,7 @@
 ﻿#include <memory>
 
-#include "Game.hpp"
-#include "Input.hpp"
+#include "Base/Game.hpp"
+#include "Base/Input.hpp"
 #include "resource.h"
 
 static std::unique_ptr<Game> g_game;

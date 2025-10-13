@@ -1,6 +1,6 @@
 ﻿#pragma once
 
-#include "Renderer.hpp"
+#include "../Base/Renderer.hpp"
 
 class Scene
 {

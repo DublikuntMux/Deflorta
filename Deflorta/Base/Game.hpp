@@ -5,13 +5,13 @@
 #include <Windows.h>
 
 #include "Renderer.hpp"
-#include "Scene.hpp"
+#include "../Scene/Scene.hpp"
 #include "Time.hpp"
 
-class Game
+class Game final
 {
 public:
-    Game(HWND hwnd);
+    explicit Game(HWND hwnd);
     ~Game();
 
     void run();

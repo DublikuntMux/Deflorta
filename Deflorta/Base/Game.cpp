@@ -2,9 +2,12 @@
 
 #include <thread>
 
+#include "AudioManager.hpp"
+
 Game::Game(HWND hwnd) : hwnd_(hwnd)
 {
     renderer_ = std::make_unique<Renderer>();
+    AudioManager::Initialize();
 
     if (!renderer_->initialize(hwnd_))
         running_ = false;
@@ -12,6 +15,7 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
 
 Game::~Game()
 {
+    AudioManager::Uninitialize();
     if (renderer_)
         renderer_->cleanup();
 }

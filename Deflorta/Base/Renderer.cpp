@@ -11,8 +11,6 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
-using Microsoft::WRL::ComPtr;
-
 bool Renderer::initialize(HWND hwnd)
 {
     hwnd_ = hwnd;
@@ -51,13 +49,13 @@ std::optional<HRESULT> Renderer::createDeviceResources(HWND hwnd)
         nullptr, d3dContext_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return hr;
 
-    ComPtr<IDXGIDevice> dxgiDevice;
+    Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
     d3dDevice_.As(&dxgiDevice);
 
-    ComPtr<IDXGIAdapter> adapter;
+    Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
     dxgiDevice->GetAdapter(adapter.GetAddressOf());
 
-    ComPtr<IDXGIFactory2> dxgiFactory;
+    Microsoft::WRL::ComPtr<IDXGIFactory2> dxgiFactory;
     adapter->GetParent(IID_PPV_ARGS(&dxgiFactory));
 
     hr = d2dFactory_->CreateDevice(dxgiDevice.Get(), d2dDevice_.ReleaseAndGetAddressOf());
@@ -86,7 +84,7 @@ std::optional<HRESULT> Renderer::createDeviceResources(HWND hwnd)
 
 void Renderer::recreateTargetBitmap()
 {
-    ComPtr<IDXGISurface> dxgiSurface;
+    Microsoft::WRL::ComPtr<IDXGISurface> dxgiSurface;
     HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
     if (FAILED(hr)) return;
 
@@ -133,7 +131,7 @@ void Renderer::drawFPS()
 
     const std::wstring text = std::format(L"FPS: {:.1f}", fps_);
     const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
-    ComPtr<ID2D1SolidColorBrush> textBrush;
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
     d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), textBrush.ReleaseAndGetAddressOf());
 
     d2dContext_->DrawTextW(
