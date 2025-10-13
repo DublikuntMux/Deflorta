@@ -181,7 +181,7 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
     {
         if (!entry.loaded)
         {
-            std::string fullPath = (std::filesystem::path(resourceBasePath) / entry.path).string();
+            std::string fullPath = (std::filesystem::path(resourceBasePath) / entry.path).string() + ".png";
             if (PngData pngData; LoadPngFile(fullPath, pngData))
             {
                 ID2D1Bitmap* bitmap = nullptr;

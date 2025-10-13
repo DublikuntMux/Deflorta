@@ -8,6 +8,8 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
+#include "../Base/Transform.hpp"
+
 class Renderer final
 {
 public:
@@ -18,6 +20,8 @@ public:
     static void cleanup();
     static void toggleFPS();
     static ID2D1DeviceContext* getD2DContext();
+
+    static void drawImage(ID2D1Bitmap* bitmap, const Transform& transform);
 
 private:
     static std::optional<HRESULT> createDeviceResources(HWND hwnd);

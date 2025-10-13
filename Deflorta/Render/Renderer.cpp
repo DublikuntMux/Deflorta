@@ -2,7 +2,6 @@
 
 #include <string>
 #include <format>
-#include <chrono>
 #include <optional>
 
 #include <d2d1_1.h>
@@ -12,6 +11,7 @@
 #include <wrl/client.h>
 
 #include "../Base/Time.hpp"
+#include "../Base/Transform.hpp"
 
 HWND Renderer::hwnd_ = nullptr;
 
@@ -193,4 +193,20 @@ void Renderer::cleanup()
     d2dFactory_.Reset();
     dwFactory_.Reset();
     textFormat_.Reset();
+}
+
+void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform)
+{
+    if (!bitmap || !d2dContext_) return;
+
+    const D2D1_SIZE_F size = bitmap->GetSize();
+    const D2D1_MATRIX_3X2_F mat =
+        D2D1::Matrix3x2F::Translation(-size.width / 2.0f, -size.height / 2.0f) *
+        D2D1::Matrix3x2F::Scale(transform.scaleX, transform.scaleY, D2D1::Point2F(0, 0)) *
+        D2D1::Matrix3x2F::Rotation(transform.rotation, D2D1::Point2F(0, 0)) *
+        D2D1::Matrix3x2F::Translation(transform.x + size.width / 2.0f, transform.y + size.height / 2.0f);
+
+    d2dContext_->SetTransform(mat);
+    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height));
+    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }

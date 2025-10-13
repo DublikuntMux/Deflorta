@@ -60,8 +60,9 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
     MyRegisterClass(hInstance);
     const HWND hWnd = CreateWindowW(L"Destolfa", L"Destolfa",
-                                    WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, 854, 480,
-                                    nullptr, nullptr, hInstance, nullptr);
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+        CW_USEDEFAULT, 0, 1280, 720,
+        nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) return FALSE;
     ShowWindow(hWnd, nCmdShow);
