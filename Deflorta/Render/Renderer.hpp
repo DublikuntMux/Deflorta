@@ -1,13 +1,12 @@
 #pragma once
 
+#include <optional>
+
 #include <d2d1_1.h>
 #include <dwrite.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
-
-#include <chrono>
-#include <optional>
 
 class Renderer final
 {
@@ -25,9 +24,9 @@ private:
     static void discardDeviceResources();
     static void recreateTargetBitmap();
     static void drawFPS();
-    static void updateFPS();
 
     static HWND hwnd_;
+    static bool showFPS_;
 
     static Microsoft::WRL::ComPtr<ID3D11Device> d3dDevice_;
     static Microsoft::WRL::ComPtr<ID3D11DeviceContext> d3dContext_;
@@ -40,9 +39,4 @@ private:
     static Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> brush_;
     static Microsoft::WRL::ComPtr<IDWriteFactory> dwFactory_;
     static Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat_;
-
-    static bool showFPS_;
-    static double fps_;
-    static uint64_t frameCount_;
-    static std::chrono::steady_clock::time_point lastTime_;
 };

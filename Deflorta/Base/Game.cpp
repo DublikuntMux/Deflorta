@@ -2,6 +2,7 @@
 
 #include <thread>
 
+#include "Time.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
@@ -37,12 +38,12 @@ void Game::run()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-        time_.tick();
 
+        Time::tick();
         Renderer::beginFrame();
         if (scene_)
         {
-            scene_->update(time_.deltaTime());
+            scene_->update();
             scene_->render();
         }
         Renderer::render();

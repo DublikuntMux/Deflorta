@@ -5,7 +5,6 @@
 #include <Windows.h>
 
 #include "../Scene/Scene.hpp"
-#include "Time.hpp"
 
 class Game final
 {
@@ -25,9 +24,6 @@ public:
 
 private:
     HWND hwnd_;
-
     std::unique_ptr<Scene> scene_;
-
-    Time time_;
     bool running_ = true;
 };

@@ -5,10 +5,15 @@
 class Time
 {
 public:
-    void tick();
-    [[nodiscard]] float deltaTime() const noexcept;
+    static void tick();
+
+    [[nodiscard]] static float deltaTime() noexcept;
+    [[nodiscard]] static double fps() noexcept;
 
 private:
-    std::chrono::steady_clock::time_point lastTime_ = std::chrono::steady_clock::now();
-    float deltaTime_ = 0.0f;
+    static std::chrono::steady_clock::time_point lastTime_;
+    static std::chrono::steady_clock::time_point lastSecTime_;
+    static float deltaTime_;
+    static double fps_;
+    static uint64_t frameCount_;
 };

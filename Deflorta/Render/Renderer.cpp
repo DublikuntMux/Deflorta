@@ -11,6 +11,8 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
+#include "../Base/Time.hpp"
+
 HWND Renderer::hwnd_ = nullptr;
 
 Microsoft::WRL::ComPtr<ID3D11Device> Renderer::d3dDevice_;
@@ -26,9 +28,6 @@ Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
 Microsoft::WRL::ComPtr<IDWriteTextFormat> Renderer::textFormat_;
 
 bool Renderer::showFPS_ = false;
-double Renderer::fps_ = 0.0;
-uint64_t Renderer::frameCount_ = 0;
-std::chrono::steady_clock::time_point Renderer::lastTime_ = std::chrono::steady_clock::now();
 
 bool Renderer::initialize(HWND hwnd)
 {
@@ -130,25 +129,11 @@ void Renderer::resize(UINT width, UINT height)
     recreateTargetBitmap();
 }
 
-void Renderer::updateFPS()
-{
-    ++frameCount_;
-    const auto now = std::chrono::steady_clock::now();
-    const double elapsed = std::chrono::duration<double>(now - lastTime_).count();
-
-    if (elapsed >= 1.0)
-    {
-        fps_ = frameCount_ / elapsed;
-        frameCount_ = 0;
-        lastTime_ = now;
-    }
-}
-
 void Renderer::drawFPS()
 {
     if (!showFPS_) return;
 
-    const std::wstring text = std::format(L"FPS: {:.1f}", fps_);
+    const std::wstring text = std::format(L"FPS: {:.1f}", Time::fps());
     const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
     d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), textBrush.ReleaseAndGetAddressOf());
@@ -168,8 +153,6 @@ void Renderer::beginFrame()
         if (createDeviceResources(hwnd_).has_value())
             return;
     }
-
-    updateFPS();
 
     d2dContext_->BeginDraw();
     d2dContext_->Clear(D2D1::ColorF(D2D1::ColorF::Black));

@@ -7,6 +7,6 @@ class LoadScene final : public Scene
 public:
     LoadScene();
 
-    void update(float dt) override;
+    void update() override;
     void render() override;
 };
