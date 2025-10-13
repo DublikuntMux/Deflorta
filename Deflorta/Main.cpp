@@ -13,18 +13,18 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
     switch (message)
     {
     case WM_KEYDOWN:
-        Input::handleKeyDown(wParam);
+        Input::HandleKeyDown(wParam);
         if (wParam == VK_F1 && g_game)
-            Renderer::toggleFPS();
+            Renderer::ToggleFPS();
         break;
 
     case WM_KEYUP:
-        Input::handleKeyUp(wParam);
+        Input::HandleKeyUp(wParam);
         break;
 
     case WM_SIZE:
         if (g_game)
-            Renderer::resize(LOWORD(lParam), HIWORD(lParam));
+            Renderer::Resize(LOWORD(lParam), HIWORD(lParam));
         break;
 
     case WM_DESTROY:
@@ -68,8 +68,8 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
     ShowWindow(hWnd, nCmdShow);
 
     g_game = std::make_unique<Game>(hWnd);
-    g_game->setScene<LoadScene>();
-    g_game->run();
+    g_game->SetScene<LoadScene>();
+    g_game->Run();
     g_game.reset();
     return 0;
 }

@@ -7,16 +7,16 @@ class GameObject
 public:
     virtual ~GameObject() = default;
 
-    virtual void update(float dt)
+    virtual void Update(float dt)
     {
     }
 
-    virtual void render()
+    virtual void Render()
     {
     }
 
-    Transform& transform() noexcept;
-    [[nodiscard]] const Transform& transform() const noexcept;
+    [[nodiscard]] Transform& GetTransform() noexcept;
+    [[nodiscard]] const Transform& GetTransform() const noexcept;
 
 protected:
     Transform transform_;

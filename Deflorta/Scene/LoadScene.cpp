@@ -50,14 +50,14 @@ LoadScene::LoadScene()
     };
 
     logoTween_ = std::make_unique<Tween>(props, 2.0f);
-    logoTween_->start();
+    logoTween_->Start();
 }
 
-void LoadScene::update()
+void LoadScene::Update()
 {
-    logoTween_->update();
+    logoTween_->Update();
 
-    if (g_LoadingDone && !logoTween_->isActive() && !nextTween_)
+    if (g_LoadingDone && !logoTween_->IsActive() && !nextTween_)
     {
         const std::vector<TweenProperty> hideProps = {
             {
@@ -79,14 +79,14 @@ void LoadScene::update()
         };
 
         nextTween_ = std::make_unique<Tween>(hideProps, 1.5f);
-        nextTween_->start();
+        nextTween_->Start();
     }
 
     if (nextTween_)
     {
-        nextTween_->update();
+        nextTween_->Update();
 
-        if (!nextTween_->isActive())
+        if (!nextTween_->IsActive())
         {
             std::cout << "All loaded!" << std::endl;
             nextTween_.reset();
@@ -94,7 +94,7 @@ void LoadScene::update()
     }
 }
 
-void LoadScene::render()
+void LoadScene::Render()
 {
-    Renderer::drawImage(logo_, logoTransform_, logoOpacity_);
+    Renderer::DrawImage(logo_, logoTransform_, logoOpacity_);
 }

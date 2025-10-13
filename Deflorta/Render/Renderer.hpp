@@ -20,21 +20,21 @@ public:
         ~D2DGuard();
     };
 
-    static bool initialize(HWND hwnd);
-    static void resize(UINT width, UINT height);
-    static void beginFrame();
-    static void render();
-    static void cleanup();
-    static void toggleFPS();
-    static ID2D1DeviceContext* getD2DContext();
+    static bool Initialize(HWND hwnd);
+    static void Resize(UINT width, UINT height);
+    static void BeginFrame();
+    static void Render();
+    static void Cleanup();
+    static void ToggleFPS();
+    static ID2D1DeviceContext* GetD2DContext();
 
-    static void drawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity = 1.0f);
+    static void DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity = 1.0f);
 
 private:
-    static std::optional<HRESULT> createDeviceResources(HWND hwnd);
-    static void discardDeviceResources();
-    static void recreateTargetBitmap();
-    static void drawFPS();
+    static std::optional<HRESULT> CreateDeviceResources(HWND hwnd);
+    static void DiscardDeviceResources();
+    static void RecreateTargetBitmap();
+    static void DrawFPS();
 
     static HWND hwnd_;
     static bool showFPS_;

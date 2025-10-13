@@ -92,7 +92,7 @@ bool ResourceManager::CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitm
 {
     Renderer::D2DGuard guard;
 
-    auto d2dContext = Renderer::getD2DContext();
+    auto d2dContext = Renderer::GetD2DContext();
     if (!d2dContext) return false;
 
     D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(

@@ -12,10 +12,10 @@ public:
     explicit Game(HWND hwnd);
     ~Game();
 
-    void run();
+    void Run();
 
     template <typename T, typename... Args>
-    void setScene(Args&&... args)
+    void SetScene(Args&&... args)
     {
         next_scene_ = std::make_unique<T>(std::forward<Args>(args)...);
     }

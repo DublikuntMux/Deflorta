@@ -23,10 +23,10 @@ class Tween
 public:
     Tween(std::vector<TweenProperty> properties, float duration);
 
-    void start();
-    void update();
+    void Start();
+    void Update();
 
-    [[nodiscard]] bool isActive() const;
+    [[nodiscard]] bool IsActive() const;
 
 private:
     std::vector<TweenProperty> properties_;

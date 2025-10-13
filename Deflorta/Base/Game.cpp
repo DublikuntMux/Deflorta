@@ -11,7 +11,7 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
 {
     if (!AudioManager::Initialize())
         running_ = false;
-    if (!Renderer::initialize(hwnd_))
+    if (!Renderer::Initialize(hwnd_))
         running_ = false;
     if (!ResourceManager::LoadManifest("resources/resources.xml"))
         running_ = false;
@@ -20,10 +20,10 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
 Game::~Game()
 {
     AudioManager::Uninitialize();
-    Renderer::cleanup();
+    Renderer::Cleanup();
 }
 
-void Game::run()
+void Game::Run()
 {
     MSG msg;
     while (running_)
@@ -41,19 +41,19 @@ void Game::run()
 
         if (next_scene_)
         {
-            if (scene_) scene_->onExit();
+            if (scene_) scene_->OnExit();
             scene_ = std::move(next_scene_);
-            scene_->onEnter();
+            scene_->OnEnter();
         }
 
-        Time::tick();
-        Renderer::beginFrame();
+        Time::Tick();
+        Renderer::BeginFrame();
         if (scene_)
         {
-            scene_->update();
-            scene_->render();
+            scene_->Update();
+            scene_->Render();
         }
-        Renderer::render();
+        Renderer::Render();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }

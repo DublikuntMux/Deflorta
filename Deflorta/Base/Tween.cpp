@@ -7,7 +7,7 @@ Tween::Tween(std::vector<TweenProperty> properties, float duration)
 {
 }
 
-void Tween::start()
+void Tween::Start()
 {
     elapsed_ = 0.0f;
     active_ = true;
@@ -35,11 +35,11 @@ static float interpolate(float t, TweenMode mode)
     return t;
 }
 
-void Tween::update()
+void Tween::Update()
 {
     if (!active_) return;
 
-    elapsed_ += Time::deltaTime();
+    elapsed_ += Time::GetDeltaTime();
     const float t = elapsed_ / duration_;
 
     if (t >= 1.0f)
@@ -63,7 +63,7 @@ void Tween::update()
     }
 }
 
-bool Tween::isActive() const
+bool Tween::IsActive() const
 {
     return active_;
 }

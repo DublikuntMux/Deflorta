@@ -7,9 +7,9 @@
 class Input
 {
 public:
-    static void handleKeyDown(WPARAM key);
-    static void handleKeyUp(WPARAM key);
-    static bool isKeyPressed(WPARAM key);
+    static void HandleKeyDown(WPARAM key);
+    static void HandleKeyUp(WPARAM key);
+    static bool IsKeyPressed(WPARAM key);
 
 private:
     static std::unordered_map<WPARAM, bool> keyStates_;

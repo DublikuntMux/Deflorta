@@ -35,7 +35,7 @@ struct PngData
     uint32_t height = 0;
 };
 
-class ResourceManager
+class ResourceManager final
 {
 public:
     static bool LoadManifest(const std::string& manifestPath);

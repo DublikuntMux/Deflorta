@@ -5,10 +5,10 @@
 class Time
 {
 public:
-    static void tick();
+    static void Tick();
 
-    [[nodiscard]] static float deltaTime() noexcept;
-    [[nodiscard]] static double fps() noexcept;
+    [[nodiscard]] static float GetDeltaTime() noexcept;
+    [[nodiscard]] static double GetFps() noexcept;
 
 private:
     static std::chrono::steady_clock::time_point lastTime_;

@@ -5,14 +5,14 @@ class Scene
 public:
     virtual ~Scene() = default;
 
-    virtual void onEnter()
+    virtual void OnEnter()
     {
     }
 
-    virtual void onExit()
+    virtual void OnExit()
     {
     }
 
-    virtual void update() = 0;
-    virtual void render() = 0;
+    virtual void Update() = 0;
+    virtual void Render() = 0;
 };

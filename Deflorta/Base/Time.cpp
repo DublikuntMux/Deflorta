@@ -6,7 +6,7 @@ float Time::deltaTime_ = 0.0f;
 double Time::fps_ = 0.0;
 uint64_t Time::frameCount_ = 0;
 
-void Time::tick()
+void Time::Tick()
 {
     const auto now = std::chrono::steady_clock::now();
     deltaTime_ = std::chrono::duration<float>(now - lastTime_).count();
@@ -23,12 +23,12 @@ void Time::tick()
     lastTime_ = now;
 }
 
-float Time::deltaTime() noexcept
+float Time::GetDeltaTime() noexcept
 {
     return deltaTime_;
 }
 
-double Time::fps() noexcept
+double Time::GetFps() noexcept
 {
     return fps_;
 }

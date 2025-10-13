@@ -31,7 +31,7 @@ std::recursive_mutex Renderer::d2dMutex_;
 
 bool Renderer::showFPS_ = false;
 
-bool Renderer::initialize(HWND hwnd)
+bool Renderer::Initialize(HWND hwnd)
 {
     hwnd_ = hwnd;
 
@@ -52,10 +52,10 @@ bool Renderer::initialize(HWND hwnd)
         DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"en-us", textFormat_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return false;
 
-    return !createDeviceResources(hwnd).has_value();
+    return !CreateDeviceResources(hwnd).has_value();
 }
 
-std::optional<HRESULT> Renderer::createDeviceResources(HWND hwnd)
+std::optional<HRESULT> Renderer::CreateDeviceResources(HWND hwnd)
 {
     UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 #ifdef _DEBUG
@@ -97,12 +97,12 @@ std::optional<HRESULT> Renderer::createDeviceResources(HWND hwnd)
         d3dDevice_.Get(), hwnd, &scd, nullptr, nullptr, swapChain_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return hr;
 
-    recreateTargetBitmap();
+    RecreateTargetBitmap();
 
     return std::nullopt;
 }
 
-void Renderer::recreateTargetBitmap()
+void Renderer::RecreateTargetBitmap()
 {
     std::lock_guard lock(d2dMutex_);
 
@@ -123,7 +123,7 @@ void Renderer::recreateTargetBitmap()
     d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::CornflowerBlue), brush_.ReleaseAndGetAddressOf());
 }
 
-void Renderer::resize(UINT width, UINT height)
+void Renderer::Resize(UINT width, UINT height)
 {
     std::lock_guard lock(d2dMutex_);
     if (!swapChain_) return;
@@ -131,14 +131,14 @@ void Renderer::resize(UINT width, UINT height)
     d2dContext_->SetTarget(nullptr);
     d2dTargetBitmap_.Reset();
     swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-    recreateTargetBitmap();
+    RecreateTargetBitmap();
 }
 
-void Renderer::drawFPS()
+void Renderer::DrawFPS()
 {
     if (!showFPS_) return;
 
-    const std::wstring text = std::format(L"FPS: {:.1f}", Time::fps());
+    const std::wstring text = std::format(L"FPS: {:.1f}", Time::GetFps());
     const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
     d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), textBrush.ReleaseAndGetAddressOf());
@@ -151,13 +151,13 @@ void Renderer::drawFPS()
         textBrush.Get());
 }
 
-void Renderer::beginFrame()
+void Renderer::BeginFrame()
 {
     std::lock_guard lock(d2dMutex_);
 
     if (!swapChain_)
     {
-        if (createDeviceResources(hwnd_).has_value())
+        if (CreateDeviceResources(hwnd_).has_value())
             return;
     }
 
@@ -165,22 +165,22 @@ void Renderer::beginFrame()
     d2dContext_->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 }
 
-void Renderer::render()
+void Renderer::Render()
 {
     std::lock_guard lock(d2dMutex_);
 
-    drawFPS();
+    DrawFPS();
 
     const HRESULT hr = d2dContext_->EndDraw();
     if (SUCCEEDED(hr))
         swapChain_->Present(1, 0);
     else if (hr == D2DERR_RECREATE_TARGET)
-        discardDeviceResources();
+        DiscardDeviceResources();
 }
 
-void Renderer::toggleFPS() { showFPS_ = !showFPS_; }
+void Renderer::ToggleFPS() { showFPS_ = !showFPS_; }
 
-ID2D1DeviceContext* Renderer::getD2DContext()
+ID2D1DeviceContext* Renderer::GetD2DContext()
 {
     return d2dContext_.Get();
 }
@@ -188,7 +188,7 @@ ID2D1DeviceContext* Renderer::getD2DContext()
 Renderer::D2DGuard::D2DGuard() { d2dMutex_.lock(); }
 Renderer::D2DGuard::~D2DGuard() { d2dMutex_.unlock(); }
 
-void Renderer::discardDeviceResources()
+void Renderer::DiscardDeviceResources()
 {
     std::lock_guard lock(d2dMutex_);
 
@@ -201,17 +201,17 @@ void Renderer::discardDeviceResources()
     d3dDevice_.Reset();
 }
 
-void Renderer::cleanup()
+void Renderer::Cleanup()
 {
     std::lock_guard lock(d2dMutex_);
 
-    discardDeviceResources();
+    DiscardDeviceResources();
     d2dFactory_.Reset();
     dwFactory_.Reset();
     textFormat_.Reset();
 }
 
-void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
+void Renderer::DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
 {
     std::lock_guard lock(d2dMutex_);
     if (!bitmap || !d2dContext_) return;

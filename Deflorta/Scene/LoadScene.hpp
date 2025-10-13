@@ -13,8 +13,8 @@ class LoadScene final : public Scene
 public:
     LoadScene();
 
-    void update() override;
-    void render() override;
+    void Update() override;
+    void Render() override;
 
 private:
     ID2D1Bitmap* logo_ = nullptr;
