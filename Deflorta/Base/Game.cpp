@@ -2,13 +2,14 @@
 
 #include <thread>
 
-#include "AudioManager.hpp"
+#include "../Resource/AudioManager.hpp"
+#include "../Resource/ResourceManager.hpp"
 
 Game::Game(HWND hwnd) : hwnd_(hwnd)
 {
     renderer_ = std::make_unique<Renderer>();
     AudioManager::Initialize();
-    AudioManager::PlayMusic(L"sounds/mainmusic.ogg");
+    ResourceManager::LoadManifest(L"resources.xml");
 
     if (!renderer_->initialize(hwnd_))
         running_ = false;

@@ -82,16 +82,16 @@
         <Image Include="small.ico"/>
     </ItemGroup>
     <ItemGroup>
-      <ClCompile Include="Base\AudioManager.cpp" />
       <ClCompile Include="Base\Game.cpp" />
       <ClCompile Include="Base\GameObject.cpp" />
       <ClCompile Include="Base\Input.cpp" />
       <ClCompile Include="Base\Renderer.cpp" />
       <ClCompile Include="Base\Time.cpp" />
       <ClCompile Include="Main.cpp" />
+      <ClCompile Include="Resource\AudioManager.cpp" />
+      <ClCompile Include="Resource\ResourceManager.cpp" />
     </ItemGroup>
     <ItemGroup>
-      <ClInclude Include="Base\AudioManager.hpp" />
       <ClInclude Include="Base\Game.hpp" />
       <ClInclude Include="Base\GameObject.hpp" />
       <ClInclude Include="Base\Input.hpp" />
@@ -99,6 +99,8 @@
       <ClInclude Include="Base\Time.hpp" />
       <ClInclude Include="Base\Transform.hpp" />
       <ClInclude Include="resource.h" />
+      <ClInclude Include="Resource\AudioManager.hpp" />
+      <ClInclude Include="Resource\ResourceManager.hpp" />
       <ClInclude Include="Scene\Scene.hpp" />
       <ClInclude Include="targetver.h" />
     </ItemGroup>
