@@ -3,6 +3,7 @@
 #include "Base/Game.hpp"
 #include "Base/Input.hpp"
 #include "resource.h"
+#include "Scene/LoadScene.hpp"
 
 static std::unique_ptr<Game> g_game;
 
@@ -65,6 +66,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
     ShowWindow(hWnd, nCmdShow);
 
     g_game = std::make_unique<Game>(hWnd);
+    g_game->setScene<LoadScene>();
     g_game->run();
     g_game.reset();
     return 0;

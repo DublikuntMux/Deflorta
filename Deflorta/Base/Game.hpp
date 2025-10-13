@@ -21,7 +21,7 @@ public:
     void setScene(Args&&... args)
     {
         if (scene_) scene_->onExit();
-        scene_ = std::make_unique<Scene>(std::forward<Args>(args)...);
+        scene_ = std::make_unique<T>(std::forward<Args>(args)...);
         scene_->onEnter();
     }
 

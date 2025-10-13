@@ -90,6 +90,7 @@
       <ClCompile Include="Main.cpp" />
       <ClCompile Include="Resource\AudioManager.cpp" />
       <ClCompile Include="Resource\ResourceManager.cpp" />
+      <ClCompile Include="Scene\LoadScene.cpp" />
     </ItemGroup>
     <ItemGroup>
       <ClInclude Include="Base\Game.hpp" />
@@ -102,6 +103,7 @@
       <ClInclude Include="Resource\AudioManager.hpp" />
       <ClInclude Include="Resource\ResourceManager.hpp" />
       <ClInclude Include="Scene\Scene.hpp" />
+      <ClInclude Include="Scene\LoadScene.hpp" />
       <ClInclude Include="targetver.h" />
     </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>

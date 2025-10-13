@@ -9,7 +9,7 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
 {
     renderer_ = std::make_unique<Renderer>();
     AudioManager::Initialize();
-    ResourceManager::LoadManifest(L"resources.xml");
+    ResourceManager::LoadManifest("resources.xml");
 
     if (!renderer_->initialize(hwnd_))
         running_ = false;

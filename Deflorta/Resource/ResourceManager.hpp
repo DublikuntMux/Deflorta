@@ -8,19 +8,19 @@
 class ResourceManager
 {
 public:
-    static bool LoadManifest(const std::wstring& manifestPath);
+    static bool LoadManifest(const std::string& manifestPath);
     static bool LoadGroup(const std::string& groupName);
 
-    static std::wstring GetAudio(const std::string& id);
+    static std::string GetAudio(const std::string& id);
 
 private:
     struct ResourceEntry {
-        std::wstring path;
+        std::string path;
         bool loaded = false;
     };
 
     struct DefaultSettings {
-        std::wstring basePath;
+        std::string basePath;
         std::string idPrefix;
     };
 
@@ -31,6 +31,6 @@ private:
     };
 
     static std::unordered_map<std::string, ResourceGroup> groups;
-    static std::wstring resourceBasePath;
+    static std::string resourceBasePath;
     static DefaultSettings currentDefaults;
 };

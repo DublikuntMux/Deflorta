@@ -39,10 +39,10 @@ void AudioManager::Uninitialize()
     if (masterVoice) masterVoice->DestroyVoice();
 }
 
-bool AudioManager::LoadOggFile(const std::wstring& filePath, AudioData& outData)
+bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
 {
     FILE* file = nullptr;
-    _wfopen_s(&file, filePath.c_str(), L"rb");
+    fopen_s(&file, filePath.c_str(), "rb");
     if (!file) return false;
 
     OggVorbis_File vf;
@@ -85,7 +85,7 @@ bool AudioManager::LoadOggFile(const std::wstring& filePath, AudioData& outData)
     return !outData.buffer.empty();
 }
 
-void AudioManager::PlayMusic(const std::wstring& filePath, float fadeTimeSec)
+void AudioManager::PlayMusic(const std::string& filePath, float fadeTimeSec)
 {
     std::lock_guard lock(audioMutex);
 
@@ -160,14 +160,14 @@ void AudioManager::PlaySfx(const std::string& id)
     }
 }
 
-void AudioManager::PlaySfxByPath(const std::wstring& filePath)
+void AudioManager::PlaySfxByPath(const std::string& filePath)
 {
     AudioData data;
     if (!LoadOggFile(filePath, data)) return;
     PlayAudioData(data);
 }
 
-bool AudioManager::PreloadAudio(const std::string& id, const std::wstring& filePath)
+bool AudioManager::PreloadAudio(const std::string& id, const std::string& filePath)
 {
     AudioData data;
     if (!LoadOggFile(filePath, data)) return false;

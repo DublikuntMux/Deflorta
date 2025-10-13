@@ -17,12 +17,12 @@ public:
     static bool Initialize();
     static void Uninitialize();
 
-    static void PlayMusic(const std::wstring& filePath, float fadeTimeSec = 1.0f);
+    static void PlayMusic(const std::string& filePath, float fadeTimeSec = 1.0f);
     static void StopMusic(float fadeTimeSec = 1.0f);
 
     static void PlaySfx(const std::string& id);
-    static void PlaySfxByPath(const std::wstring& filePath);
-    static bool PreloadAudio(const std::string& id, const std::wstring& filePath);
+    static void PlaySfxByPath(const std::string& filePath);
+    static bool PreloadAudio(const std::string& id, const std::string& filePath);
     static void UnloadAudio(const std::string& id);
 
     static void SetMasterVolume(float volume);
@@ -57,7 +57,7 @@ private:
         }
     };
 
-    static bool LoadOggFile(const std::wstring& filePath, AudioData& outData);
+    static bool LoadOggFile(const std::string& filePath, AudioData& outData);
     static void FadeThreadFunc(float duration, bool stopAfter);
     static void PlayAudioData(const AudioData& data);
 
