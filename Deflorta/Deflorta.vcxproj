@@ -54,6 +54,7 @@
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
+            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib</AdditionalDependencies>
         </Link>
     </ItemDefinitionGroup>
     <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -69,15 +70,17 @@
         <Link>
             <SubSystem>Windows</SubSystem>
             <GenerateDebugInformation>true</GenerateDebugInformation>
+            <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib</AdditionalDependencies>
         </Link>
     </ItemDefinitionGroup>
     <ItemGroup>
-        <ClInclude Include="Deflorta.hpp" />
+        <ClInclude Include="Renderer.hpp" />
         <ClInclude Include="Resource.h"/>
         <ClInclude Include="targetver.h"/>
     </ItemGroup>
     <ItemGroup>
-        <ClCompile Include="Deflorta.cpp"/>
+        <ClCompile Include="Renderer.cpp" />
+        <ClCompile Include="Main.cpp" />
     </ItemGroup>
     <ItemGroup>
         <ResourceCompile Include="Deflorta.rc"/>

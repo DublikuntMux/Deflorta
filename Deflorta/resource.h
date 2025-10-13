@@ -1,6 +1,6 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by Deflorta.rc
+// Used by Renderer.rc
 //
 #define IDC_MYICON                      2
 #define IDD_DEFLORTA_DIALOG             102
