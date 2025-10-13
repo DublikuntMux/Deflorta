@@ -11,6 +11,25 @@
 #include <dxgi1_2.h>
 #include <wrl/client.h>
 
+HWND Renderer::hwnd_ = nullptr;
+
+Microsoft::WRL::ComPtr<ID3D11Device> Renderer::d3dDevice_;
+Microsoft::WRL::ComPtr<ID3D11DeviceContext> Renderer::d3dContext_;
+Microsoft::WRL::ComPtr<IDXGISwapChain1> Renderer::swapChain_;
+
+Microsoft::WRL::ComPtr<ID2D1Factory1> Renderer::d2dFactory_;
+Microsoft::WRL::ComPtr<ID2D1Device> Renderer::d2dDevice_;
+Microsoft::WRL::ComPtr<ID2D1DeviceContext> Renderer::d2dContext_;
+Microsoft::WRL::ComPtr<ID2D1Bitmap1> Renderer::d2dTargetBitmap_;
+Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> Renderer::brush_;
+Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
+Microsoft::WRL::ComPtr<IDWriteTextFormat> Renderer::textFormat_;
+
+bool Renderer::showFPS_ = false;
+double Renderer::fps_ = 0.0;
+uint64_t Renderer::frameCount_ = 0;
+std::chrono::steady_clock::time_point Renderer::lastTime_ = std::chrono::steady_clock::now();
+
 bool Renderer::initialize(HWND hwnd)
 {
     hwnd_ = hwnd;

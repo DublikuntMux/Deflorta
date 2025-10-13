@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include "Renderer.hpp"
 #include "Transform.hpp"
 
 class GameObject
@@ -12,7 +11,7 @@ public:
     {
     }
 
-    virtual void render(Renderer& renderer)
+    virtual void render()
     {
     }
 

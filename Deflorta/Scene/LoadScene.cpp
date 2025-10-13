@@ -11,6 +11,6 @@ void LoadScene::update(float dt)
 {
 }
 
-void LoadScene::render(Renderer& renderer)
+void LoadScene::render()
 {
 }

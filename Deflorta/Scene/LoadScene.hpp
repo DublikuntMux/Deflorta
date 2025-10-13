@@ -8,5 +8,5 @@ public:
     LoadScene();
 
     void update(float dt) override;
-    void render(Renderer& renderer) override;
+    void render() override;
 };

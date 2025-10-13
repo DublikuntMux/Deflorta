@@ -3,6 +3,7 @@
 #include "Base/Game.hpp"
 #include "Base/Input.hpp"
 #include "resource.h"
+#include "Render/Renderer.hpp"
 #include "Scene/LoadScene.hpp"
 
 static std::unique_ptr<Game> g_game;
@@ -14,7 +15,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
     case WM_KEYDOWN:
         Input::handleKeyDown(wParam);
         if (wParam == VK_F1 && g_game)
-            g_game->toggleFPS();
+            Renderer::toggleFPS();
         break;
 
     case WM_KEYUP:
@@ -23,7 +24,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
 
     case WM_SIZE:
         if (g_game)
-            g_game->resize(LOWORD(lParam), HIWORD(lParam));
+            Renderer::resize(LOWORD(lParam), HIWORD(lParam));
         break;
 
     case WM_DESTROY:

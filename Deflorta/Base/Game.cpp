@@ -2,24 +2,24 @@
 
 #include <thread>
 
+#include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
 
 Game::Game(HWND hwnd) : hwnd_(hwnd)
 {
-    renderer_ = std::make_unique<Renderer>();
-    AudioManager::Initialize();
-    ResourceManager::LoadManifest("resources.xml");
-
-    if (!renderer_->initialize(hwnd_))
+    if (!AudioManager::Initialize())
+        running_ = false;
+    if (!Renderer::initialize(hwnd_))
+        running_ = false;
+    if (!ResourceManager::LoadManifest("resources.xml"))
         running_ = false;
 }
 
 Game::~Game()
 {
     AudioManager::Uninitialize();
-    if (renderer_)
-        renderer_->cleanup();
+    Renderer::cleanup();
 }
 
 void Game::run()
@@ -39,24 +39,14 @@ void Game::run()
         }
         time_.tick();
 
-        renderer_->beginFrame();
+        Renderer::beginFrame();
         if (scene_)
         {
             scene_->update(time_.deltaTime());
-            scene_->render(*renderer_);
+            scene_->render();
         }
-        renderer_->render();
+        Renderer::render();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-}
-
-void Game::resize(UINT width, UINT height) const
-{
-    renderer_->resize(width, height);
-}
-
-void Game::toggleFPS() const
-{
-    renderer_->toggleFPS();
 }

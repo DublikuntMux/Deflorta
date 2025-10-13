@@ -4,7 +4,6 @@
 
 #include <Windows.h>
 
-#include "Renderer.hpp"
 #include "../Scene/Scene.hpp"
 #include "Time.hpp"
 
@@ -15,7 +14,6 @@ public:
     ~Game();
 
     void run();
-    void resize(UINT width, UINT height) const;
 
     template <typename T, typename... Args>
     void setScene(Args&&... args)
@@ -25,12 +23,9 @@ public:
         scene_->onEnter();
     }
 
-    void toggleFPS() const;
-
 private:
     HWND hwnd_;
 
-    std::unique_ptr<Renderer> renderer_;
     std::unique_ptr<Scene> scene_;
 
     Time time_;
