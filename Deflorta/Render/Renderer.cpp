@@ -188,6 +188,11 @@ void Renderer::render()
 
 void Renderer::toggleFPS() { showFPS_ = !showFPS_; }
 
+ID2D1DeviceContext* Renderer::getD2DContext()
+{
+    return d2dContext_.Get();
+}
+
 void Renderer::discardDeviceResources()
 {
     brush_.Reset();

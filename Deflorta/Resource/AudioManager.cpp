@@ -10,8 +10,8 @@
 Microsoft::WRL::ComPtr<IXAudio2> AudioManager::xaudio;
 IXAudio2MasteringVoice* AudioManager::masterVoice = nullptr;
 
-AudioManager::MusicChannel AudioManager::musicA;
-AudioManager::MusicChannel AudioManager::musicB;
+MusicChannel AudioManager::musicA;
+MusicChannel AudioManager::musicB;
 bool AudioManager::usingA = true;
 
 std::mutex AudioManager::audioMutex;
@@ -19,7 +19,7 @@ std::atomic<float> AudioManager::masterVolume = 1.0f;
 std::atomic<float> AudioManager::sfxVolume = 1.0f;
 std::atomic<bool> AudioManager::running = true;
 std::thread AudioManager::fadeThread;
-std::unordered_map<std::string, AudioManager::AudioData> AudioManager::audioCache;
+std::unordered_map<std::string, AudioData> AudioManager::audioCache;
 
 bool AudioManager::Initialize()
 {
@@ -79,7 +79,8 @@ bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
         bytesRead = ov_read(&vf, temp.data(), static_cast<int>(temp.size()), 0, 2, 1, &bitstream);
         if (bytesRead > 0)
             outData.buffer.insert(outData.buffer.end(), temp.begin(), temp.begin() + bytesRead);
-    } while (bytesRead > 0);
+    }
+    while (bytesRead > 0);
 
     ov_clear(&vf);
     return !outData.buffer.empty();
@@ -204,7 +205,8 @@ void AudioManager::PlayAudioData(const AudioData& data)
         {
             voice->GetState(&state);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        } while (state.BuffersQueued > 0);
+        }
+        while (state.BuffersQueued > 0);
         voice->DestroyVoice();
     }).detach();
 }

@@ -5,6 +5,7 @@
 LoadScene::LoadScene()
 {
     ResourceManager::LoadGroup("Init");
+    ResourceManager::LoadGroup("LoadingImages");
 }
 
 void LoadScene::update(float dt)

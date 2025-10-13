@@ -18,6 +18,7 @@ public:
     static void render();
     static void cleanup();
     static void toggleFPS();
+    static ID2D1DeviceContext* getD2DContext();
 
 private:
     static std::optional<HRESULT> createDeviceResources(HWND hwnd);

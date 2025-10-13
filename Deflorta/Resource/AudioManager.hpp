@@ -11,6 +11,31 @@
 #include <xaudio2.h>
 #include <wrl/client.h>
 
+struct AudioData
+{
+    std::vector<BYTE> buffer;
+    WAVEFORMATEX format{};
+};
+
+struct MusicChannel
+{
+    IXAudio2SourceVoice* voice = nullptr;
+    XAUDIO2_BUFFER xaBuffer{};
+    bool active = false;
+    float volume = 1.0f;
+    std::vector<BYTE> buffer;
+
+    ~MusicChannel()
+    {
+        if (voice)
+        {
+            voice->DestroyVoice();
+            voice = nullptr;
+        }
+        buffer.clear();
+    }
+};
+
 class AudioManager final
 {
 public:
@@ -32,31 +57,6 @@ public:
     static float GetSfxVolume() noexcept { return sfxVolume; }
 
 private:
-    struct AudioData
-    {
-        std::vector<BYTE> buffer;
-        WAVEFORMATEX format{};
-    };
-
-    struct MusicChannel
-    {
-        IXAudio2SourceVoice* voice = nullptr;
-        XAUDIO2_BUFFER xaBuffer{};
-        bool active = false;
-        float volume = 1.0f;
-        std::vector<BYTE> buffer;
-
-        ~MusicChannel()
-        {
-            if (voice)
-            {
-                voice->DestroyVoice();
-                voice = nullptr;
-            }
-            buffer.clear();
-        }
-    };
-
     static bool LoadOggFile(const std::string& filePath, AudioData& outData);
     static void FadeThreadFunc(float duration, bool stopAfter);
     static void PlayAudioData(const AudioData& data);

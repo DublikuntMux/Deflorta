@@ -3,7 +3,36 @@
 #include <string>
 #include <unordered_map>
 
+#include <d2d1.h>
+
 #include "AudioManager.hpp"
+
+struct ResourceEntry
+{
+    std::string path;
+    bool loaded = false;
+    Microsoft::WRL::ComPtr<ID2D1Bitmap> bitmap;
+};
+
+struct DefaultSettings
+{
+    std::string basePath;
+    std::string idPrefix;
+};
+
+struct ResourceGroup
+{
+    std::unordered_map<std::string, ResourceEntry> sounds;
+    std::unordered_map<std::string, ResourceEntry> images;
+    bool isLoaded = false;
+};
+
+struct PngData
+{
+    std::vector<uint8_t> pixels;
+    uint32_t width = 0;
+    uint32_t height = 0;
+};
 
 class ResourceManager
 {
@@ -12,24 +41,12 @@ public:
     static bool LoadGroup(const std::string& groupName);
 
     static std::string GetAudio(const std::string& id);
+    static ID2D1Bitmap* GetImage(const std::string& id);
+
+    static bool LoadPngFile(const std::string& filePath, PngData& outData);
+    static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
 
 private:
-    struct ResourceEntry {
-        std::string path;
-        bool loaded = false;
-    };
-
-    struct DefaultSettings {
-        std::string basePath;
-        std::string idPrefix;
-    };
-
-    struct ResourceGroup {
-        std::unordered_map<std::string, ResourceEntry> sounds;
-        std::unordered_map<std::string, ResourceEntry> images;
-        bool isLoaded = false;
-    };
-
     static std::unordered_map<std::string, ResourceGroup> groups;
     static std::string resourceBasePath;
     static DefaultSettings currentDefaults;

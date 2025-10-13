@@ -2,7 +2,6 @@
 <ResourceManifest>
     <Resources id="Init">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BLANK" path="blank" />
         <Image id="POPCAP_LOGO" path="PopCap_Logo" />
     </Resources>
     <Resources id="LoaderBar">

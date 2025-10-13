@@ -2,7 +2,7 @@
 
 #include "Scene.hpp"
 
-class LoadScene final: public Scene
+class LoadScene final : public Scene
 {
 public:
     LoadScene();
