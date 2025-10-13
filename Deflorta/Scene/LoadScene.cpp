@@ -5,6 +5,7 @@
 #include "../Resource/ResourceManager.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Base/Transform.hpp"
+#include "../Resource/TranslationManager.hpp"
 
 namespace
 {
@@ -16,6 +17,7 @@ LoadScene::LoadScene()
     ResourceManager::LoadGroup("Init");
     std::thread([]
     {
+        TranslationManager::Load("resources/LawnStrings.txt");
         ResourceManager::LoadGroup("LoaderBar");
         ResourceManager::LoadGroup("LoadingImages");
         ResourceManager::LoadGroup("LoadingSounds");

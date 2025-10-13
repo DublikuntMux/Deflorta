@@ -13,7 +13,7 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
         running_ = false;
     if (!Renderer::initialize(hwnd_))
         running_ = false;
-    if (!ResourceManager::LoadManifest("resources.xml"))
+    if (!ResourceManager::LoadManifest("resources/resources.xml"))
         running_ = false;
 }
 

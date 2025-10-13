@@ -90,6 +90,7 @@
         <ClCompile Include="Render\Renderer.cpp"/>
         <ClCompile Include="Resource\AudioManager.cpp"/>
         <ClCompile Include="Resource\ResourceManager.cpp"/>
+        <ClCompile Include="Resource\TranslationManager.cpp"/>
         <ClCompile Include="Scene\LoadScene.cpp"/>
     </ItemGroup>
     <ItemGroup>
@@ -103,6 +104,7 @@
         <ClInclude Include="resource.h"/>
         <ClInclude Include="Resource\AudioManager.hpp"/>
         <ClInclude Include="Resource\ResourceManager.hpp"/>
+        <ClInclude Include="Resource\TranslationManager.hpp"/>
         <ClInclude Include="Scene\Scene.hpp"/>
         <ClInclude Include="Scene\LoadScene.hpp"/>
         <ClInclude Include="targetver.h"/>
