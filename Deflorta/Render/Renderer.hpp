@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <mutex>
 
 #include <d2d1_1.h>
 #include <dwrite.h>
@@ -13,6 +14,12 @@
 class Renderer final
 {
 public:
+    class D2DGuard {
+    public:
+        D2DGuard();
+        ~D2DGuard();
+    };
+
     static bool initialize(HWND hwnd);
     static void resize(UINT width, UINT height);
     static void beginFrame();
@@ -43,4 +50,6 @@ private:
     static Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> brush_;
     static Microsoft::WRL::ComPtr<IDWriteFactory> dwFactory_;
     static Microsoft::WRL::ComPtr<IDWriteTextFormat> textFormat_;
+
+    static std::recursive_mutex d2dMutex_;
 };

@@ -27,6 +27,8 @@ Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> Renderer::brush_;
 Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
 Microsoft::WRL::ComPtr<IDWriteTextFormat> Renderer::textFormat_;
 
+std::recursive_mutex Renderer::d2dMutex_;
+
 bool Renderer::showFPS_ = false;
 
 bool Renderer::initialize(HWND hwnd)
@@ -37,7 +39,7 @@ bool Renderer::initialize(HWND hwnd)
 #ifdef _DEBUG
     factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
 #endif
-    HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, factoryOptions,
+    HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, factoryOptions,
                                    d2dFactory_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return false;
 
@@ -102,6 +104,8 @@ std::optional<HRESULT> Renderer::createDeviceResources(HWND hwnd)
 
 void Renderer::recreateTargetBitmap()
 {
+    std::lock_guard lock(d2dMutex_);
+
     Microsoft::WRL::ComPtr<IDXGISurface> dxgiSurface;
     HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
     if (FAILED(hr)) return;
@@ -121,6 +125,7 @@ void Renderer::recreateTargetBitmap()
 
 void Renderer::resize(UINT width, UINT height)
 {
+    std::lock_guard lock(d2dMutex_);
     if (!swapChain_) return;
 
     d2dContext_->SetTarget(nullptr);
@@ -148,6 +153,8 @@ void Renderer::drawFPS()
 
 void Renderer::beginFrame()
 {
+    std::lock_guard lock(d2dMutex_);
+
     if (!swapChain_)
     {
         if (createDeviceResources(hwnd_).has_value())
@@ -160,6 +167,8 @@ void Renderer::beginFrame()
 
 void Renderer::render()
 {
+    std::lock_guard lock(d2dMutex_);
+
     drawFPS();
 
     const HRESULT hr = d2dContext_->EndDraw();
@@ -176,8 +185,13 @@ ID2D1DeviceContext* Renderer::getD2DContext()
     return d2dContext_.Get();
 }
 
+Renderer::D2DGuard::D2DGuard() { d2dMutex_.lock(); }
+Renderer::D2DGuard::~D2DGuard() { d2dMutex_.unlock(); }
+
 void Renderer::discardDeviceResources()
 {
+    std::lock_guard lock(d2dMutex_);
+
     brush_.Reset();
     d2dTargetBitmap_.Reset();
     swapChain_.Reset();
@@ -189,6 +203,8 @@ void Renderer::discardDeviceResources()
 
 void Renderer::cleanup()
 {
+    std::lock_guard lock(d2dMutex_);
+
     discardDeviceResources();
     d2dFactory_.Reset();
     dwFactory_.Reset();
@@ -197,6 +213,7 @@ void Renderer::cleanup()
 
 void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
 {
+    std::lock_guard lock(d2dMutex_);
     if (!bitmap || !d2dContext_) return;
 
     const D2D1_SIZE_F size = bitmap->GetSize();

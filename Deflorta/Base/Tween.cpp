@@ -31,9 +31,8 @@ static float interpolate(float t, TweenMode mode)
         return t * (2 - t);
     case TweenMode::EaseInOut:
         return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    default:
-        return t;
     }
+    return t;
 }
 
 void Tween::update()

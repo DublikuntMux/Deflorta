@@ -17,8 +17,9 @@ public:
     void render() override;
 
 private:
-    ID2D1Bitmap* logo_;
+    ID2D1Bitmap* logo_ = nullptr;
     std::unique_ptr<Tween> logoTween_;
+    std::unique_ptr<Tween> nextTween_;
     Transform logoTransform_;
     float logoOpacity_ = 0.0f;
 };

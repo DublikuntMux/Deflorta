@@ -7,26 +7,26 @@
 
 #include <vorbis/vorbisfile.h>
 
-Microsoft::WRL::ComPtr<IXAudio2> AudioManager::xaudio;
-IXAudio2MasteringVoice* AudioManager::masterVoice = nullptr;
+Microsoft::WRL::ComPtr<IXAudio2> AudioManager::xaudio_;
+IXAudio2MasteringVoice* AudioManager::masterVoice_ = nullptr;
 
-MusicChannel AudioManager::musicA;
-MusicChannel AudioManager::musicB;
-bool AudioManager::usingA = true;
+MusicChannel AudioManager::musicA_;
+MusicChannel AudioManager::musicB_;
+bool AudioManager::usingA_ = true;
 
-std::mutex AudioManager::audioMutex;
-std::atomic<float> AudioManager::masterVolume = 1.0f;
-std::atomic<float> AudioManager::sfxVolume = 1.0f;
-std::atomic<bool> AudioManager::running = true;
-std::thread AudioManager::fadeThread;
-std::unordered_map<std::string, AudioData> AudioManager::audioCache;
+std::mutex AudioManager::audioMutex_;
+std::atomic<float> AudioManager::masterVolume_ = 1.0f;
+std::atomic<float> AudioManager::sfxVolume_ = 1.0f;
+std::atomic<bool> AudioManager::running_ = true;
+std::thread AudioManager::fadeThread_;
+std::unordered_map<std::string, AudioData> AudioManager::audioCache_;
 
 bool AudioManager::Initialize()
 {
-    if (FAILED(XAudio2Create(&xaudio, 0, XAUDIO2_DEFAULT_PROCESSOR)))
+    if (FAILED(XAudio2Create(&xaudio_, 0, XAUDIO2_DEFAULT_PROCESSOR)))
         return false;
 
-    if (FAILED(xaudio->CreateMasteringVoice(&masterVoice)))
+    if (FAILED(xaudio_->CreateMasteringVoice(&masterVoice_)))
         return false;
 
     return true;
@@ -34,9 +34,9 @@ bool AudioManager::Initialize()
 
 void AudioManager::Uninitialize()
 {
-    running = false;
-    if (fadeThread.joinable()) fadeThread.join();
-    if (masterVoice) masterVoice->DestroyVoice();
+    running_ = false;
+    if (fadeThread_.joinable()) fadeThread_.join();
+    if (masterVoice_) masterVoice_->DestroyVoice();
 }
 
 bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
@@ -88,17 +88,17 @@ bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
 
 void AudioManager::PlayMusic(const std::string& filePath, float fadeTimeSec)
 {
-    std::lock_guard lock(audioMutex);
+    std::lock_guard lock(audioMutex_);
 
     AudioData data;
     if (!LoadOggFile(filePath, data)) return;
 
-    auto& next = usingA ? musicB : musicA;
+    auto& next = usingA_ ? musicB_ : musicA_;
     next.buffer = std::move(data.buffer);
 
     if (next.voice) next.voice->DestroyVoice();
 
-    if (FAILED(xaudio->CreateSourceVoice(&next.voice, &data.format)))
+    if (FAILED(xaudio_->CreateSourceVoice(&next.voice, &data.format)))
         return;
 
     next.xaBuffer = {};
@@ -108,19 +108,19 @@ void AudioManager::PlayMusic(const std::string& filePath, float fadeTimeSec)
     next.xaBuffer.LoopCount = XAUDIO2_LOOP_INFINITE;
 
     next.voice->SubmitSourceBuffer(&next.xaBuffer);
-    next.voice->SetVolume(0.0f * masterVolume);
+    next.voice->SetVolume(0.0f * masterVolume_);
     next.voice->Start();
 
-    usingA = !usingA;
+    usingA_ = !usingA_;
 
-    if (fadeThread.joinable()) fadeThread.join();
-    fadeThread = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, false);
+    if (fadeThread_.joinable()) fadeThread_.join();
+    fadeThread_ = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, false);
 }
 
 void AudioManager::StopMusic(float fadeTimeSec)
 {
-    if (fadeThread.joinable()) fadeThread.join();
-    fadeThread = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, true);
+    if (fadeThread_.joinable()) fadeThread_.join();
+    fadeThread_ = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, true);
 }
 
 void AudioManager::FadeThreadFunc(float duration, bool stopAfter)
@@ -128,16 +128,16 @@ void AudioManager::FadeThreadFunc(float duration, bool stopAfter)
     const float step = 1.0f / std::max(duration * 60.0f, 1.0f);
 
     float t = 0.0f;
-    while (t < 1.0f && running)
+    while (t < 1.0f && running_)
     {
         t += step;
         {
             const float fade = std::clamp(t, 0.0f, 1.0f);
-            std::lock_guard lock(audioMutex);
-            if (musicA.voice)
-                musicA.voice->SetVolume((usingA ? fade : 1.0f - fade) * masterVolume);
-            if (musicB.voice)
-                musicB.voice->SetVolume((usingA ? 1.0f - fade : fade) * masterVolume);
+            std::lock_guard lock(audioMutex_);
+            if (musicA_.voice)
+                musicA_.voice->SetVolume((usingA_ ? fade : 1.0f - fade) * masterVolume_);
+            if (musicB_.voice)
+                musicB_.voice->SetVolume((usingA_ ? 1.0f - fade : fade) * masterVolume_);
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
@@ -145,17 +145,17 @@ void AudioManager::FadeThreadFunc(float duration, bool stopAfter)
 
     if (stopAfter)
     {
-        std::lock_guard lock(audioMutex);
-        if (musicA.voice) musicA.voice->Stop();
-        if (musicB.voice) musicB.voice->Stop();
+        std::lock_guard lock(audioMutex_);
+        if (musicA_.voice) musicA_.voice->Stop();
+        if (musicB_.voice) musicB_.voice->Stop();
     }
 }
 
 void AudioManager::PlaySfx(const std::string& id)
 {
-    std::lock_guard lock(audioMutex);
-    const auto it = audioCache.find(id);
-    if (it != audioCache.end())
+    std::lock_guard lock(audioMutex_);
+    const auto it = audioCache_.find(id);
+    if (it != audioCache_.end())
     {
         PlayAudioData(it->second);
     }
@@ -173,21 +173,21 @@ bool AudioManager::PreloadAudio(const std::string& id, const std::string& filePa
     AudioData data;
     if (!LoadOggFile(filePath, data)) return false;
 
-    std::lock_guard lock(audioMutex);
-    audioCache[id] = std::move(data);
+    std::lock_guard lock(audioMutex_);
+    audioCache_[id] = std::move(data);
     return true;
 }
 
 void AudioManager::UnloadAudio(const std::string& id)
 {
-    std::lock_guard lock(audioMutex);
-    audioCache.erase(id);
+    std::lock_guard lock(audioMutex_);
+    audioCache_.erase(id);
 }
 
 void AudioManager::PlayAudioData(const AudioData& data)
 {
     IXAudio2SourceVoice* voice = nullptr;
-    if (FAILED(xaudio->CreateSourceVoice(&voice, &data.format))) return;
+    if (FAILED(xaudio_->CreateSourceVoice(&voice, &data.format))) return;
 
     XAUDIO2_BUFFER buffer = {};
     buffer.AudioBytes = static_cast<UINT32>(data.buffer.size());
@@ -195,7 +195,7 @@ void AudioManager::PlayAudioData(const AudioData& data)
     buffer.Flags = XAUDIO2_END_OF_STREAM;
 
     voice->SubmitSourceBuffer(&buffer);
-    voice->SetVolume(sfxVolume);
+    voice->SetVolume(sfxVolume_);
     voice->Start();
 
     std::thread([voice]
@@ -213,11 +213,11 @@ void AudioManager::PlayAudioData(const AudioData& data)
 
 void AudioManager::SetMasterVolume(float volume)
 {
-    masterVolume = std::clamp(volume, 0.0f, 1.0f);
-    if (masterVoice) masterVoice->SetVolume(masterVolume);
+    masterVolume_ = std::clamp(volume, 0.0f, 1.0f);
+    if (masterVoice_) masterVoice_->SetVolume(masterVolume_);
 }
 
 void AudioManager::SetSfxVolume(float volume)
 {
-    sfxVolume = std::clamp(volume, 0.0f, 1.0f);
+    sfxVolume_ = std::clamp(volume, 0.0f, 1.0f);
 }

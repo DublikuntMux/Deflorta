@@ -2,6 +2,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <mutex>
 
 #include <d2d1.h>
 
@@ -47,7 +48,9 @@ public:
     static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
 
 private:
-    static std::unordered_map<std::string, ResourceGroup> groups;
-    static std::string resourceBasePath;
+    static std::unordered_map<std::string, ResourceGroup> groups_;
+    static std::string resourceBasePath_;
     static DefaultSettings currentDefaults;
+
+    static std::mutex groupsMutex_;
 };

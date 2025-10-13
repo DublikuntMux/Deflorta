@@ -9,9 +9,10 @@
 
 #include "../Render/Renderer.hpp"
 
-std::unordered_map<std::string, ResourceGroup> ResourceManager::groups;
-std::string ResourceManager::resourceBasePath;
+std::unordered_map<std::string, ResourceGroup> ResourceManager::groups_;
+std::string ResourceManager::resourceBasePath_;
 DefaultSettings ResourceManager::currentDefaults;
+std::mutex ResourceManager::groupsMutex_;
 
 bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 {
@@ -89,6 +90,8 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
 bool ResourceManager::CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap)
 {
+    Renderer::D2DGuard guard;
+
     auto d2dContext = Renderer::getD2DContext();
     if (!d2dContext) return false;
 
@@ -110,7 +113,7 @@ bool ResourceManager::LoadManifest(const std::string& manifestPath)
     pugi::xml_document doc;
     if (!doc.load_file(manifestPath.c_str())) return false;
 
-    resourceBasePath = std::filesystem::path(manifestPath).parent_path().string();
+    resourceBasePath_ = std::filesystem::path(manifestPath).parent_path().string();
 
     auto root = doc.child("ResourceManifest");
     if (!root) return false;
@@ -118,7 +121,7 @@ bool ResourceManager::LoadManifest(const std::string& manifestPath)
     for (auto groupNode : root.children("Resources"))
     {
         std::string groupId = groupNode.attribute("id").as_string();
-        auto& group = groups[groupId];
+        auto& group = groups_[groupId];
 
         currentDefaults = DefaultSettings();
 
@@ -161,52 +164,66 @@ bool ResourceManager::LoadManifest(const std::string& manifestPath)
 
 bool ResourceManager::LoadGroup(const std::string& groupName)
 {
-    const auto it = groups.find(groupName);
-    if (it == groups.end()) return false;
-    if (it->second.isLoaded) return true;
-
-    for (auto& [id, entry] : it->second.sounds)
     {
-        if (!entry.loaded)
-        {
-            std::string fullPath = (std::filesystem::path(resourceBasePath) / entry.path).string();
-            if (AudioManager::PreloadAudio(id, fullPath))
-            {
-                entry.loaded = true;
-            }
-        }
+        std::lock_guard lock(groupsMutex_);
+        const auto itFind = groups_.find(groupName);
+        if (itFind == groups_.end()) return false;
+        if (itFind->second.isLoaded) return true;
     }
 
-    for (auto& entry : it->second.images | std::views::values)
     {
-        if (!entry.loaded)
+        std::lock_guard lock(groupsMutex_);
+        auto& group = groups_[groupName];
+        for (auto& [id, entry] : group.sounds)
         {
-            std::string fullPath = (std::filesystem::path(resourceBasePath) / entry.path).string() + ".png";
-            if (PngData pngData; LoadPngFile(fullPath, pngData))
+            if (!entry.loaded)
             {
-                ID2D1Bitmap* bitmap = nullptr;
-                if (CreateD2DBitmap(pngData, &bitmap))
+                std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string();
+                if (AudioManager::PreloadAudio(id, fullPath))
                 {
-                    entry.bitmap.Attach(bitmap);
                     entry.loaded = true;
                 }
             }
         }
     }
 
-    it->second.isLoaded = true;
+    {
+        std::lock_guard lock(groupsMutex_);
+        auto& group = groups_[groupName];
+        for (auto& entry : group.images | std::views::values)
+        {
+            if (!entry.loaded)
+            {
+                std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
+                if (PngData pngData; LoadPngFile(fullPath, pngData))
+                {
+                    ID2D1Bitmap* bitmap = nullptr;
+                    if (CreateD2DBitmap(pngData, &bitmap))
+                    {
+                        entry.bitmap.Attach(bitmap);
+                        entry.loaded = true;
+                    }
+                }
+            }
+        }
+
+        group.isLoaded = true;
+    }
+
     return true;
 }
 
 ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
 {
-    for (auto& group : groups | std::views::values)
+    std::lock_guard lock(groupsMutex_);
+
+    for (auto& group : groups_ | std::views::values)
     {
         if (auto it = group.images.find(id); it != group.images.end())
         {
             if (!it->second.loaded)
             {
-                const std::string fullPath = (std::filesystem::path(resourceBasePath) / it->second.path).string();
+                const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string();
                 PngData pngData;
                 if (LoadPngFile(fullPath, pngData))
                 {
@@ -226,19 +243,19 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
 
 std::string ResourceManager::GetAudio(const std::string& id)
 {
-    for (auto& group : groups | std::views::values)
+    for (auto& group : groups_ | std::views::values)
     {
         if (auto it = group.sounds.find(id); it != group.sounds.end())
         {
             if (!it->second.loaded)
             {
-                const std::string fullPath = (std::filesystem::path(resourceBasePath) / it->second.path).string();
+                const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string();
                 if (AudioManager::PreloadAudio(id, fullPath))
                 {
                     it->second.loaded = true;
                 }
             }
-            return (std::filesystem::path(resourceBasePath) / it->second.path).string();
+            return (std::filesystem::path(resourceBasePath_) / it->second.path).string();
         }
     }
     return "";

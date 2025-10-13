@@ -51,28 +51,28 @@ public:
     static void UnloadAudio(const std::string& id);
 
     static void SetMasterVolume(float volume);
-    static float GetMasterVolume() noexcept { return masterVolume; }
+    static float GetMasterVolume() noexcept { return masterVolume_; }
 
     static void SetSfxVolume(float volume);
-    static float GetSfxVolume() noexcept { return sfxVolume; }
+    static float GetSfxVolume() noexcept { return sfxVolume_; }
 
 private:
     static bool LoadOggFile(const std::string& filePath, AudioData& outData);
     static void FadeThreadFunc(float duration, bool stopAfter);
     static void PlayAudioData(const AudioData& data);
 
-    static Microsoft::WRL::ComPtr<IXAudio2> xaudio;
-    static IXAudio2MasteringVoice* masterVoice;
+    static Microsoft::WRL::ComPtr<IXAudio2> xaudio_;
+    static IXAudio2MasteringVoice* masterVoice_;
 
-    static MusicChannel musicA;
-    static MusicChannel musicB;
-    static bool usingA;
+    static MusicChannel musicA_;
+    static MusicChannel musicB_;
+    static bool usingA_;
 
-    static std::mutex audioMutex;
-    static std::atomic<float> masterVolume;
-    static std::atomic<float> sfxVolume;
-    static std::atomic<bool> running;
-    static std::thread fadeThread;
+    static std::mutex audioMutex_;
+    static std::atomic<float> masterVolume_;
+    static std::atomic<float> sfxVolume_;
+    static std::atomic<bool> running_;
+    static std::thread fadeThread_;
 
-    static std::unordered_map<std::string, AudioData> audioCache;
+    static std::unordered_map<std::string, AudioData> audioCache_;
 };
