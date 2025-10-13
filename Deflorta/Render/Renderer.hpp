@@ -21,7 +21,7 @@ public:
     static void toggleFPS();
     static ID2D1DeviceContext* getD2DContext();
 
-    static void drawImage(ID2D1Bitmap* bitmap, const Transform& transform);
+    static void drawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity = 1.0f);
 
 private:
     static std::optional<HRESULT> createDeviceResources(HWND hwnd);

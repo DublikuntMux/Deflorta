@@ -195,7 +195,7 @@ void Renderer::cleanup()
     textFormat_.Reset();
 }
 
-void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform)
+void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
 {
     if (!bitmap || !d2dContext_) return;
 
@@ -207,6 +207,6 @@ void Renderer::drawImage(ID2D1Bitmap* bitmap, const Transform& transform)
         D2D1::Matrix3x2F::Translation(transform.x + size.width / 2.0f, transform.y + size.height / 2.0f);
 
     d2dContext_->SetTransform(mat);
-    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height));
+    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
