@@ -53,7 +53,10 @@ private:
         }
     };
 
+    static bool LoadAudioFile(const std::wstring& filePath, AudioData& outData);
     static bool LoadWaveFile(const std::wstring& filePath, AudioData& outData);
+    static bool LoadOggFile(const std::wstring& filePath, AudioData& outData);
+    
     static void FadeThreadFunc(float duration, bool stopAfter);
 
     static Microsoft::WRL::ComPtr<IXAudio2> xaudio;
