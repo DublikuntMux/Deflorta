@@ -18,7 +18,6 @@ LoadScene::LoadScene()
     std::thread([]
     {
         TranslationManager::Load("resources/LawnStrings.txt");
-        ResourceManager::LoadGroup("LoaderBar");
         ResourceManager::LoadGroup("LoadingImages");
         ResourceManager::LoadGroup("LoadingSounds");
         g_LoadingDone = true;

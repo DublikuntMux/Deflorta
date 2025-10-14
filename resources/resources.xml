@@ -4,22 +4,9 @@
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="POPCAP_LOGO" path="PopCap_Logo" />
     </Resources>
-    <Resources id="LoaderBar">
-        <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="TITLESCREEN" path="titlescreen" a8r8g8b8="" />
-        <Image id="LOADBAR_DIRT" path="LoadBar_dirt" />
-        <Image id="LOADBAR_GRASS" path="LoadBar_grass" />
-        <Image id="PVZ_LOGO" path="PvZ_Logo" />
-        <SetDefaults path="reanim" idprefix="IMAGE_REANIM_" />
-        <Image id="SODROLLCAP" path="SodRollCap" />
-        <SetDefaults path="sounds" idprefix="SOUND_" />
-        <Sound id="BUTTONCLICK" path="buttonclick" />
-        <Sound id="LOADINGBAR_FLOWER" path="loadingbar_flower" />
-        <Sound id="LOADINGBAR_ZOMBIE" path="loadingbar_zombie" />
-    </Resources>
     <Resources id="LoadingImages">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="MOUSE_CURSOR" path="cursor_pointer" />
+        <Image id="PVZ_LOGO" path="PvZ_Logo" />
         <Image id="EDITBOX" path="editbox" />
         <Image id="DIALOG_TOPLEFT" path="dialog_topleft" />
         <Image id="DIALOG_TOPMIDDLE" path="dialog_topmiddle" />
@@ -394,6 +381,7 @@
     </Resources>
     <Resources id="LoadingSounds">
         <SetDefaults path="sounds" idprefix="SOUND_" />
+        <Sound id="BUTTONCLICK" path="buttonclick" />
         <Sound id="ACHIEVEMENT" path="achievement" />
         <Sound id="AWOOGA" path="awooga" />
         <Sound id="BLEEP" path="bleep" />
