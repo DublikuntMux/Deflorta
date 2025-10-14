@@ -1,19 +1,41 @@
 ﻿#include "ResourceManager.hpp"
 
 #include <filesystem>
+#include <iostream>
 #include <ranges>
 #include <vector>
 
 #include <pugixml.hpp>
 #include <png.h>
+#include <Windows.h>
 
 #include "../Render/Renderer.hpp"
 
 std::unordered_map<std::string, ResourceGroup> ResourceManager::groups_;
 std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> ResourceManager::images_;
+std::unordered_map<std::string, std::wstring> ResourceManager::fonts_;
 std::string ResourceManager::resourceBasePath_;
 DefaultSettings ResourceManager::currentDefaults;
 std::mutex ResourceManager::groupsMutex_;
+
+bool ResourceManager::LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName)
+{
+    const std::wstring wpath = std::filesystem::path(filePath).wstring();
+    const int added = AddFontResourceExW(wpath.c_str(), FR_PRIVATE, nullptr);
+    if (added <= 0)
+        return false;
+
+    fonts_[id] = familyName;
+    return true;
+}
+
+std::wstring ResourceManager::GetFont(const std::string& id)
+{
+    std::lock_guard lock(groupsMutex_);
+    auto it = fonts_.find(id);
+    if (it == fonts_.end()) return L"";
+    return it->second;
+}
 
 bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 {
@@ -157,6 +179,19 @@ bool ResourceManager::LoadManifest(const std::string& manifestPath)
 
                 group.images[fullId] = entry;
             }
+            else if (nodeName == "Font")
+            {
+                std::string id = resNode.attribute("id").as_string();
+                std::string fullId = currentDefaults.idPrefix + id;
+
+                FontEntry entry;
+                entry.path = (std::filesystem::path(currentDefaults.basePath) /
+                    std::string(resNode.attribute("path").as_string())).string();
+                const std::string family = resNode.attribute("family").as_string();
+                entry.fontFamily = std::wstring(family.begin(), family.end());
+
+                group.fonts[fullId] = entry;
+            }
         }
     }
 
@@ -184,6 +219,10 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                 {
                     entry.loaded = true;
                 }
+                else
+                {
+                    std::cout << "Error while create audio: " << id << std::endl;
+                }
             }
         }
     }
@@ -204,6 +243,34 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                         images_[id].Attach(bitmap);
                         entry.loaded = true;
                     }
+                    else
+                    {
+                        std::cout << "Error while create image: " << id << std::endl;
+                    }
+                }
+                else
+                {
+                    std::cout << "Error while load image: " << id << std::endl;
+                }
+            }
+        }
+    }
+
+    {
+        std::lock_guard lock(groupsMutex_);
+        auto& group = groups_[groupName];
+        for (auto& [id, entry] : group.fonts)
+        {
+            if (!entry.loaded)
+            {
+                std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string()  + ".ttf";
+                if (LoadFont(id, fullPath, entry.fontFamily))
+                {
+                    entry.loaded = true;
+                }
+                else
+                {
+                    std::cout << "Error while load font: " << id << std::endl;
                 }
             }
         }

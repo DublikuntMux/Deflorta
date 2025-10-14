@@ -22,6 +22,7 @@ LoadScene::LoadScene()
         TranslationManager::Load("resources/LawnStrings.txt");
         ResourceManager::LoadGroup("LoadingImages");
         ResourceManager::LoadGroup("LoadingSounds");
+        ResourceManager::LoadGroup("LoadingFonts");
         g_LoadingDone = true;
     }).detach();
 

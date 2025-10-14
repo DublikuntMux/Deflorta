@@ -25,7 +25,6 @@ Microsoft::WRL::ComPtr<ID2D1DeviceContext> Renderer::d2dContext_;
 Microsoft::WRL::ComPtr<ID2D1Bitmap1> Renderer::d2dTargetBitmap_;
 Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> Renderer::brush_;
 Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
-Microsoft::WRL::ComPtr<IDWriteTextFormat> Renderer::textFormat_;
 
 std::recursive_mutex Renderer::d2dMutex_;
 
@@ -45,11 +44,6 @@ bool Renderer::Initialize(HWND hwnd)
 
     hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
                              reinterpret_cast<IUnknown**>(dwFactory_.ReleaseAndGetAddressOf()));
-    if (FAILED(hr)) return false;
-
-    hr = dwFactory_->CreateTextFormat(
-        L"Consolas", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"en-us", textFormat_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return false;
 
     return !CreateDeviceResources(hwnd).has_value();
@@ -140,15 +134,7 @@ void Renderer::DrawFPS()
 
     const std::wstring text = std::format(L"FPS: {:.1f}", Time::GetFps());
     const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
-    d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), textBrush.ReleaseAndGetAddressOf());
-
-    d2dContext_->DrawTextW(
-        text.c_str(),
-        static_cast<UINT32>(text.size()),
-        textFormat_.Get(),
-        layoutRect,
-        textBrush.Get());
+    DrawTextW(text, layoutRect,L"Consolas",16, D2D1::ColorF(D2D1::ColorF::White));
 }
 
 void Renderer::BeginFrame()
@@ -208,7 +194,6 @@ void Renderer::Cleanup()
     DiscardDeviceResources();
     d2dFactory_.Reset();
     dwFactory_.Reset();
-    textFormat_.Reset();
 }
 
 void Renderer::DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
@@ -226,4 +211,39 @@ void Renderer::DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float 
     d2dContext_->SetTransform(mat);
     d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+}
+
+void Renderer::DrawText(const std::wstring& text,
+                        const D2D1_RECT_F& layoutRect,
+                        const std::wstring& fontFamily,
+                        float fontSize,
+                        const D2D1_COLOR_F& color)
+{
+    std::lock_guard lock(d2dMutex_);
+    if (!d2dContext_ || !dwFactory_) return;
+
+    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
+    if (FAILED(d2dContext_->CreateSolidColorBrush(color, textBrush.ReleaseAndGetAddressOf())))
+        return;
+
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
+    if (FAILED(dwFactory_->CreateTextFormat(
+        fontFamily.c_str(),
+        nullptr,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        fontSize,
+        L"en-us",
+        format.ReleaseAndGetAddressOf())))
+    {
+        return;
+    }
+
+    d2dContext_->DrawTextW(
+        text.c_str(),
+        static_cast<UINT32>(text.size()),
+        format.Get(),
+        layoutRect,
+        textBrush.Get());
 }

@@ -550,6 +550,10 @@
         <Sound id="CRAZYDAVESCREAM" path="crazydavescream" />
         <Sound id="CRAZYDAVESCREAM2" path="crazydavescream2" />
     </Resources>
+    <Resources id="LoadingFonts">
+        <SetDefaults path="fonts" idprefix="FONT_" />
+        <Font id="BRIANNES" path="Briannes" family="Briannes" />
+    </Resources>
     <Resources id="DelayLoad_Background1">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="BACKGROUND1" path="background1" ddsurface="" a8r8g8b8="" />
