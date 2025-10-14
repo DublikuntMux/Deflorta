@@ -161,13 +161,6 @@ void AudioManager::PlaySfx(const std::string& id)
     }
 }
 
-void AudioManager::PlaySfxByPath(const std::string& filePath)
-{
-    AudioData data;
-    if (!LoadOggFile(filePath, data)) return;
-    PlayAudioData(data);
-}
-
 bool AudioManager::PreloadAudio(const std::string& id, const std::string& filePath)
 {
     AudioData data;

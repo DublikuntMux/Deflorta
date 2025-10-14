@@ -2,14 +2,15 @@
 
 #include <random>
 
-class Random {
+class Random
+{
 public:
-    static auto Engine() -> std::mt19937 &;
+    static std::mt19937& Engine();
 
-    static auto UniformInt(int min, int max) -> int;
-    static auto UniformFloat(float min, float max) -> float;
-    static auto UniformDouble(double min, double max) -> double;
+    static int UniformInt(int min, int max);
+    static float UniformFloat(float min, float max);
+    static double UniformDouble(double min, double max);
 
 private:
-    static auto InitEngine() -> std::mt19937;
+    static std::mt19937 InitEngine();
 };

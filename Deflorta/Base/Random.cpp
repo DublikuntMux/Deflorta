@@ -3,27 +3,32 @@
 #include <chrono>
 #include <thread>
 
-auto Random::Engine() -> std::mt19937 & {
+std::mt19937& Random::Engine()
+{
     thread_local std::mt19937 rng = InitEngine();
     return rng;
 }
 
-auto Random::UniformInt(const int min, const int max) -> int {
+int Random::UniformInt(const int min, const int max)
+{
     std::uniform_int_distribution dist(min, max);
     return dist(Engine());
 }
 
-auto Random::UniformFloat(const float min, const float max) -> float {
+float Random::UniformFloat(const float min, const float max)
+{
     std::uniform_real_distribution dist(min, max);
     return dist(Engine());
 }
 
-auto Random::UniformDouble(const double min, const double max) -> double {
+double Random::UniformDouble(const double min, const double max)
+{
     std::uniform_real_distribution dist(min, max);
     return dist(Engine());
 }
 
-auto Random::InitEngine() -> std::mt19937 {
+std::mt19937 Random::InitEngine()
+{
     std::random_device rd;
     const auto seed = static_cast<unsigned>(
         rd() ^

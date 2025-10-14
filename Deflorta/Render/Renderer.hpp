@@ -14,7 +14,8 @@
 class Renderer final
 {
 public:
-    class D2DGuard {
+    class D2DGuard
+    {
     public:
         D2DGuard();
         ~D2DGuard();

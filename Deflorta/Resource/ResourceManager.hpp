@@ -50,7 +50,7 @@ public:
 private:
     static std::unordered_map<std::string, ResourceGroup> groups_;
     static std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> images_;
-    
+
     static std::string resourceBasePath_;
     static DefaultSettings currentDefaults;
 

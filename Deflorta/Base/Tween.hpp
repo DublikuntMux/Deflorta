@@ -2,7 +2,7 @@
 
 #include <functional>
 
-enum class TweenMode
+enum class TweenMode: std::uint8_t
 {
     Linear,
     EaseIn,

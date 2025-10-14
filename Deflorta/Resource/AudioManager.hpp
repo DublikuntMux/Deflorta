@@ -46,7 +46,6 @@ public:
     static void StopMusic(float fadeTimeSec = 1.0f);
 
     static void PlaySfx(const std::string& id);
-    static void PlaySfxByPath(const std::string& filePath);
     static bool PreloadAudio(const std::string& id, const std::string& filePath);
     static void UnloadAudio(const std::string& id);
 
