@@ -3,6 +3,8 @@
     <Resources id="Init">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="POPCAP_LOGO" path="PopCap_Logo" />
+        <SetDefaults path="reanim" idprefix="IMAGE_REANIM_" />
+        <Image id="SODROLLCAP" path="SodRollCap" />
     </Resources>
     <Resources id="LoadingImages">
         <SetDefaults path="images" idprefix="IMAGE_" />

@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "../Base/Time.hpp"
 #include "../Resource/ResourceManager.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Base/Transform.hpp"
@@ -24,13 +25,23 @@ LoadScene::LoadScene()
     }).detach();
 
     logo_ = ResourceManager::GetImage("IMAGE_POPCAP_LOGO");
-    const auto [width, height] = logo_->GetSize();
+    const auto [logoWidth, logoHeight] = logo_->GetSize();
     logoTransform_ = Transform{
-        .x = 1280.0f / 2.0f - width / 2.0f,
-        .y = 720.0f / 2.0f - height / 2.0f,
+        .x = 1280.0f / 2.0f - logoWidth / 2.0f,
+        .y = 720.0f / 2.0f - logoHeight / 2.0f,
         .rotation = 0.0f,
         .scaleX = 0.5f,
         .scaleY = 0.5f
+    };
+
+    rollCap_ = ResourceManager::GetImage("IMAGE_REANIM_SODROLLCAP");
+    const auto [rollWidth, rollHeight] = rollCap_->GetSize();
+    rollCapTransform_ = Transform{
+        .x = 1280.0f / 2.0f - rollWidth / 2.0f,
+        .y = 720.0f / 2.0f + 200.0f - rollHeight / 2.0f,
+        .rotation = 0.0f,
+        .scaleX = 1.0f,
+        .scaleY = 1.0f
     };
 
     const std::vector<TweenProperty> props = {
@@ -43,26 +54,37 @@ LoadScene::LoadScene()
             .mode = TweenMode::EaseOut
         },
         {
-            .start = 0.0f, .end = 1.2f, .setter = [&](float v) { logoOpacity_ = v; },
+            .start = 0.0f, .end = 1.0f, .setter = [&](float v) { logoOpacity_ = v; },
+            .mode = TweenMode::EaseIn
+        },
+        {
+            .start = 0.0f, .end = 1.0f, .setter = [&](float v) { rollCapOpacity_ = v; },
             .mode = TweenMode::EaseIn
         }
     };
 
-    logoTween_ = std::make_unique<Tween>(props, 2.0f);
-    logoTween_->Start();
+    startTween_ = std::make_unique<Tween>(props, 2.0f);
+    startTween_->Start();
 }
 
 void LoadScene::Update()
 {
-    logoTween_->Update();
+    startTween_->Update();
+    rollCapTransform_.rotation += 90.0f * Time::GetDeltaTime(); 
 
-    if (g_LoadingDone && !logoTween_->IsActive() && !nextTween_)
+    if (g_LoadingDone && !startTween_->IsActive() && !exitTween_)
     {
         const std::vector<TweenProperty> hideProps = {
             {
                 .start = logoOpacity_,
                 .end = 0.0f,
                 .setter = [&](float v) { logoOpacity_ = v; },
+                .mode = TweenMode::EaseOut
+            },
+            {
+                .start = rollCapOpacity_,
+                .end = 0.0f,
+                .setter = [&](float v) { rollCapOpacity_ = v; },
                 .mode = TweenMode::EaseOut
             },
             {
@@ -77,18 +99,18 @@ void LoadScene::Update()
             }
         };
 
-        nextTween_ = std::make_unique<Tween>(hideProps, 1.5f);
-        nextTween_->Start();
+        exitTween_ = std::make_unique<Tween>(hideProps, 1.5f);
+        exitTween_->Start();
     }
 
-    if (nextTween_)
+    if (exitTween_)
     {
-        nextTween_->Update();
+        exitTween_->Update();
 
-        if (!nextTween_->IsActive())
+        if (!exitTween_->IsActive())
         {
             std::cout << "All loaded!" << std::endl;
-            nextTween_.reset();
+            exitTween_.reset();
         }
     }
 }
@@ -96,4 +118,5 @@ void LoadScene::Update()
 void LoadScene::Render()
 {
     Renderer::DrawImage(logo_, logoTransform_, logoOpacity_);
+    Renderer::DrawImage(rollCap_, rollCapTransform_, rollCapOpacity_);
 }
