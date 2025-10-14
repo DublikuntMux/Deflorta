@@ -4,6 +4,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
+
+#include <xaudio2.h>
 
 enum class FoleyFlags: std::uint8_t
 {
@@ -175,4 +178,14 @@ class Foley
 {
 public:
     static const std::unordered_map<FoleyType, FoleyParams> foleyMap_;
+
+    static void Play(FoleyType type);
+    static void Stop(FoleyType type);
+
+private:
+    static std::unordered_map<FoleyType, IXAudio2SourceVoice*> activeVoices_;
+    static std::unordered_map<FoleyType, int> lastIndex_;
+    static std::mutex mtx_;
+
+    static float SemitonesToRatio(float semitones);
 };

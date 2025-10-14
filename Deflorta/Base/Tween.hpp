@@ -33,4 +33,6 @@ private:
     float duration_;
     float elapsed_;
     bool active_;
+
+    static float Interpolate(float t, TweenMode mode);
 };

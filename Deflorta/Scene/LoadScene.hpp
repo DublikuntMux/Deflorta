@@ -19,7 +19,7 @@ public:
 private:
     Transform logoTransform_;
     Transform rollCapTransform_;
-    
+
     float logoOpacity_ = 0.0f;
     float rollCapOpacity_ = 0.0f;
 

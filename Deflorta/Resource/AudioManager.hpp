@@ -46,6 +46,10 @@ public:
     static void StopMusic(float fadeTimeSec = 1.0f);
 
     static void PlaySfx(const std::string& id);
+    static IXAudio2SourceVoice* PlaySfxAdvanced(const std::string& id, bool loop, float freqRatio = 1.0f,
+                                                float volumeMul = 1.0f);
+    static void StopVoice(IXAudio2SourceVoice* voice);
+
     static bool PreloadAudio(const std::string& id, const std::string& filePath);
     static void UnloadAudio(const std::string& id);
 

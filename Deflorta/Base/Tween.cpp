@@ -19,22 +19,6 @@ void Tween::Start()
     }
 }
 
-static float interpolate(float t, TweenMode mode)
-{
-    switch (mode)
-    {
-    case TweenMode::Linear:
-        return t;
-    case TweenMode::EaseIn:
-        return t * t;
-    case TweenMode::EaseOut:
-        return t * (2 - t);
-    case TweenMode::EaseInOut:
-        return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
-    }
-    return t;
-}
-
 void Tween::Update()
 {
     if (!active_) return;
@@ -55,7 +39,7 @@ void Tween::Update()
     {
         for (auto& [start, end, setter, mode] : properties_)
         {
-            const float interp = interpolate(t, mode);
+            const float interp = Interpolate(t, mode);
             const float value = start + (end - start) * interp;
             if (setter)
                 setter(value);
@@ -66,4 +50,20 @@ void Tween::Update()
 bool Tween::IsActive() const
 {
     return active_;
+}
+
+float Tween::Interpolate(float t, TweenMode mode)
+{
+    switch (mode)
+    {
+    case TweenMode::Linear:
+        return t;
+    case TweenMode::EaseIn:
+        return t * t;
+    case TweenMode::EaseOut:
+        return t * (2 - t);
+    case TweenMode::EaseInOut:
+        return t < 0.5f ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+    return t;
 }

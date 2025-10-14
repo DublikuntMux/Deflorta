@@ -1,11 +1,10 @@
 ﻿#include "LoadScene.hpp"
 
-#include <iostream>
-
 #include "../Base/Time.hpp"
 #include "../Resource/ResourceManager.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Base/Transform.hpp"
+#include "../Resource/Foley.hpp"
 #include "../Resource/TranslationManager.hpp"
 
 namespace
@@ -70,7 +69,7 @@ LoadScene::LoadScene()
 void LoadScene::Update()
 {
     startTween_->Update();
-    rollCapTransform_.rotation += 90.0f * Time::GetDeltaTime(); 
+    rollCapTransform_.rotation += 90.0f * Time::GetDeltaTime();
 
     if (g_LoadingDone && !startTween_->IsActive() && !exitTween_)
     {
@@ -109,7 +108,7 @@ void LoadScene::Update()
 
         if (!exitTween_->IsActive())
         {
-            std::cout << "All loaded!" << std::endl;
+            Foley::Play(FoleyType::Sun);
             exitTween_.reset();
         }
     }

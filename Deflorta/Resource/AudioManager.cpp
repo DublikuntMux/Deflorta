@@ -161,6 +161,75 @@ void AudioManager::PlaySfx(const std::string& id)
     }
 }
 
+IXAudio2SourceVoice* AudioManager::PlaySfxAdvanced(const std::string& id, bool loop, float freqRatio, float volumeMul)
+{
+    std::lock_guard lock(audioMutex_);
+    const auto it = audioCache_.find(id);
+    if (it == audioCache_.end()) return nullptr;
+
+    const AudioData& data = it->second;
+
+    IXAudio2SourceVoice* voice = nullptr;
+    if (FAILED(xaudio_->CreateSourceVoice(&voice, &data.format))) return nullptr;
+
+    XAUDIO2_BUFFER buffer = {};
+    buffer.AudioBytes = static_cast<UINT32>(data.buffer.size());
+    buffer.pAudioData = data.buffer.data();
+    if (loop)
+    {
+        buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+        buffer.Flags = 0;
+        buffer.LoopBegin = 0;
+        buffer.LoopLength = 0;
+    }
+    else
+    {
+        buffer.Flags = XAUDIO2_END_OF_STREAM;
+    }
+
+    if (FAILED(voice->SubmitSourceBuffer(&buffer)))
+    {
+        voice->DestroyVoice();
+        return nullptr;
+    }
+
+    const float vol = std::clamp(volumeMul, 0.0f, 1.0f) * sfxVolume_;
+    voice->SetVolume(vol);
+
+    if (freqRatio > 0.0f)
+    {
+        const float clamped = std::clamp(freqRatio, 0.5f, 2.0f);
+        voice->SetFrequencyRatio(clamped);
+    }
+
+    voice->Start();
+
+    if (!loop)
+    {
+        std::thread([voice]
+        {
+            XAUDIO2_VOICE_STATE state;
+            do
+            {
+                voice->GetState(&state);
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            while (state.BuffersQueued > 0);
+            voice->DestroyVoice();
+        }).detach();
+        return nullptr;
+    }
+
+    return voice;
+}
+
+void AudioManager::StopVoice(IXAudio2SourceVoice* voice)
+{
+    if (!voice) return;
+    voice->Stop();
+    voice->DestroyVoice();
+}
+
 bool AudioManager::PreloadAudio(const std::string& id, const std::string& filePath)
 {
     AudioData data;
