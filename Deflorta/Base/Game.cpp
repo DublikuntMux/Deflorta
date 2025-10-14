@@ -7,8 +7,15 @@
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
 
-Game::Game(HWND hwnd) : hwnd_(hwnd)
+HWND Game::hwnd_;
+std::unique_ptr<Scene> Game::scene_;
+std::unique_ptr<Scene> Game::next_scene_;
+bool Game::running_ = true;
+
+void Game::Initialize(HWND hwnd)
 {
+    hwnd_ = hwnd;
+    
     if (!AudioManager::Initialize())
         running_ = false;
     if (!Renderer::Initialize(hwnd_))
@@ -17,7 +24,7 @@ Game::Game(HWND hwnd) : hwnd_(hwnd)
         running_ = false;
 }
 
-Game::~Game()
+void Game::Uninitialize()
 {
     AudioManager::Uninitialize();
     Renderer::Cleanup();
@@ -57,4 +64,9 @@ void Game::Run()
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+}
+
+bool Game::IsRunning()
+{
+    return running_;
 }

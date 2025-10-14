@@ -1,5 +1,7 @@
 ﻿#include "LoadScene.hpp"
 
+#include "SelectorScene.hpp"
+#include "../Base/Game.hpp"
 #include "../Base/Time.hpp"
 #include "../Resource/ResourceManager.hpp"
 #include "../Render/Renderer.hpp"
@@ -100,6 +102,8 @@ void LoadScene::Update()
 
         exitTween_ = std::make_unique<Tween>(hideProps, 1.5f);
         exitTween_->Start();
+        
+        Foley::Play(FoleyType::Sun);
     }
 
     if (exitTween_)
@@ -108,7 +112,7 @@ void LoadScene::Update()
 
         if (!exitTween_->IsActive())
         {
-            Foley::Play(FoleyType::Sun);
+            Game::SetScene<SelectorScene>();
             exitTween_.reset();
         }
     }

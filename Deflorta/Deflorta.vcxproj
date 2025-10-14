@@ -94,6 +94,7 @@
         <ClCompile Include="Resource\ResourceManager.cpp"/>
         <ClCompile Include="Resource\TranslationManager.cpp"/>
         <ClCompile Include="Scene\LoadScene.cpp"/>
+        <ClCompile Include="Scene\SelectorScene.cpp" />
     </ItemGroup>
     <ItemGroup>
         <ClInclude Include="Base\Game.hpp"/>
@@ -110,6 +111,7 @@
         <ClInclude Include="Resource\TranslationManager.hpp"/>
         <ClInclude Include="Scene\Scene.hpp"/>
         <ClInclude Include="Scene\LoadScene.hpp"/>
+        <ClInclude Include="Scene\SelectorScene.hpp" />
         <ClInclude Include="targetver.h"/>
     </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>

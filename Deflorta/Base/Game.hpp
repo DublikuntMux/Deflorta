@@ -9,20 +9,21 @@
 class Game final
 {
 public:
-    explicit Game(HWND hwnd);
-    ~Game();
+    static void Initialize(HWND hwnd);
+    static void Uninitialize();
 
-    void Run();
+    static void Run();
+    static bool IsRunning();
 
     template <typename T, typename... Args>
-    void SetScene(Args&&... args)
+    static void SetScene(Args&&... args)
     {
         next_scene_ = std::make_unique<T>(std::forward<Args>(args)...);
     }
 
 private:
-    HWND hwnd_;
-    std::unique_ptr<Scene> scene_;
-    std::unique_ptr<Scene> next_scene_;
-    bool running_ = true;
+    static HWND hwnd_;
+    static std::unique_ptr<Scene> scene_;
+    static std::unique_ptr<Scene> next_scene_;
+    static bool running_;
 };
