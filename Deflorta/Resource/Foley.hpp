@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 enum class FoleyFlags: std::uint8_t
@@ -165,7 +166,6 @@ enum class FoleyType: std::uint8_t
 
 struct FoleyParams
 {
-    FoleyType foleyType;
     FoleyFlags foleyFlags;
     float pitchRange;
     std::vector<std::string> sfxId;
@@ -173,5 +173,6 @@ struct FoleyParams
 
 class Foley
 {
-    static std::vector<FoleyParams> FoleyParamArray;
+public:
+    static const std::unordered_map<FoleyType, FoleyParams> foleyMap_;
 };
