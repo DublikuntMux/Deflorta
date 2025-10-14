@@ -10,6 +10,7 @@
 #include "../Render/Renderer.hpp"
 
 std::unordered_map<std::string, ResourceGroup> ResourceManager::groups_;
+std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> ResourceManager::images_;
 std::string ResourceManager::resourceBasePath_;
 DefaultSettings ResourceManager::currentDefaults;
 std::mutex ResourceManager::groupsMutex_;
@@ -47,8 +48,8 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
     outData.width = png_get_image_width(png, info);
     outData.height = png_get_image_height(png, info);
-    png_byte color_type = png_get_color_type(png, info);
-    png_byte bit_depth = png_get_bit_depth(png, info);
+    const png_byte color_type = png_get_color_type(png, info);
+    const png_byte bit_depth = png_get_bit_depth(png, info);
 
     if (bit_depth == 16)
         png_set_strip_16(png);
@@ -92,10 +93,10 @@ bool ResourceManager::CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitm
 {
     Renderer::D2DGuard guard;
 
-    auto d2dContext = Renderer::GetD2DContext();
+    const auto d2dContext = Renderer::GetD2DContext();
     if (!d2dContext) return false;
 
-    D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
+    const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
         D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
     );
 
@@ -190,7 +191,7 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
     {
         std::lock_guard lock(groupsMutex_);
         auto& group = groups_[groupName];
-        for (auto& entry : group.images | std::views::values)
+        for (auto& [id, entry] : group.images)
         {
             if (!entry.loaded)
             {
@@ -200,7 +201,7 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                     ID2D1Bitmap* bitmap = nullptr;
                     if (CreateD2DBitmap(pngData, &bitmap))
                     {
-                        entry.bitmap.Attach(bitmap);
+                        images_[id].Attach(bitmap);
                         entry.loaded = true;
                     }
                 }
@@ -230,12 +231,13 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                     ID2D1Bitmap* bitmap = nullptr;
                     if (CreateD2DBitmap(pngData, &bitmap))
                     {
-                        it->second.bitmap.Attach(bitmap);
+                        images_[id].Attach(bitmap);
                         it->second.loaded = true;
                     }
                 }
             }
-            return it->second.bitmap.Get();
+            const auto found = images_.find(id);
+            return found != images_.end() ? found->second.Get() : nullptr;
         }
     }
     return nullptr;

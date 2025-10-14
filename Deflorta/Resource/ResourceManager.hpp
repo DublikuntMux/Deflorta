@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include <d2d1.h>
+#include <wrl/client.h>
 
 #include "AudioManager.hpp"
 
@@ -12,7 +13,6 @@ struct ResourceEntry
 {
     std::string path;
     bool loaded = false;
-    Microsoft::WRL::ComPtr<ID2D1Bitmap> bitmap;
 };
 
 struct DefaultSettings
@@ -49,6 +49,8 @@ public:
 
 private:
     static std::unordered_map<std::string, ResourceGroup> groups_;
+    static std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> images_;
+    
     static std::string resourceBasePath_;
     static DefaultSettings currentDefaults;
 
