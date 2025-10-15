@@ -103,7 +103,7 @@ void LoadScene::Update()
 
         exitTween_ = std::make_unique<Tween>(hideProps, 1.5f);
         exitTween_->Start();
-        
+
         Foley::Play(FoleyType::Sun);
     }
 

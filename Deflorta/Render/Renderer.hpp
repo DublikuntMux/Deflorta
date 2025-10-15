@@ -32,10 +32,10 @@ public:
     static void DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity = 1.0f);
 
     static void DrawTextW(const std::wstring& text,
-                         const D2D1_RECT_F& layoutRect,
-                         const std::wstring& fontFamily,
-                         float fontSize,
-                         const D2D1_COLOR_F& color);
+                          const D2D1_RECT_F& layoutRect,
+                          const std::wstring& fontFamily,
+                          float fontSize,
+                          const D2D1_COLOR_F& color);
 
 private:
     static std::optional<HRESULT> CreateDeviceResources(HWND hwnd);

@@ -87,14 +87,16 @@
         <ClCompile Include="Base\Time.cpp"/>
         <ClCompile Include="Base\Tween.cpp"/>
         <ClCompile Include="Main.cpp"/>
+        <ClCompile Include="Render\Reanimator.cpp"/>
         <ClCompile Include="Render\Renderer.cpp"/>
         <ClCompile Include="Resource\AudioManager.cpp"/>
         <ClCompile Include="Resource\Foley.cpp"/>
         <ClCompile Include="Resource\FoleyDefenition.cpp"/>
+        <ClCompile Include="Resource\ReanimationLoader.cpp"/>
         <ClCompile Include="Resource\ResourceManager.cpp"/>
         <ClCompile Include="Resource\TranslationManager.cpp"/>
         <ClCompile Include="Scene\LoadScene.cpp"/>
-        <ClCompile Include="Scene\SelectorScene.cpp" />
+        <ClCompile Include="Scene\SelectorScene.cpp"/>
     </ItemGroup>
     <ItemGroup>
         <ClInclude Include="Base\Game.hpp"/>
@@ -103,15 +105,17 @@
         <ClInclude Include="Base\Time.hpp"/>
         <ClInclude Include="Base\Transform.hpp"/>
         <ClInclude Include="Base\Tween.hpp"/>
+        <ClInclude Include="Render\Reanimator.hpp"/>
         <ClInclude Include="Render\Renderer.hpp"/>
         <ClInclude Include="resource.h"/>
         <ClInclude Include="Resource\AudioManager.hpp"/>
         <ClInclude Include="Resource\Foley.hpp"/>
+        <ClInclude Include="Resource\ReanimationLoader.hpp"/>
         <ClInclude Include="Resource\ResourceManager.hpp"/>
         <ClInclude Include="Resource\TranslationManager.hpp"/>
         <ClInclude Include="Scene\Scene.hpp"/>
         <ClInclude Include="Scene\LoadScene.hpp"/>
-        <ClInclude Include="Scene\SelectorScene.hpp" />
+        <ClInclude Include="Scene\SelectorScene.hpp"/>
         <ClInclude Include="targetver.h"/>
     </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>

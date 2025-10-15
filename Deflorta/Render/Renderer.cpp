@@ -134,7 +134,7 @@ void Renderer::DrawFPS()
 
     const std::wstring text = std::format(L"FPS: {:.1f}", Time::GetFps());
     const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
-    DrawTextW(text, layoutRect,L"Consolas",16, D2D1::ColorF(D2D1::ColorF::White));
+    DrawTextW(text, layoutRect, L"Consolas", 16, D2D1::ColorF(D2D1::ColorF::White));
 }
 
 void Renderer::BeginFrame()

@@ -14,7 +14,7 @@ class SelectorScene final : public Scene
 {
 public:
     SelectorScene();
-    
+
     void Update() override;
     void Render() override;
 

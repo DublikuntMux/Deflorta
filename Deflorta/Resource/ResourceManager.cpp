@@ -221,7 +221,7 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                 }
                 else
                 {
-                    std::cout << "Error while create audio: " << id << std::endl;
+                    std::cout << "Error while create audio: " << id << "\n";
                 }
             }
         }
@@ -245,12 +245,12 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                     }
                     else
                     {
-                        std::cout << "Error while create image: " << id << std::endl;
+                        std::cout << "Error while create image: " << id << "\n";
                     }
                 }
                 else
                 {
-                    std::cout << "Error while load image: " << id << std::endl;
+                    std::cout << "Error while load image: " << id << "\n";
                 }
             }
         }
@@ -263,14 +263,14 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
         {
             if (!entry.loaded)
             {
-                std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string()  + ".ttf";
+                std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".ttf";
                 if (LoadFont(id, fullPath, entry.fontFamily))
                 {
                     entry.loaded = true;
                 }
                 else
                 {
-                    std::cout << "Error while load font: " << id << std::endl;
+                    std::cout << "Error while load font: " << id << "\n";
                 }
             }
         }

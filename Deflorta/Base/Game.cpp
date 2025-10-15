@@ -15,7 +15,7 @@ bool Game::running_ = true;
 void Game::Initialize(HWND hwnd)
 {
     hwnd_ = hwnd;
-    
+
     if (!AudioManager::Initialize())
         running_ = false;
     if (!Renderer::Initialize(hwnd_))
