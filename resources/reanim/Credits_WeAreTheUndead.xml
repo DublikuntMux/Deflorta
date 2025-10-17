@@ -1,4 +1,5 @@
-<fps>10,5</fps>
+<reanim>
+<fps>10.5</fps>
 <track>
 <name>anim_so_undead</name>
 <t><f>-1</f></t>
@@ -183,7 +184,7 @@
 </track>
 <track>
 <name>attacher__Zombie1</name>
-<t><x>68,4</x><y>399,4</y><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
+<t><x>68.4</x><y>399.4</y><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -276,7 +277,7 @@
 <name>attacher__Zombie2</name>
 <t><f>-1</f></t>
 <t></t>
-<t><x>330,3</x><y>44,4</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
+<t><x>330.3</x><y>44.4</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -369,7 +370,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>305,4</x><y>371,4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
+<t><x>305.4</x><y>371.4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -462,7 +463,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>488,3</x><y>173,4</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance5[22.75]</text></t>
+<t><x>488.3</x><y>173.4</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance5[22.75]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -556,7 +557,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>689,4</x><y>15,4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance5[22.75]</text></t>
+<t><x>689.4</x><y>15.4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance5[22.75]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -649,7 +650,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>671,4</x><y>428,4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance6[21.875]</text></t>
+<t><x>671.4</x><y>428.4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance6[21.875]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -740,7 +741,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>123,3</x><y>25,4</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance8[44.19]</text></t>
+<t><x>123.3</x><y>25.4</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance8[44.19]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -833,7 +834,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>751,6</x><y>185,8</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
+<t><x>751.6</x><y>185.8</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance2[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -924,7 +925,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>292,7</x><y>404,8</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
+<t><x>292.7</x><y>404.8</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1019,7 +1020,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>411,4</x><y>6,4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
+<t><x>411.4</x><y>6.4</y><f>0</f><text>attacher__Zombie_credits_dance__anim_dance1[21]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1113,7 +1114,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>651,3</x><y>177,4</y><kx>180</kx><f>0</f><text>attacher__Zombie9</text></t>
+<t><x>651.3</x><y>177.4</y><kx>180.0</kx><f>0</f><text>attacher__Zombie9</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1204,7 +1205,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>422,3</x><y>225,4</y><kx>180</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance6[21.875]</text></t>
+<t><x>422.3</x><y>225.4</y><kx>180.0</kx><f>0</f><text>attacher__Zombie_credits_dance__anim_dance6[21.875]</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1304,7 +1305,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>523,5</x><y>47,3</y><kx>180</kx><sx>0,922</sx><sy>0,499</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE2</i></t>
+<t><x>523.5</x><y>47.3</y><kx>180.0</kx><sx>0.922</sx><sy>0.499</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE2</i></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1395,7 +1396,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>397,9</x><y>66,7</y><sx>0,8</sx><sy>0,8</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
+<t><x>453.4</x><y>66.6</y><sx>0.800</sx><sy>0.800</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1492,7 +1493,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>236,3</x><y>210,6</y><sx>0,915</sx><sy>0,499</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE2</i></t>
+<t><x>236.3</x><y>210.6</y><sx>0.915</sx><sy>0.499</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE2</i></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1583,7 +1584,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>368</x><y>231,1</y><sx>0,8</sx><sy>0,8</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
+<t><x>423.4</x><y>231.0</y><sx>0.800</sx><sy>0.800</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1680,7 +1681,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>492,3</x><y>302,4</y><sx>1,079</sx><sy>0,422</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE</i></t>
+<t><x>492.3</x><y>302.4</y><sx>1.079</sx><sy>0.422</sy><f>0</f><i>IMAGE_REANIM_STORE_SPEECHBUBBLE</i></t>
 <t></t>
 <t></t>
 <t><f>-1</f></t>
@@ -1771,7 +1772,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>647,1</x><y>318</y><sx>0,8</sx><sy>0,8</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
+<t><x>702.5</x><y>318</y><sx>0.800</sx><sy>0.800</sy><f>0</f><font>FONT_BRIANNETOD32</font><text>We are the undead</text></t>
 <t></t>
 <t></t>
 <t><f>-1</f></t>
@@ -1815,7 +1816,7 @@
 <t></t>
 <t></t>
 <t></t>
-<t><f>0</f><text>We are SO the undead</text></t>
+<t><x>723.8</x><f>0</f><text>We are SO the undead</text></t>
 <t></t>
 <t></t>
 </track>
@@ -1846,11 +1847,11 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>109,2</x><y>613,8</y><sx>0,8</sx><sy>0,8</sy><f>0</f><i>IMAGE_REANIM_CREDITS_WEARETHEUNDEAD</i></t>
-<t><x>90,1</x><y>576,1</y><sx>0,85</sx><sy>0,85</sy></t>
-<t><x>70,8</x><y>538,5</y><sx>0,9</sx><sy>0,9</sy></t>
-<t><x>51,7</x><y>500,8</y><sx>0,95</sx><sy>0,95</sy></t>
-<t><x>32,5</x><y>463</y><sx>1</sx><sy>1</sy></t>
+<t><x>109.2</x><y>613.8</y><sx>0.800</sx><sy>0.800</sy><f>0</f><i>IMAGE_REANIM_CREDITS_WEARETHEUNDEAD</i></t>
+<t><x>90.1</x><y>576.1</y><sx>0.850</sx><sy>0.850</sy></t>
+<t><x>70.8</x><y>538.4</y><sx>0.900</sx><sy>0.900</sy></t>
+<t><x>51.7</x><y>500.7</y><sx>0.950</sx><sy>0.950</sy></t>
+<t><x>32.5</x><y>463.0</y><sx>1.000</sx><sy>1.000</sy></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1890,11 +1891,11 @@
 <t></t>
 <t></t>
 <t></t>
-<t><x>109,2</x><y>613,8</y><sx>0,8</sx><sy>0,8</sy><f>0</f></t>
-<t><x>90,1</x><y>576,1</y><sx>0,85</sx><sy>0,85</sy></t>
-<t><x>70,8</x><y>538,5</y><sx>0,9</sx><sy>0,9</sy></t>
-<t><x>51,7</x><y>500,8</y><sx>0,95</sx><sy>0,95</sy></t>
-<t><x>32,5</x><y>463</y><sx>1</sx><sy>1</sy></t>
+<t><x>109.2</x><y>613.8</y><sx>0.800</sx><sy>0.800</sy><f>0</f></t>
+<t><x>90.1</x><y>576.1</y><sx>0.850</sx><sy>0.850</sy></t>
+<t><x>70.8</x><y>538.4</y><sx>0.900</sx><sy>0.900</sy></t>
+<t><x>51.7</x><y>500.7</y><sx>0.950</sx><sy>0.950</sy></t>
+<t><x>32.5</x><y>463.0</y><sx>1.000</sx><sy>1.000</sy></t>
 <t></t>
 <t></t>
 <t></t>
@@ -1910,3 +1911,4 @@
 <t></t>
 <t></t>
 </track>
+</reanim>

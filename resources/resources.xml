@@ -552,7 +552,7 @@
     </Resources>
     <Resources id="LoadingFonts">
         <SetDefaults path="fonts" idprefix="FONT_" />
-        <Font id="BRIANNES" path="Briannes" family="Briannes" />
+        <Font id="BRIANNES_TOD" path="briannetod" family="BrianneTod" />
     </Resources>
     <Resources id="DelayLoad_Background1">
         <SetDefaults path="images" idprefix="IMAGE_" />

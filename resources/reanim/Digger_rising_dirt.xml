@@ -1,7 +1,8 @@
+<reanim>
 <fps>12</fps>
 <track>
 <name>Digger_rising_dirt</name>
-<t><x>0,1</x><y>0,1</y><sx>0,8</sx><sy>0,8</sy><i>IMAGE_REANIM_DIGGER_RISING_DIRT</i></t>
+<t><x>0.1</x><y>0.1</y><sx>0.800</sx><sy>0.800</sy><i>IMAGE_REANIM_DIGGER_RISING_DIRT</i></t>
 <t><i>IMAGE_REANIM_DIGGER_RISING_DIRT2</i></t>
 <t><i>IMAGE_REANIM_DIGGER_RISING_DIRT3</i></t>
 <t><i>IMAGE_REANIM_DIGGER_RISING_DIRT4</i></t>
@@ -25,5 +26,6 @@
 <t></t>
 <t></t>
 <t></t>
-<t><a>0</a></t>
+<t><a>0.00</a></t>
 </track>
+</reanim>
