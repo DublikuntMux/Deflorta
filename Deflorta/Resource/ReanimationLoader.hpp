@@ -5,17 +5,20 @@
 #include <optional>
 
 #include <pugixml.hpp>
+#include <unordered_map>
+
+constexpr float REANIM_MISSING = -10000.0f;
 
 struct ReanimatorTransform
 {
-    float transX = -10000.0f;
-    float transY = -10000.0f;
-    float skewX = -10000.0f;
-    float skewY = -10000.0f;
-    float scaleX = -10000.0f;
-    float scaleY = -10000.0f;
-    float frame = -10000.0f;
-    float alpha = -10000.0f;
+    float transX = REANIM_MISSING;
+    float transY = REANIM_MISSING;
+    float skewX = REANIM_MISSING;
+    float skewY = REANIM_MISSING;
+    float scaleX = REANIM_MISSING;
+    float scaleY = REANIM_MISSING;
+    float frame = REANIM_MISSING;
+    float alpha = REANIM_MISSING;
 
     std::string image;
     std::string font;
@@ -37,9 +40,11 @@ struct ReanimatorDefinition
 class ReanimationLoader
 {
 public:
-    static std::optional<ReanimatorDefinition> LoadFromFile(const std::string& path);
+    static std::optional<ReanimatorDefinition*> LoadFromFile(const std::string& path);
 
 private:
     static ReanimatorTransform ParseTransform(const pugi::xml_node& node);
     static void FillMissingData(ReanimatorTrack& track);
+
+    static std::unordered_map<std::string, ReanimatorDefinition> loadedReanimations_;
 };

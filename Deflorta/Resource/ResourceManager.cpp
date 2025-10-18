@@ -37,6 +37,67 @@ std::wstring ResourceManager::GetFont(const std::string& id)
     return it->second;
 }
 
+bool ResourceManager::EnsureReanimImage(const std::string& id)
+{
+    {
+        std::lock_guard lock(groupsMutex_);
+        for (auto& group : groups_ | std::views::values)
+        {
+            if (auto it = group.images.find(id); it != group.images.end())
+            {
+                if (!it->second.loaded)
+                {
+                    const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string() +
+                        ".png";
+                    PngData pngData;
+                    if (LoadPngFile(fullPath, pngData))
+                    {
+                        ID2D1Bitmap* bitmap = nullptr;
+                        if (CreateD2DBitmap(pngData, &bitmap))
+                        {
+                            images_[id].Attach(bitmap);
+                            it->second.loaded = true;
+                        }
+                    }
+                }
+                return images_.contains(id);
+            }
+        }
+    }
+
+    {
+        std::lock_guard lock(groupsMutex_);
+        auto& group = groups_["PreloadReanim"];
+        auto& entry = group.images[id];
+        if (!entry.loaded)
+        {
+            const std::string fileNameNoExt = TokenToReanimFileName(id);
+            entry.path = (std::filesystem::path("reanim") / (fileNameNoExt)).string();
+
+            const std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
+            PngData pngData;
+            if (LoadPngFile(fullPath, pngData))
+            {
+                ID2D1Bitmap* bitmap = nullptr;
+                if (CreateD2DBitmap(pngData, &bitmap))
+                {
+                    images_[id].Attach(bitmap);
+                    entry.loaded = true;
+                }
+                else
+                {
+                    std::cout << "Error while create image: " << id << "\n";
+                }
+            }
+            else
+            {
+                std::cout << "Error while load reanim image: " << fullPath << " for id " << id << "\n";
+            }
+        }
+        return images_.contains(id);
+    }
+}
+
 bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 {
     FILE* fp = nullptr;
@@ -70,8 +131,8 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
     outData.width = png_get_image_width(png, info);
     outData.height = png_get_image_height(png, info);
-    const png_byte color_type = png_get_color_type(png, info);
-    const png_byte bit_depth = png_get_bit_depth(png, info);
+    png_byte color_type = png_get_color_type(png, info);
+    png_byte bit_depth = png_get_bit_depth(png, info);
 
     if (bit_depth == 16)
         png_set_strip_16(png);
@@ -96,18 +157,35 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
     png_read_update_info(png, info);
 
-    std::vector<png_bytep> row_pointers(outData.height);
     outData.pixels.resize(outData.width * outData.height * 4);
+    std::vector<png_bytep> row_pointers(outData.height);
 
-    for (uint32_t y = 0; y < outData.height; y++)
-    {
+    for (uint32_t y = 0; y < outData.height; ++y)
         row_pointers[y] = outData.pixels.data() + y * outData.width * 4;
-    }
 
     png_read_image(png, row_pointers.data());
-
     png_destroy_read_struct(&png, &info, nullptr);
     fclose(fp);
+
+    uint8_t* pixels = outData.pixels.data();
+    const size_t pixelCount = outData.width * outData.height;
+
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+        uint8_t* p = &pixels[i * 4];
+        uint8_t a = p[3];
+        if (a == 0)
+        {
+            p[0] = p[1] = p[2] = 0;
+        }
+        else if (a < 255)
+        {
+            p[0] = static_cast<uint8_t>((p[0] * a + 127) / 255);
+            p[1] = static_cast<uint8_t>((p[1] * a + 127) / 255);
+            p[2] = static_cast<uint8_t>((p[2] * a + 127) / 255);
+        }
+    }
+
     return true;
 }
 
@@ -328,4 +406,42 @@ std::string ResourceManager::GetAudio(const std::string& id)
         }
     }
     return "";
+}
+
+std::string ResourceManager::TokenToReanimFileName(const std::string& id)
+{
+    std::string token = id;
+    const std::string prefix = "IMAGE_REANIM_";
+    if (token.starts_with(prefix))
+        token = token.substr(prefix.size());
+
+    std::vector<std::string> parts;
+    std::string cur;
+    for (char c : token)
+    {
+        if (c == '_')
+        {
+            if (!cur.empty())
+            {
+                parts.push_back(cur);
+                cur.clear();
+            }
+        }
+        else
+        {
+            cur.push_back(c);
+        }
+    }
+    if (!cur.empty()) parts.push_back(cur);
+
+    std::string result;
+    for (size_t i = 0; i < parts.size(); ++i)
+    {
+        std::string p = parts[i];
+        for (auto& ch : p) ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+        if (i == 0 && !p.empty()) p[0] = static_cast<char>(toupper(static_cast<unsigned char>(p[0])));
+        if (!result.empty()) result.push_back('_');
+        result += p;
+    }
+    return result;
 }

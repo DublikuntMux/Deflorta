@@ -11,6 +11,8 @@
 
 #include "../Base/Transform.hpp"
 
+struct ReanimatorTransform;
+
 class Renderer final
 {
 public:
@@ -30,6 +32,7 @@ public:
     static ID2D1DeviceContext* GetD2DContext();
 
     static void DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity = 1.0f);
+    static void DrawReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& transform, float opacity = 1.0f);
 
     static void DrawTextW(const std::wstring& text,
                           const D2D1_RECT_F& layoutRect,

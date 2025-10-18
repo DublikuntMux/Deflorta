@@ -53,7 +53,14 @@ public:
     static ID2D1Bitmap* GetImage(const std::string& id);
     static std::wstring GetFont(const std::string& id);
 
+    static bool EnsureReanimImage(const std::string& id);
+
 private:
+    static bool LoadPngFile(const std::string& filePath, PngData& outData);
+    static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
+    static bool LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName);
+    static std::string TokenToReanimFileName(const std::string& id);
+
     static std::unordered_map<std::string, ResourceGroup> groups_;
     static std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> images_;
     static std::unordered_map<std::string, std::wstring> fonts_;
@@ -62,8 +69,4 @@ private:
     static DefaultSettings currentDefaults;
 
     static std::mutex groupsMutex_;
-
-    static bool LoadPngFile(const std::string& filePath, PngData& outData);
-    static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
-    static bool LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName);
 };

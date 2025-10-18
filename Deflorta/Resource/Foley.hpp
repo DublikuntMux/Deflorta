@@ -183,9 +183,9 @@ public:
     static void Stop(FoleyType type);
 
 private:
+    static float SemitonesToRatio(float semitones);
+
     static std::unordered_map<FoleyType, IXAudio2SourceVoice*> activeVoices_;
     static std::unordered_map<FoleyType, int> lastIndex_;
     static std::mutex mtx_;
-
-    static float SemitonesToRatio(float semitones);
 };

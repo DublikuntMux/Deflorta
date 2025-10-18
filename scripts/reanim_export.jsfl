@@ -28,7 +28,7 @@ function DebugTime(message) {
 }
 
 function RadToDeg(rad) {
-	return rad * 57.2957795;
+	return rad * 180 / Math.PI;
 }
 
 function XmlEncode(text) {

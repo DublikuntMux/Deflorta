@@ -12,8 +12,8 @@ public:
     static std::string Format(const std::string& key, const std::unordered_map<std::string, std::string>& bindings);
 
 private:
+    static void ReplaceAll(std::string& str, const std::string& from, const std::string& to);
+
     static std::unordered_map<std::string, std::string> translations_;
     static std::mutex mutex_;
-
-    static void ReplaceAll(std::string& str, const std::string& from, const std::string& to);
 };

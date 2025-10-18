@@ -2,8 +2,18 @@
 
 #include <iostream>
 
-std::optional<ReanimatorDefinition> ReanimationLoader::LoadFromFile(const std::string& path)
+#include "ResourceManager.hpp"
+
+std::unordered_map<std::string, ReanimatorDefinition> ReanimationLoader::loadedReanimations_;
+
+std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::string& path)
 {
+    if (path.empty())
+        return std::nullopt;
+
+    if (const auto it = loadedReanimations_.find(path); it != loadedReanimations_.end())
+        return &it->second;
+
     pugi::xml_document doc;
     const pugi::xml_parse_result result = doc.load_file(path.c_str());
     if (!result)
@@ -37,7 +47,19 @@ std::optional<ReanimatorDefinition> ReanimationLoader::LoadFromFile(const std::s
         def.tracks.push_back(std::move(track));
     }
 
-    return def;
+    for (auto& [name, transforms] : def.tracks)
+    {
+        for (auto& tr : transforms)
+        {
+            if (!tr.image.empty())
+            {
+                ResourceManager::EnsureReanimImage(tr.image);
+            }
+        }
+    }
+
+    auto [it, inserted] = loadedReanimations_.emplace(path, std::move(def));
+    return &it->second;
 }
 
 ReanimatorTransform ReanimationLoader::ParseTransform(const pugi::xml_node& node)
@@ -87,14 +109,14 @@ void ReanimationLoader::FillMissingData(ReanimatorTrack& track)
             if (field == defVal) field = prev;
         };
 
-        fill(transX, prevX, -10000.0f);
-        fill(transY, prevY, -10000.0f);
-        fill(skewX, prevKx, -10000.0f);
-        fill(skewY, prevKy, -10000.0f);
-        fill(scaleX, prevSx, -10000.0f);
-        fill(scaleY, prevSy, -10000.0f);
-        fill(frame, prevF, -10000.0f);
-        fill(alpha, prevA, -10000.0f);
+        fill(transX, prevX, REANIM_MISSING);
+        fill(transY, prevY, REANIM_MISSING);
+        fill(skewX, prevKx, REANIM_MISSING);
+        fill(skewY, prevKy, REANIM_MISSING);
+        fill(scaleX, prevSx, REANIM_MISSING);
+        fill(scaleY, prevSy, REANIM_MISSING);
+        fill(frame, prevF, REANIM_MISSING);
+        fill(alpha, prevA, REANIM_MISSING);
 
         if (image.empty()) image = prevImg;
         if (font.empty()) font = prevFont;

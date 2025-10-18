@@ -1,5 +1,6 @@
 #include "Renderer.hpp"
 
+#include <numbers>
 #include <string>
 #include <format>
 #include <optional>
@@ -12,6 +13,7 @@
 
 #include "../Base/Time.hpp"
 #include "../Base/Transform.hpp"
+#include "../Resource/ReanimationLoader.hpp"
 
 HWND Renderer::hwnd_ = nullptr;
 
@@ -201,15 +203,40 @@ void Renderer::DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float 
     std::lock_guard lock(d2dMutex_);
     if (!bitmap || !d2dContext_) return;
 
-    const D2D1_SIZE_F size = bitmap->GetSize();
+    const auto [width, height] = bitmap->GetSize();
     const D2D1_MATRIX_3X2_F mat =
-        D2D1::Matrix3x2F::Translation(-size.width / 2.0f, -size.height / 2.0f) *
+        D2D1::Matrix3x2F::Translation(-width / 2.0f, -height / 2.0f) *
         D2D1::Matrix3x2F::Scale(transform.scaleX, transform.scaleY, D2D1::Point2F(0, 0)) *
         D2D1::Matrix3x2F::Rotation(transform.rotation, D2D1::Point2F(0, 0)) *
-        D2D1::Matrix3x2F::Translation(transform.x + size.width / 2.0f, transform.y + size.height / 2.0f);
+        D2D1::Matrix3x2F::Translation(transform.x + width / 2.0f, transform.y + height / 2.0f);
 
     d2dContext_->SetTransform(mat);
-    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height), opacity);
+    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
+    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+}
+
+void Renderer::DrawReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& t, float opacity)
+{
+    std::lock_guard lock(d2dMutex_);
+        if (!bitmap || !d2dContext_) return;
+    
+    const auto [width, height] = bitmap->GetSize();
+    
+    const float kx = t.skewX * std::numbers::pi_v<float> / 180.0f;
+    const float ky = t.skewY * std::numbers::pi_v<float> / 180.0f;
+    
+       const float a = std::cos(kx) * t.scaleX;
+       const float b = std::sin(kx) * t.scaleX;
+       const float c = -std::sin(ky) * t.scaleY;
+       const float d = std::cos(ky) * t.scaleY;
+    
+    const D2D1_MATRIX_3X2_F mat =D2D1::Matrix3x2F(
+            a, b,
+            c, d,
+            t.transX, t.transY);
+    
+    d2dContext_->SetTransform(mat);
+    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 

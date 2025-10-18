@@ -29,10 +29,10 @@ public:
     [[nodiscard]] bool IsActive() const;
 
 private:
+    static float Interpolate(float t, TweenMode mode);
+
     std::vector<TweenProperty> properties_;
     float duration_;
     float elapsed_;
     bool active_;
-
-    static float Interpolate(float t, TweenMode mode);
 };
