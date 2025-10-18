@@ -26,11 +26,12 @@ struct FrameTime
 
 struct TrackInstance
 {
-    bool truncateDisappearing = true;
     int renderGroup = 0;
     float shakeOverride = 0.0f;
     float shakeX = 0.0f;
     float shakeY = 0.0f;
+    std::optional<std::string> imageOverride;
+    bool visible = true;
 };
 
 class Reanimator final
@@ -40,7 +41,8 @@ public:
 
     void PlayLayer(const std::string& trackName,
                    ReanimLoopType loopType = ReanimLoopType::Loop,
-                   float animRate = 0.0f);
+                   float animRate = 0.0f,
+                   float blendTime = 0.0f);
 
     void SetFramesForLayer(const std::string& trackName);
     [[nodiscard]] std::pair<int, int> GetFramesForLayer(const std::string& trackName) const;
@@ -50,15 +52,21 @@ public:
 
     void SetPosition(float x, float y);
     void OverrideScale(float sx, float sy);
+    void OverrideLayerImage(const std::string& trackName, const std::string& image);
+    void ClearLayerImageOverride(const std::string& trackName);
+    void SetLayerVisible(const std::string& trackName, bool visible);
+    void SetLayerZ(const std::string& trackName, int z);
 
     [[nodiscard]] bool IsDead() const { return dead_; }
+    [[nodiscard]] bool IsFinished() const;
 
 private:
+    int FindTrackIndexByName(const std::string& trackName) const;
+
     [[nodiscard]] FrameTime GetFrameTime() const;
     static ReanimatorTransform LerpTransform(const ReanimatorTransform& a,
                                              const ReanimatorTransform& b,
-                                             float t,
-                                             bool truncateDisappear);
+                                             float t);
 
     const ReanimatorDefinition* def_ = nullptr;
 
@@ -74,4 +82,10 @@ private:
 
     Transform overlay_{};
     std::vector<TrackInstance> tracks_;
+
+    bool blending_ = false;
+    float blendDuration_ = 0.0f;
+    float blendElapsed_ = 0.0f;
+    std::vector<ReanimatorTransform> blendFrom_;
+    std::vector<ReanimatorTransform> blendTo_;
 };

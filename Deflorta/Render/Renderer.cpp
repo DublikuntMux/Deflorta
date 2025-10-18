@@ -4,6 +4,7 @@
 #include <string>
 #include <format>
 #include <optional>
+#include <algorithm>
 
 #include <d2d1_1.h>
 #include <dwrite.h>
@@ -16,6 +17,7 @@
 #include "../Resource/ReanimationLoader.hpp"
 
 HWND Renderer::hwnd_ = nullptr;
+bool Renderer::showFPS_ = false;
 
 Microsoft::WRL::ComPtr<ID3D11Device> Renderer::d3dDevice_;
 Microsoft::WRL::ComPtr<ID3D11DeviceContext> Renderer::d3dContext_;
@@ -30,7 +32,8 @@ Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
 
 std::recursive_mutex Renderer::d2dMutex_;
 
-bool Renderer::showFPS_ = false;
+std::vector<DrawItem> Renderer::drawQueue_;
+size_t Renderer::submitSeq_ = 0;
 
 bool Renderer::Initialize(HWND hwnd)
 {
@@ -149,6 +152,9 @@ void Renderer::BeginFrame()
             return;
     }
 
+    drawQueue_.clear();
+    submitSeq_ = 0;
+
     d2dContext_->BeginDraw();
     d2dContext_->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 }
@@ -157,6 +163,7 @@ void Renderer::Render()
 {
     std::lock_guard lock(d2dMutex_);
 
+    FlushDrawQueue();
     DrawFPS();
 
     const HRESULT hr = d2dContext_->EndDraw();
@@ -175,6 +182,35 @@ ID2D1DeviceContext* Renderer::GetD2DContext()
 
 Renderer::D2DGuard::D2DGuard() { d2dMutex_.lock(); }
 Renderer::D2DGuard::~D2DGuard() { d2dMutex_.unlock(); }
+
+void Renderer::FlushDrawQueue()
+{
+    if (drawQueue_.empty()) return;
+
+    std::ranges::stable_sort(drawQueue_, [](const DrawItem& a, const DrawItem& b)
+    {
+        if (a.z != b.z) return a.z < b.z;
+        return a.seq < b.seq;
+    });
+
+    for (const auto& di : drawQueue_)
+    {
+        switch (di.drawType)
+        {
+        case DrawType::Image:
+            DrawImage(di.bmp, di.t, di.opacity);
+            break;
+        case DrawType::Reanim:
+            DrawReanim(di.bmp, di.t, di.opacity);
+            break;
+        case DrawType::Text:
+            DrawTextW(di.text, di.rect, di.font, di.fontSize, di.color);
+            break;
+        }
+    }
+
+    drawQueue_.clear();
+}
 
 void Renderer::DiscardDeviceResources()
 {
@@ -198,43 +234,25 @@ void Renderer::Cleanup()
     dwFactory_.Reset();
 }
 
-void Renderer::DrawImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity)
+void Renderer::DrawImage(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& mat, float opacity)
 {
+    if (!bitmap) return;
     std::lock_guard lock(d2dMutex_);
-    if (!bitmap || !d2dContext_) return;
 
     const auto [width, height] = bitmap->GetSize();
-    const D2D1_MATRIX_3X2_F mat =
-        D2D1::Matrix3x2F::Translation(-width / 2.0f, -height / 2.0f) *
-        D2D1::Matrix3x2F::Scale(transform.scaleX, transform.scaleY, D2D1::Point2F(0, 0)) *
-        D2D1::Matrix3x2F::Rotation(transform.rotation, D2D1::Point2F(0, 0)) *
-        D2D1::Matrix3x2F::Translation(transform.x + width / 2.0f, transform.y + height / 2.0f);
 
     d2dContext_->SetTransform(mat);
     d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
-void Renderer::DrawReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& t, float opacity)
+void Renderer::DrawReanim(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& mat, float opacity)
 {
+    if (!bitmap) return;
     std::lock_guard lock(d2dMutex_);
-        if (!bitmap || !d2dContext_) return;
-    
+
     const auto [width, height] = bitmap->GetSize();
-    
-    const float kx = t.skewX * std::numbers::pi_v<float> / 180.0f;
-    const float ky = t.skewY * std::numbers::pi_v<float> / 180.0f;
-    
-       const float a = std::cos(kx) * t.scaleX;
-       const float b = std::sin(kx) * t.scaleX;
-       const float c = -std::sin(ky) * t.scaleY;
-       const float d = std::cos(ky) * t.scaleY;
-    
-    const D2D1_MATRIX_3X2_F mat =D2D1::Matrix3x2F(
-            a, b,
-            c, d,
-            t.transX, t.transY);
-    
+
     d2dContext_->SetTransform(mat);
     d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -246,8 +264,8 @@ void Renderer::DrawText(const std::wstring& text,
                         float fontSize,
                         const D2D1_COLOR_F& color)
 {
+    if (text.empty()) return;
     std::lock_guard lock(d2dMutex_);
-    if (!d2dContext_ || !dwFactory_) return;
 
     Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
     if (FAILED(d2dContext_->CreateSolidColorBrush(color, textBrush.ReleaseAndGetAddressOf())))
@@ -273,4 +291,71 @@ void Renderer::DrawText(const std::wstring& text,
         format.Get(),
         layoutRect,
         textBrush.Get());
+}
+
+void Renderer::EnqueueImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity, int z)
+{
+    if (!bitmap) return;
+
+    const auto [width, height] = bitmap->GetSize();
+    const D2D1_MATRIX_3X2_F mat =
+        D2D1::Matrix3x2F::Translation(-width / 2.0f, -height / 2.0f) *
+        D2D1::Matrix3x2F::Scale(transform.scaleX, transform.scaleY, D2D1::Point2F(0, 0)) *
+        D2D1::Matrix3x2F::Rotation(transform.rotation, D2D1::Point2F(0, 0)) *
+        D2D1::Matrix3x2F::Translation(transform.x + width / 2.0f, transform.y + height / 2.0f);
+
+    DrawItem di;
+    di.z = z;
+    di.seq = submitSeq_++;
+    di.drawType = DrawType::Image;
+    di.opacity = opacity;
+    di.bmp = bitmap;
+    di.t = mat;
+    drawQueue_.push_back(std::move(di));
+}
+
+void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& transform, int z)
+{
+    if (!bitmap) return;
+
+    const float kx = transform.skewX * std::numbers::pi_v<float> / 180.0f;
+    const float ky = transform.skewY * std::numbers::pi_v<float> / 180.0f;
+
+    const float a = std::cos(kx) * transform.scaleX;
+    const float b = std::sin(kx) * transform.scaleX;
+    const float c = -std::sin(ky) * transform.scaleY;
+    const float d = std::cos(ky) * transform.scaleY;
+
+    const D2D1_MATRIX_3X2_F mat = D2D1::Matrix3x2F(
+        a, b,
+        c, d,
+        transform.transX, transform.transY);
+
+    DrawItem di;
+    di.z = z;
+    di.seq = submitSeq_++;
+    di.drawType = DrawType::Reanim;
+    di.bmp = bitmap;
+    di.t = mat;
+    drawQueue_.push_back(std::move(di));
+}
+
+void Renderer::EnqueueTextW(const std::wstring& text,
+                            const D2D1_RECT_F& layoutRect,
+                            const std::wstring& fontFamily,
+                            float fontSize,
+                            const D2D1_COLOR_F& color,
+                            int z)
+{
+    if (text.empty()) return;
+    DrawItem di;
+    di.z = z;
+    di.seq = submitSeq_++;
+    di.drawType = DrawType::Text;
+    di.text = text;
+    di.font = fontFamily;
+    di.rect = layoutRect;
+    di.fontSize = fontSize;
+    di.color = color;
+    drawQueue_.push_back(std::move(di));
 }

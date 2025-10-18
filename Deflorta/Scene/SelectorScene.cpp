@@ -1,27 +1,64 @@
 ﻿#include "SelectorScene.hpp"
 
+#include <stdexcept>
+
+#include "../Base/Random.hpp"
 #include "../Render/Reanimator.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 
 SelectorScene::SelectorScene()
 {
-    const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/Blover.xml");
-    if (reanim.has_value())
+    const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/SelectorScreen.xml");
+    if (!reanim.has_value())
+        throw std::runtime_error("Failed to load selector scene reanim");
+
     {
-        blover_ = std::make_unique<Reanimator>(reanim.value());
-        blover_->PlayLayer("anim_idle");
-        blover_->SetPosition(1280.0f / 2.0f, 720.0f / 2.0f);
+        screenAnimation_ = std::make_unique<Reanimator>(reanim.value());
+        screenAnimation_->SetPosition(0, 0);
+        screenAnimation_->SetLayerVisible("almanac_key_shadow", false);
+        screenAnimation_->PlayLayer("anim_open", ReanimLoopType::PlayOnceAndHold);
+        screenAnimation_->SetLayerZ("SelectorScreen_BG", -2);
+    }
+    {
+        grassAnimation_ = std::make_unique<Reanimator>(reanim.value());
+        grassAnimation_->SetPosition(0, -30);
+        grassAnimation_->PlayLayer("anim_grass", ReanimLoopType::Loop);
+    }
+    {
+        signAnimation_ = std::make_unique<Reanimator>(reanim.value());
+        signAnimation_->SetPosition(0, -60);
+        signAnimation_->PlayLayer("anim_sign", ReanimLoopType::PlayOnceAndHold);
+    }
+    {
+        cloudAnimation_ = std::make_unique<Reanimator>(reanim.value());
+        cloudAnimation_->SetPosition(0, 0);
+        const auto cloudId = Random::UniformInt(1, 6);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.2f);
+        for (int i = 1; i < 7; ++i)
+        {
+            cloudAnimation_->SetLayerZ("Cloud" + std::to_string(i), -1);
+        }
     }
 }
 
 void SelectorScene::Update()
 {
-    if (blover_)
-        blover_->Update();
+    screenAnimation_->Update();
+    grassAnimation_->Update();
+    signAnimation_->Update();
+    cloudAnimation_->Update();
+
+    if (cloudAnimation_->IsFinished())
+    {
+        const auto cloudId = Random::UniformInt(1, 6);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.2f);
+    }
 }
 
 void SelectorScene::Render()
 {
-    if (blover_)
-        blover_->Draw();
+    screenAnimation_->Draw();
+    grassAnimation_->Draw();
+    signAnimation_->Draw();
+    cloudAnimation_->Draw();
 }

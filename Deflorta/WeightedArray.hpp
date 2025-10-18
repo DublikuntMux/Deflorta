@@ -7,20 +7,24 @@
 #include "Base/Random.hpp"
 
 template <typename T>
-class WeightedArray {
+class WeightedArray
+{
 public:
-    struct Entry {
+    struct Entry
+    {
         T value;
         double weight;
     };
 
-    void add(const T& value, double weight) {
+    void add(const T& value, double weight)
+    {
         if (weight <= 0.0) return;
-        entries_.push_back({ value, weight });
+        entries_.push_back({value, weight});
         recomputePrefix();
     }
 
-    const T& pick() const {
+    const T& pick() const
+    {
         if (entries_.empty())
             throw std::runtime_error("WeightedArray is empty!");
 

@@ -121,6 +121,6 @@ void LoadScene::Update()
 
 void LoadScene::Render()
 {
-    Renderer::DrawImage(logo_, logoTransform_, logoOpacity_);
-    Renderer::DrawImage(rollCap_, rollCapTransform_, rollCapOpacity_);
+    Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_);
+    Renderer::EnqueueImage(rollCap_, rollCapTransform_, rollCapOpacity_);
 }

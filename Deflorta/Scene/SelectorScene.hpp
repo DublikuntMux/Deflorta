@@ -22,5 +22,9 @@ public:
 
 private:
     SelectorState sceneState_ = SelectorState::Open;
-    std::unique_ptr<Reanimator> blover_;
+
+    std::unique_ptr<Reanimator> screenAnimation_;
+    std::unique_ptr<Reanimator> grassAnimation_;
+    std::unique_ptr<Reanimator> signAnimation_;
+    std::unique_ptr<Reanimator> cloudAnimation_;
 };

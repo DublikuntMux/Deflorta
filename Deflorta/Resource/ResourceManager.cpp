@@ -72,7 +72,7 @@ bool ResourceManager::EnsureReanimImage(const std::string& id)
         if (!entry.loaded)
         {
             const std::string fileNameNoExt = TokenToReanimFileName(id);
-            entry.path = (std::filesystem::path("reanim") / (fileNameNoExt)).string();
+            entry.path = (std::filesystem::path("reanim") / fileNameNoExt).string();
 
             const std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
             PngData pngData;
