@@ -24,17 +24,128 @@ enum class DrawType : std::uint8_t
 
 struct DrawItem
 {
+    struct ImageData
+    {
+        ID2D1Bitmap* bmp = nullptr;
+        D2D1_MATRIX_3X2_F t{};
+        float opacity = 1.0f;
+        ImageData() = default;
+        ImageData(ID2D1Bitmap* b, const D2D1_MATRIX_3X2_F& m, float o) : bmp(b), t(m), opacity(o) {}
+    };
+
+    struct TextData
+    {
+        std::wstring text;
+        std::wstring font;
+        D2D1_RECT_F rect{};
+        float fontSize = 0.0f;
+        D2D1_COLOR_F color{};
+        TextData() = default;
+        TextData(std::wstring tx, std::wstring ft, const D2D1_RECT_F& r, float fs, const D2D1_COLOR_F& c)
+            : text(std::move(tx)), font(std::move(ft)), rect(r), fontSize(fs), color(c) {}
+    };
+
+    union ItemData
+    {
+        ImageData image;
+        TextData text;
+        ItemData() {}
+        ~ItemData() {}
+    };
+
     int z = 0;
     size_t seq = 0;
     DrawType drawType = DrawType::Image;
-    float opacity = 1.0f;
-    ID2D1Bitmap* bmp = nullptr;
-    D2D1_MATRIX_3X2_F t{};
-    std::wstring text;
-    std::wstring font;
-    D2D1_RECT_F rect{};
-    float fontSize = 0.0f;
-    D2D1_COLOR_F color{};
+    ItemData data;
+
+    DrawItem()
+    {
+        new (&data.image) ImageData();
+    }
+
+    ~DrawItem()
+    {
+        DestroyActive();
+    }
+
+    DrawItem(const DrawItem& other)
+    {
+        z = other.z;
+        seq = other.seq;
+        drawType = other.drawType;
+        if (drawType == DrawType::Image)
+        {
+            new (&data.image) ImageData(other.data.image);
+        }
+        else
+        {
+            new (&data.text) TextData(other.data.text);
+        }
+    }
+
+    DrawItem(DrawItem&& other) noexcept
+    {
+        z = other.z;
+        seq = other.seq;
+        drawType = other.drawType;
+        if (drawType == DrawType::Image)
+        {
+            new (&data.image) ImageData(other.data.image);
+        }
+        else
+        {
+            new (&data.text) TextData(std::move(other.data.text));
+        }
+    }
+
+    DrawItem& operator=(const DrawItem& other)
+    {
+        if (this == &other) return *this;
+        DestroyActive();
+        z = other.z;
+        seq = other.seq;
+        drawType = other.drawType;
+        if (drawType == DrawType::Image)
+        {
+            new (&data.image) ImageData(other.data.image);
+        }
+        else
+        {
+            new (&data.text) TextData(other.data.text);
+        }
+        return *this;
+    }
+
+    DrawItem& operator=(DrawItem&& other) noexcept
+    {
+        if (this == &other) return *this;
+        DestroyActive();
+        z = other.z;
+        seq = other.seq;
+        drawType = other.drawType;
+        if (drawType == DrawType::Image)
+        {
+            new (&data.image) ImageData(other.data.image);
+        }
+        else
+        {
+            new (&data.text) TextData(std::move(other.data.text));
+        }
+        return *this;
+    }
+
+private:
+    void DestroyActive()
+    {
+        if (drawType == DrawType::Text)
+        {
+            data.text.~TextData();
+        }
+        else
+        {
+            data.image.~ImageData();
+        }
+    }
 };
 
 class Renderer final

@@ -64,6 +64,7 @@ void SelectorScene::Update()
     {
         sceneState_ = SelectorState::Idle;
         Discord::SetPresence("Main Menu", "Idle");
+        signAnimation_->PlayLayer("anim_sign_idle", ReanimLoopType::Loop, 3.0f, 2.0f);
     }
 
     if (cloudAnimation_->IsFinished())
