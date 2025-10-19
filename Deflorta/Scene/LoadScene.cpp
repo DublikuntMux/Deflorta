@@ -9,10 +9,11 @@
 #include "../Resource/Foley.hpp"
 #include "../Resource/TranslationManager.hpp"
 #include "../Base/Discord.hpp"
+#include "../Base/Input.hpp"
 
 namespace
 {
-    std::atomic g_LoadingDone = false;
+    std::atomic_bool g_LoadingDone = false;
 }
 
 LoadScene::LoadScene()
@@ -73,6 +74,7 @@ LoadScene::LoadScene()
 void LoadScene::OnEnter()
 {
     Discord::SetPresence("Loading", "Starting up");
+    Input::SetCursorType(IDC_WAIT);
 }
 
 void LoadScene::Update()

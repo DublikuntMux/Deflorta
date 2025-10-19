@@ -7,6 +7,7 @@
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Discord.hpp"
+#include "../Base/Input.hpp"
 
 SelectorScene::SelectorScene()
 {
@@ -49,6 +50,7 @@ SelectorScene::SelectorScene()
 void SelectorScene::OnEnter()
 {
     Discord::SetPresence("Selector: Opening", "Main Menu");
+    Input::SetCursorType(IDC_ARROW);
 }
 
 void SelectorScene::Update()

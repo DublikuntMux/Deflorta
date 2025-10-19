@@ -20,6 +20,54 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         Input::HandleKeyUp(wParam);
         break;
 
+    case WM_MOUSEMOVE:
+        Input::HandleMouseMove(lParam);
+        break;
+
+    case WM_LBUTTONDOWN:
+        Input::HandleMouseDown(VK_LBUTTON);
+        break;
+    case WM_LBUTTONUP:
+        Input::HandleMouseUp(VK_LBUTTON);
+        break;
+    case WM_RBUTTONDOWN:
+        Input::HandleMouseDown(VK_RBUTTON);
+        break;
+    case WM_RBUTTONUP:
+        Input::HandleMouseUp(VK_RBUTTON);
+        break;
+    case WM_MBUTTONDOWN:
+        Input::HandleMouseDown(VK_MBUTTON);
+        break;
+    case WM_MBUTTONUP:
+        Input::HandleMouseUp(VK_MBUTTON);
+        break;
+    case WM_XBUTTONDOWN:
+        {
+            const WORD which = HIWORD(wParam);
+            if (which == XBUTTON1) Input::HandleMouseDown(VK_XBUTTON1);
+            else if (which == XBUTTON2) Input::HandleMouseDown(VK_XBUTTON2);
+            break;
+        }
+    case WM_XBUTTONUP:
+        {
+            const WORD which = HIWORD(wParam);
+            if (which == XBUTTON1) Input::HandleMouseUp(VK_XBUTTON1);
+            else if (which == XBUTTON2) Input::HandleMouseUp(VK_XBUTTON2);
+            break;
+        }
+
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) == HTCLIENT)
+        {
+            if (Input::IsCursorVisible())
+                SetCursor(LoadCursor(nullptr, Input::GetCursorType()));
+            else
+                SetCursor(nullptr);
+            return TRUE;
+        }
+        break;
+
     case WM_SIZE:
         if (Game::IsRunning())
             Renderer::Resize(LOWORD(lParam), HIWORD(lParam));
@@ -35,7 +83,7 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
     return 0;
 }
 
-static ATOM MyRegisterClass(HINSTANCE hInstance)
+static ATOM RegisterGameClass(HINSTANCE hInstance)
 {
     const WNDCLASSEXW wcex{
         .cbSize = sizeof(WNDCLASSEX),
@@ -56,7 +104,7 @@ static ATOM MyRegisterClass(HINSTANCE hInstance)
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
-    MyRegisterClass(hInstance);
+    RegisterGameClass(hInstance);
     const HWND hWnd = CreateWindowW(L"Destolfa", L"Destolfa",
                                     WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                                     CW_USEDEFAULT, 0, 1280, 720,

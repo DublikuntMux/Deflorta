@@ -285,7 +285,8 @@ void Renderer::DrawText(const std::wstring& text,
 
     if (!brush_)
     {
-        if (FAILED(d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
+        if (FAILED(
+            d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
             return;
     }
 

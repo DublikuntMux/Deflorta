@@ -1,6 +1,15 @@
 ﻿#include "Input.hpp"
 
+#include <ranges>
+#include <Windowsx.h>
+
 std::unordered_map<WPARAM, bool> Input::keyStates_;
+
+POINT Input::mousePos_{0, 0};
+std::unordered_map<int, bool> Input::mouseButtonDown_{};
+std::unordered_map<int, bool> Input::mouseButtonPressed_{};
+LPCWSTR Input::cursorId_ = IDC_ARROW;
+bool Input::cursorVisible_ = true;
 
 void Input::HandleKeyDown(WPARAM key)
 {
@@ -15,4 +24,73 @@ void Input::HandleKeyUp(WPARAM key)
 bool Input::IsKeyPressed(WPARAM key)
 {
     return keyStates_.contains(key) && keyStates_[key];
+}
+
+void Input::HandleMouseMove(LPARAM lParam)
+{
+    mousePos_.x = GET_X_LPARAM(lParam);
+    mousePos_.y = GET_Y_LPARAM(lParam);
+}
+
+int Input::GetMouseX()
+{
+    return mousePos_.x;
+}
+
+int Input::GetMouseY()
+{
+    return mousePos_.y;
+}
+
+POINT Input::GetMousePosition()
+{
+    return mousePos_;
+}
+
+void Input::HandleMouseDown(int vkButton)
+{
+    mouseButtonDown_[vkButton] = true;
+    mouseButtonPressed_[vkButton] = true;
+}
+
+void Input::HandleMouseUp(int vkButton)
+{
+    mouseButtonDown_[vkButton] = false;
+}
+
+bool Input::IsMouseDown(int vkButton)
+{
+    return mouseButtonDown_.contains(vkButton) && mouseButtonDown_[vkButton];
+}
+
+bool Input::IsMousePressed(int vkButton)
+{
+    return mouseButtonPressed_.contains(vkButton) && mouseButtonPressed_[vkButton];
+}
+
+void Input::ResetMousePresses()
+{
+    for (auto& snd : mouseButtonPressed_ | std::views::values)
+        snd = false;
+}
+
+void Input::SetCursorType(LPCWSTR idcCursorId)
+{
+    cursorId_ = idcCursorId;
+}
+
+LPCWSTR Input::GetCursorType()
+{
+    return cursorId_;
+}
+
+void Input::ShowCursor(bool show)
+{
+    cursorVisible_ = show;
+    ::ShowCursor(show ? TRUE : FALSE);
+}
+
+bool Input::IsCursorVisible()
+{
+    return cursorVisible_;
 }

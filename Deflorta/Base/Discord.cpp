@@ -64,5 +64,5 @@ void Discord::ClearPresence()
     if (!details_.empty()) presence_.details = details_.c_str();
     presence_.startTimestamp = startTimestamp_;
     presence_.largeImageKey = "cover";
-    presence_.smallImageKey= "small";
+    presence_.smallImageKey = "small";
 }

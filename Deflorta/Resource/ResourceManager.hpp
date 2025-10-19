@@ -48,7 +48,7 @@ class ResourceManager final
 public:
     static bool LoadManifest(const std::string& manifestPath);
     static bool LoadGroup(const std::string& groupName);
-    
+
     static ID2D1Bitmap* GetImage(const std::string& id);
     static std::wstring GetFont(const std::string& id);
 
