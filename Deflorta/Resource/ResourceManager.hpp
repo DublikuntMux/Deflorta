@@ -48,12 +48,12 @@ class ResourceManager final
 public:
     static bool LoadManifest(const std::string& manifestPath);
     static bool LoadGroup(const std::string& groupName);
-
-    static std::string GetAudio(const std::string& id);
+    
     static ID2D1Bitmap* GetImage(const std::string& id);
     static std::wstring GetFont(const std::string& id);
 
-    static bool EnsureReanimImage(const std::string& id);
+    static void PreloadAudio(const std::string& id);
+    static bool PreloadReanimImage(const std::string& id);
 
 private:
     static bool LoadPngFile(const std::string& filePath, PngData& outData);

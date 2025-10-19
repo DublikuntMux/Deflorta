@@ -38,7 +38,7 @@ void Foley::Play(FoleyType type)
     if (params.sfxId.empty()) return;
 
     for (const auto& id : params.sfxId)
-        (void)ResourceManager::GetAudio(id);
+        ResourceManager::PreloadAudio(id);
 
     int chosen = 0;
     if (params.sfxId.size() == 1)

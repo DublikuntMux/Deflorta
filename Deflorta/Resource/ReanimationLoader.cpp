@@ -53,7 +53,7 @@ std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::
         {
             if (!tr.image.empty())
             {
-                ResourceManager::EnsureReanimImage(tr.image);
+                ResourceManager::PreloadReanimImage(tr.image);
             }
         }
     }

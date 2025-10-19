@@ -33,11 +33,14 @@ std::wstring ResourceManager::GetFont(const std::string& id)
 {
     std::lock_guard lock(groupsMutex_);
     auto it = fonts_.find(id);
-    if (it == fonts_.end()) return L"";
+    if (it == fonts_.end())
+    {
+        return std::wstring(id.begin(), id.end());
+    }
     return it->second;
 }
 
-bool ResourceManager::EnsureReanimImage(const std::string& id)
+bool ResourceManager::PreloadReanimImage(const std::string& id)
 {
     {
         std::lock_guard lock(groupsMutex_);
@@ -388,7 +391,7 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
     return nullptr;
 }
 
-std::string ResourceManager::GetAudio(const std::string& id)
+void ResourceManager::PreloadAudio(const std::string& id)
 {
     for (auto& group : groups_ | std::views::values)
     {
@@ -402,10 +405,9 @@ std::string ResourceManager::GetAudio(const std::string& id)
                     it->second.loaded = true;
                 }
             }
-            return (std::filesystem::path(resourceBasePath_) / it->second.path).string();
+            return;
         }
     }
-    return "";
 }
 
 std::string ResourceManager::TokenToReanimFileName(const std::string& id)

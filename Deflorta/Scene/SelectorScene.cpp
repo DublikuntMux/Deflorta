@@ -4,6 +4,7 @@
 
 #include "../Base/Random.hpp"
 #include "../Render/Reanimator.hpp"
+#include "../Resource/AudioManager.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 
 SelectorScene::SelectorScene()
@@ -22,7 +23,7 @@ SelectorScene::SelectorScene()
     {
         grassAnimation_ = std::make_unique<Reanimator>(reanim.value());
         grassAnimation_->SetPosition(0, -30);
-        grassAnimation_->PlayLayer("anim_grass", ReanimLoopType::Loop);
+        grassAnimation_->PlayLayer("anim_grass", ReanimLoopType::Loop, 6.0f);
     }
     {
         signAnimation_ = std::make_unique<Reanimator>(reanim.value());
@@ -33,12 +34,15 @@ SelectorScene::SelectorScene()
         cloudAnimation_ = std::make_unique<Reanimator>(reanim.value());
         cloudAnimation_->SetPosition(0, 0);
         const auto cloudId = Random::UniformInt(1, 6);
-        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.2f);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
         for (int i = 1; i < 7; ++i)
         {
             cloudAnimation_->SetLayerZ("Cloud" + std::to_string(i), -1);
         }
     }
+
+    AudioManager::PlayMusic("resources/sounds/mainmusic.ogg");
+    AudioManager::PlaySfx("SOUND_ROLL_IN");
 }
 
 void SelectorScene::Update()
@@ -51,7 +55,7 @@ void SelectorScene::Update()
     if (cloudAnimation_->IsFinished())
     {
         const auto cloudId = Random::UniformInt(1, 6);
-        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.2f);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
     }
 }
 
