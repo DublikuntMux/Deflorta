@@ -1,7 +1,8 @@
 {
   "dependencies": [
+    "libpng",
     "libvorbis",
     "pugixml",
-    "libpng"
+    "discord-rpc"
   ]
 }

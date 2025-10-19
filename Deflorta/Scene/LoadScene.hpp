@@ -13,6 +13,7 @@ class LoadScene final : public Scene
 public:
     LoadScene();
 
+    void OnEnter() override;
     void Update() override;
     void Render() override;
 

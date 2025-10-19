@@ -17,6 +17,7 @@ class SelectorScene final : public Scene
 public:
     SelectorScene();
 
+    void OnEnter() override;
     void Update() override;
     void Render() override;
 

@@ -6,6 +6,7 @@
 #include "../Render/Reanimator.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ReanimationLoader.hpp"
+#include "../Base/Discord.hpp"
 
 SelectorScene::SelectorScene()
 {
@@ -45,12 +46,23 @@ SelectorScene::SelectorScene()
     AudioManager::PlaySfx("SOUND_ROLL_IN");
 }
 
+void SelectorScene::OnEnter()
+{
+    Discord::SetPresence("Selector: Opening", "Main Menu");
+}
+
 void SelectorScene::Update()
 {
     screenAnimation_->Update();
     grassAnimation_->Update();
     signAnimation_->Update();
     cloudAnimation_->Update();
+
+    if (sceneState_ == SelectorState::Open && screenAnimation_->IsFinished())
+    {
+        sceneState_ = SelectorState::Idle;
+        Discord::SetPresence("Main Menu", "Idle");
+    }
 
     if (cloudAnimation_->IsFinished())
     {

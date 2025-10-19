@@ -3,6 +3,7 @@
 #include <thread>
 
 #include "Time.hpp"
+#include "Discord.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
@@ -22,10 +23,13 @@ void Game::Initialize(HWND hwnd)
         running_ = false;
     if (!ResourceManager::LoadManifest("resources/resources.xml"))
         running_ = false;
+
+    Discord::Initialize();
 }
 
 void Game::Uninitialize()
 {
+    Discord::Shutdown();
     AudioManager::Uninitialize();
     Renderer::Cleanup();
 }
@@ -45,6 +49,8 @@ void Game::Run()
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+
+        Discord::Update();
 
         if (next_scene_)
         {

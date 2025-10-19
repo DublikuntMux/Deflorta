@@ -81,6 +81,7 @@
         <Image Include="Deflorta.ico"/>
     </ItemGroup>
     <ItemGroup>
+        <ClCompile Include="Base\Discord.cpp" />
         <ClCompile Include="Base\Game.cpp"/>
         <ClCompile Include="Base\Input.cpp"/>
         <ClCompile Include="Base\Random.cpp"/>
@@ -99,6 +100,7 @@
         <ClCompile Include="Scene\SelectorScene.cpp"/>
     </ItemGroup>
     <ItemGroup>
+        <ClInclude Include="Base\Discord.hpp" />
         <ClInclude Include="Base\Game.hpp"/>
         <ClInclude Include="Base\Input.hpp"/>
         <ClInclude Include="Base\Random.hpp"/>

@@ -8,6 +8,7 @@
 #include "../Base/Transform.hpp"
 #include "../Resource/Foley.hpp"
 #include "../Resource/TranslationManager.hpp"
+#include "../Base/Discord.hpp"
 
 namespace
 {
@@ -67,6 +68,11 @@ LoadScene::LoadScene()
 
     startTween_ = std::make_unique<Tween>(props, 2.0f);
     startTween_->Start();
+}
+
+void LoadScene::OnEnter()
+{
+    Discord::SetPresence("Loading", "Starting up");
 }
 
 void LoadScene::Update()
