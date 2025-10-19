@@ -5,6 +5,7 @@
 #include <format>
 #include <optional>
 #include <algorithm>
+#include <unordered_map>
 
 #include <d2d1_1.h>
 #include <dwrite.h>
@@ -34,6 +35,38 @@ std::recursive_mutex Renderer::d2dMutex_;
 
 std::vector<DrawItem> Renderer::drawQueue_;
 size_t Renderer::submitSeq_ = 0;
+
+std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<IDWriteTextFormat>> Renderer::textFormatCache_;
+
+static std::wstring MakeFormatKey(const std::wstring& fontFamily, float fontSize)
+{
+    return fontFamily + L"|" + std::to_wstring(fontSize);
+}
+
+IDWriteTextFormat* Renderer::GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize)
+{
+    const std::wstring key = MakeFormatKey(fontFamily, fontSize);
+    auto it = textFormatCache_.find(key);
+    if (it != textFormatCache_.end())
+        return it->second.Get();
+
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
+    if (FAILED(dwFactory_->CreateTextFormat(
+        fontFamily.c_str(),
+        nullptr,
+        DWRITE_FONT_WEIGHT_NORMAL,
+        DWRITE_FONT_STYLE_NORMAL,
+        DWRITE_FONT_STRETCH_NORMAL,
+        fontSize,
+        L"en-us",
+        format.ReleaseAndGetAddressOf())))
+    {
+        return nullptr;
+    }
+
+    textFormatCache_[key] = format;
+    return textFormatCache_[key].Get();
+}
 
 bool Renderer::Initialize(HWND hwnd)
 {
@@ -187,7 +220,7 @@ void Renderer::FlushDrawQueue()
 {
     if (drawQueue_.empty()) return;
 
-    std::ranges::stable_sort(drawQueue_, [](const DrawItem& a, const DrawItem& b)
+    std::ranges::sort(drawQueue_, [](const DrawItem& a, const DrawItem& b)
     {
         if (a.z != b.z) return a.z < b.z;
         return a.seq < b.seq;
@@ -199,9 +232,6 @@ void Renderer::FlushDrawQueue()
         {
         case DrawType::Image:
             DrawImage(di.bmp, di.t, di.opacity);
-            break;
-        case DrawType::Reanim:
-            DrawReanim(di.bmp, di.t, di.opacity);
             break;
         case DrawType::Text:
             DrawTextW(di.text, di.rect, di.font, di.fontSize, di.color);
@@ -237,24 +267,11 @@ void Renderer::Cleanup()
 void Renderer::DrawImage(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& mat, float opacity)
 {
     if (!bitmap) return;
-    std::lock_guard lock(d2dMutex_);
 
-    const auto [width, height] = bitmap->GetSize();
-
-    d2dContext_->SetTransform(mat);
-    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
-    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
-}
-
-void Renderer::DrawReanim(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& mat, float opacity)
-{
-    if (!bitmap) return;
-    std::lock_guard lock(d2dMutex_);
-
-    const auto [width, height] = bitmap->GetSize();
+    const auto size = bitmap->GetSize();
 
     d2dContext_->SetTransform(mat);
-    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, width, height), opacity);
+    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height), opacity);
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
@@ -265,32 +282,24 @@ void Renderer::DrawText(const std::wstring& text,
                         const D2D1_COLOR_F& color)
 {
     if (text.empty()) return;
-    std::lock_guard lock(d2dMutex_);
 
-    Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> textBrush;
-    if (FAILED(d2dContext_->CreateSolidColorBrush(color, textBrush.ReleaseAndGetAddressOf())))
-        return;
-
-    Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
-    if (FAILED(dwFactory_->CreateTextFormat(
-        fontFamily.c_str(),
-        nullptr,
-        DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL,
-        fontSize,
-        L"en-us",
-        format.ReleaseAndGetAddressOf())))
+    if (!brush_)
     {
-        return;
+        if (FAILED(d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
+            return;
     }
+
+    IDWriteTextFormat* format = GetOrCreateTextFormat(fontFamily, fontSize);
+    if (!format) return;
+
+    brush_->SetColor(color);
 
     d2dContext_->DrawTextW(
         text.c_str(),
         static_cast<UINT32>(text.size()),
-        format.Get(),
+        format,
         layoutRect,
-        textBrush.Get());
+        brush_.Get());
 }
 
 void Renderer::EnqueueImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity, int z)
@@ -334,7 +343,7 @@ void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& tra
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    di.drawType = DrawType::Reanim;
+    di.drawType = DrawType::Image;
     di.bmp = bitmap;
     di.t = mat;
     drawQueue_.push_back(std::move(di));

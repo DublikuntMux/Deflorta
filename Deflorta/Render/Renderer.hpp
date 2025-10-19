@@ -4,6 +4,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include <d2d1_1.h>
 #include <dwrite.h>
@@ -18,7 +19,6 @@ struct ReanimatorTransform;
 enum class DrawType : std::uint8_t
 {
     Image,
-    Reanim,
     Text
 };
 
@@ -72,12 +72,13 @@ private:
     static void FlushDrawQueue();
 
     static void DrawImage(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& transform, float opacity);
-    static void DrawReanim(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& transform, float opacity);
     static void DrawTextW(const std::wstring& text,
                           const D2D1_RECT_F& layoutRect,
                           const std::wstring& fontFamily,
                           float fontSize,
                           const D2D1_COLOR_F& color);
+
+    static IDWriteTextFormat* GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize);
 
     static HWND hwnd_;
     static bool showFPS_;
@@ -97,4 +98,6 @@ private:
 
     static std::vector<DrawItem> drawQueue_;
     static size_t submitSeq_;
+
+    static std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<IDWriteTextFormat>> textFormatCache_;
 };
