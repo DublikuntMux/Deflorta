@@ -30,7 +30,10 @@ struct DrawItem
         D2D1_MATRIX_3X2_F t{};
         float opacity = 1.0f;
         ImageData() = default;
-        ImageData(ID2D1Bitmap* b, const D2D1_MATRIX_3X2_F& m, float o) : bmp(b), t(m), opacity(o) {}
+
+        ImageData(ID2D1Bitmap* b, const D2D1_MATRIX_3X2_F& m, float o) : bmp(b), t(m), opacity(o)
+        {
+        }
     };
 
     struct TextData
@@ -41,16 +44,25 @@ struct DrawItem
         float fontSize = 0.0f;
         D2D1_COLOR_F color{};
         TextData() = default;
+
         TextData(std::wstring tx, std::wstring ft, const D2D1_RECT_F& r, float fs, const D2D1_COLOR_F& c)
-            : text(std::move(tx)), font(std::move(ft)), rect(r), fontSize(fs), color(c) {}
+            : text(std::move(tx)), font(std::move(ft)), rect(r), fontSize(fs), color(c)
+        {
+        }
     };
 
     union ItemData
     {
         ImageData image;
         TextData text;
-        ItemData() {}
-        ~ItemData() {}
+
+        ItemData()
+        {
+        }
+
+        ~ItemData()
+        {
+        }
     };
 
     int z = 0;
@@ -60,7 +72,7 @@ struct DrawItem
 
     DrawItem()
     {
-        new (&data.image) ImageData();
+        new(&data.image) ImageData();
     }
 
     ~DrawItem()
@@ -75,11 +87,11 @@ struct DrawItem
         drawType = other.drawType;
         if (drawType == DrawType::Image)
         {
-            new (&data.image) ImageData(other.data.image);
+            new(&data.image) ImageData(other.data.image);
         }
         else
         {
-            new (&data.text) TextData(other.data.text);
+            new(&data.text) TextData(other.data.text);
         }
     }
 
@@ -90,11 +102,11 @@ struct DrawItem
         drawType = other.drawType;
         if (drawType == DrawType::Image)
         {
-            new (&data.image) ImageData(other.data.image);
+            new(&data.image) ImageData(other.data.image);
         }
         else
         {
-            new (&data.text) TextData(std::move(other.data.text));
+            new(&data.text) TextData(std::move(other.data.text));
         }
     }
 
@@ -107,11 +119,11 @@ struct DrawItem
         drawType = other.drawType;
         if (drawType == DrawType::Image)
         {
-            new (&data.image) ImageData(other.data.image);
+            new(&data.image) ImageData(other.data.image);
         }
         else
         {
-            new (&data.text) TextData(other.data.text);
+            new(&data.text) TextData(other.data.text);
         }
         return *this;
     }
@@ -125,11 +137,11 @@ struct DrawItem
         drawType = other.drawType;
         if (drawType == DrawType::Image)
         {
-            new (&data.image) ImageData(other.data.image);
+            new(&data.image) ImageData(other.data.image);
         }
         else
         {
-            new (&data.text) TextData(std::move(other.data.text));
+            new(&data.text) TextData(std::move(other.data.text));
         }
         return *this;
     }

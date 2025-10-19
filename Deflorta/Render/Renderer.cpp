@@ -6,7 +6,6 @@
 #include <optional>
 #include <algorithm>
 #include <unordered_map>
-#include <new>
 
 #include <d2d1_1.h>
 #include <dwrite.h>
@@ -39,9 +38,12 @@ size_t Renderer::submitSeq_ = 0;
 
 std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<IDWriteTextFormat>> Renderer::textFormatCache_;
 
-static std::wstring MakeFormatKey(const std::wstring& fontFamily, float fontSize)
+namespace
 {
-    return fontFamily + L"|" + std::to_wstring(fontSize);
+    std::wstring MakeFormatKey(const std::wstring& fontFamily, float fontSize)
+    {
+        return fontFamily + L"|" + std::to_wstring(fontSize);
+    }
 }
 
 IDWriteTextFormat* Renderer::GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize)
@@ -235,7 +237,8 @@ void Renderer::FlushDrawQueue()
             DrawImage(di.data.image.bmp, di.data.image.t, di.data.image.opacity);
             break;
         case DrawType::Text:
-            DrawTextW(di.data.text.text, di.data.text.rect, di.data.text.font, di.data.text.fontSize, di.data.text.color);
+            DrawTextW(di.data.text.text, di.data.text.rect, di.data.text.font, di.data.text.fontSize,
+                      di.data.text.color);
             break;
         }
     }
@@ -318,9 +321,8 @@ void Renderer::EnqueueImage(ID2D1Bitmap* bitmap, const Transform& transform, flo
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    // Reinitialize union as ImageData
     di.data.image.~ImageData();
-    new (&di.data.image) DrawItem::ImageData(bitmap, mat, opacity);
+    new(&di.data.image) DrawItem::ImageData(bitmap, mat, opacity);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
@@ -345,9 +347,8 @@ void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& tra
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    // Reinitialize union as ImageData
     di.data.image.~ImageData();
-    new (&di.data.image) DrawItem::ImageData(bitmap, mat, 1.0f);
+    new(&di.data.image) DrawItem::ImageData(bitmap, mat, 1.0f);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
@@ -363,9 +364,8 @@ void Renderer::EnqueueTextW(const std::wstring& text,
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    // Reinitialize union as TextData
     di.data.image.~ImageData();
-    new (&di.data.text) DrawItem::TextData(text, fontFamily, layoutRect, fontSize, color);
+    new(&di.data.text) DrawItem::TextData(text, fontFamily, layoutRect, fontSize, color);
     di.drawType = DrawType::Text;
     drawQueue_.push_back(std::move(di));
 }

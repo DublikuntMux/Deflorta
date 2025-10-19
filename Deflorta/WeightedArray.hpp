@@ -35,12 +35,22 @@ public:
         return entries_[idx].value;
     }
 
-    double totalWeight() const noexcept { return totalWeight_; }
+    [[nodiscard]] double totalWeight() const noexcept { return totalWeight_; }
 
 private:
+    void recomputePrefix()
+    {
+        prefixSums_.resize(entries_.size());
+        totalWeight_ = 0.0;
+
+        for (std::size_t i = 0; i < entries_.size(); ++i)
+        {
+            totalWeight_ += entries_[i].weight;
+            prefixSums_[i] = totalWeight_;
+        }
+    }
+
     std::vector<Entry> entries_;
     std::vector<double> prefixSums_;
     double totalWeight_ = 0.0;
-
-    void recomputePrefix();
 };
