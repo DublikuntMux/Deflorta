@@ -34,4 +34,8 @@ private:
     std::unique_ptr<ImageButton> miniGameButton_;
     std::unique_ptr<ImageButton> puzzleButton_;
     std::unique_ptr<ImageButton> survivalButton_;
+
+    std::unique_ptr<ImageButton> optionsButton_;
+    std::unique_ptr<ImageButton> helpButton_;
+    std::unique_ptr<ImageButton> quitButton_;
 };

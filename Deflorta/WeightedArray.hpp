@@ -40,7 +40,7 @@ public:
             recomputePrefix();
 
         const double r = Random::UniformDouble(0.0, totalWeight_);
-        
+
         const auto it = std::ranges::upper_bound(prefixSums_, r);
         const std::size_t idx = std::distance(prefixSums_.begin(), it);
 
@@ -49,11 +49,12 @@ public:
 
     [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
     [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
-    [[nodiscard]] double totalWeight() const noexcept 
-    { 
+
+    [[nodiscard]] double totalWeight() const noexcept
+    {
         if (needsUpdate_)
             recomputePrefix();
-        return totalWeight_; 
+        return totalWeight_;
     }
 
     void clear() noexcept

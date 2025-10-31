@@ -23,7 +23,10 @@ bool ResourceManager::LoadFont(const std::string& id, const std::string& filePat
     const std::wstring wpath = std::filesystem::path(filePath).wstring();
     const int added = AddFontResourceExW(wpath.c_str(), FR_PRIVATE, nullptr);
     if (added <= 0)
+    {
+        std::cout << "Error: Failed to load font '" << id << "' from path: " << filePath << "\n";
         return false;
+    }
 
     fonts_[id] = familyName;
     return true;
@@ -35,6 +38,7 @@ std::wstring ResourceManager::GetFont(const std::string& id)
     const auto it = fonts_.find(id);
     if (it == fonts_.end())
     {
+        std::cout << "Warning: Font '" << id << "' not found, using ID as font family name\n";
         return std::wstring(id.begin(), id.end());
     }
     return it->second;
@@ -61,6 +65,15 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
                             images_[id].Attach(bitmap);
                             it->second.loaded = true;
                         }
+                        else
+                        {
+                            std::cout << "Error: Failed to create D2D bitmap for reanim image '" << id << "'\n";
+                        }
+                    }
+                    else
+                    {
+                        std::cout << "Error: Failed to load PNG file '" << fullPath << "' for reanim image '" << id <<
+                            "'\n";
                     }
                 }
                 return images_.contains(id);
@@ -89,12 +102,12 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
                 }
                 else
                 {
-                    std::cout << "Error while create image: " << id << "\n";
+                    std::cout << "Error: Failed to create D2D bitmap for reanim image '" << id << "'\n";
                 }
             }
             else
             {
-                std::cout << "Error while load reanim image: " << fullPath << " for id " << id << "\n";
+                std::cout << "Error: Failed to load PNG file '" << fullPath << "' for reanim image '" << id << "'\n";
             }
         }
         return images_.contains(id);
@@ -105,11 +118,16 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 {
     FILE* fp = nullptr;
     fopen_s(&fp, filePath.c_str(), "rb");
-    if (!fp) return false;
+    if (!fp)
+    {
+        std::cout << "Error: Failed to open PNG file: " << filePath << "\n";
+        return false;
+    }
 
     png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png)
     {
+        std::cout << "Error: Failed to create PNG read struct for file: " << filePath << "\n";
         fclose(fp);
         return false;
     }
@@ -117,6 +135,7 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
     png_infop info = png_create_info_struct(png);
     if (!info)
     {
+        std::cout << "Error: Failed to create PNG info struct for file: " << filePath << "\n";
         png_destroy_read_struct(&png, nullptr, nullptr);
         fclose(fp);
         return false;
@@ -124,6 +143,7 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
     if (setjmp(png_jmpbuf(png)))
     {
+        std::cout << "Error: PNG reading failed for file: " << filePath << "\n";
         png_destroy_read_struct(&png, &info, nullptr);
         fclose(fp);
         return false;
@@ -215,12 +235,21 @@ bool ResourceManager::CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitm
 bool ResourceManager::LoadManifest(const std::string& manifestPath)
 {
     pugi::xml_document doc;
-    if (!doc.load_file(manifestPath.c_str())) return false;
+    if (!doc.load_file(manifestPath.c_str()))
+    {
+        std::cout << "Error: Failed to load manifest file: " << manifestPath << "\n";
+        return false;
+    }
 
     resourceBasePath_ = std::filesystem::path(manifestPath).parent_path().string();
 
     auto root = doc.child("ResourceManifest");
-    if (!root) return false;
+    if (!root)
+    {
+        std::cout << "Error: Invalid manifest format - missing 'ResourceManifest' root element in: " << manifestPath <<
+            "\n";
+        return false;
+    }
 
     for (auto groupNode : root.children("Resources"))
     {
@@ -284,7 +313,11 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
     {
         std::lock_guard lock(groupsMutex_);
         const auto itFind = groups_.find(groupName);
-        if (itFind == groups_.end()) return false;
+        if (itFind == groups_.end())
+        {
+            std::cout << "Error: Resource group '" << groupName << "' not found in manifest\n";
+            return false;
+        }
         if (itFind->second.isLoaded) return true;
     }
 
@@ -302,7 +335,7 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                 }
                 else
                 {
-                    std::cout << "Error while create audio: " << id << "\n";
+                    std::cout << "Error: Failed to load audio '" << id << "' from path: " << fullPath << "\n";
                 }
             }
         }
@@ -326,12 +359,13 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                     }
                     else
                     {
-                        std::cout << "Error while create image: " << id << "\n";
+                        std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
                     }
                 }
                 else
                 {
-                    std::cout << "Error while load image: " << id << "\n";
+                    std::cout << "Error: Failed to load PNG file for image '" << id << "' from path: " << fullPath <<
+                        "\n";
                 }
             }
         }
@@ -351,14 +385,13 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                 }
                 else
                 {
-                    std::cout << "Error while load font: " << id << "\n";
+                    std::cout << "Error: Failed to load font '" << id << "' from path: " << fullPath << "\n";
                 }
             }
         }
 
         group.isLoaded = true;
     }
-
     return true;
 }
 
@@ -372,7 +405,8 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
         {
             if (!it->second.loaded)
             {
-                const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string();
+                const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string() +
+                    ".png";
                 PngData pngData;
                 if (LoadPngFile(fullPath, pngData))
                 {
@@ -382,12 +416,27 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                         images_[id].Attach(bitmap);
                         it->second.loaded = true;
                     }
+                    else
+                    {
+                        std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
+                    }
+                }
+                else
+                {
+                    std::cout << "Error: Failed to load PNG file for image '" << id << "' from path: " << fullPath <<
+                        "\n";
                 }
             }
             const auto found = images_.find(id);
-            return found != images_.end() ? found->second.Get() : nullptr;
+            if (found == images_.end())
+            {
+                std::cout << "Error: Image '" << id << "' not found in loaded images after load attempt\n";
+                return nullptr;
+            }
+            return found->second.Get();
         }
     }
+    std::cout << "Error: Image '" << id << "' not found in any resource group\n";
     return nullptr;
 }
 
@@ -404,10 +453,15 @@ void ResourceManager::PreloadAudio(const std::string& id)
                 {
                     it->second.loaded = true;
                 }
+                else
+                {
+                    std::cout << "Error: Failed to preload audio '" << id << "' from path: " << fullPath << "\n";
+                }
             }
             return;
         }
     }
+    std::cout << "Error: Audio resource '" << id << "' not found in any resource group\n";
 }
 
 std::string ResourceManager::TokenToReanimFileName(const std::string& id)

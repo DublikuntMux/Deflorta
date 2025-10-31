@@ -21,7 +21,8 @@ public:
     void Update() override;
 
     [[nodiscard]] State GetButtonState() const;
-    void SetClickCallback(const std::function<void()>& callback);
+    void AddClickCallback(const std::function<void()>& callback);
+    void AddHoverCallback(const std::function<void()>& callback);
 
     void SetRect(float width, float height);
     void ClearRect();
@@ -32,8 +33,10 @@ public:
 
 protected:
     State state_ = State::Normal;
-    std::function<void()> clickCallback_;
+    std::vector<std::function<void()>> clickCallback_;
+    std::vector<std::function<void()>> hoverCallback_;
     bool wasPressed_ = false;
+    bool wasHovered_ = false;
     float width_ = 0.0f;
     float height_ = 0.0f;
     std::vector<D2D1_POINT_2F> polygon_;

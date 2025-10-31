@@ -60,7 +60,7 @@ void Button::Update()
         worldPolygon.reserve(polygon_.size());
         for (const auto& point : polygon_)
         {
-            worldPolygon.push_back({point.x + x_, point.y + y_});
+            worldPolygon.push_back({.x = point.x + x_, .y = point.y + y_});
         }
         mouseOver = PointInPolygon(floatX, floatY, worldPolygon);
     }
@@ -82,9 +82,16 @@ void Button::Update()
             state_ = State::Hovered;
             if (wasPressed_)
             {
-                if (clickCallback_)
+                for (const auto& callback : clickCallback_)
                 {
-                    clickCallback_();
+                    callback();
+                }
+            }
+            if (!wasHovered_)
+            {
+                for (const auto& callback : hoverCallback_)
+                {
+                    callback();
                 }
             }
         }
@@ -95,6 +102,7 @@ void Button::Update()
     }
 
     wasPressed_ = state_ == State::Pressed;
+    wasHovered_ = mouseOver;
 }
 
 Button::State Button::GetButtonState() const
@@ -102,9 +110,14 @@ Button::State Button::GetButtonState() const
     return state_;
 }
 
-void Button::SetClickCallback(const std::function<void()>& callback)
+void Button::AddClickCallback(const std::function<void()>& callback)
 {
-    clickCallback_ = callback;
+    clickCallback_.push_back(callback);
+}
+
+void Button::AddHoverCallback(const std::function<void()>& callback)
+{
+    hoverCallback_.push_back(callback);
 }
 
 void Button::SetPolygon(const std::vector<D2D1_POINT_2F>& polygon)

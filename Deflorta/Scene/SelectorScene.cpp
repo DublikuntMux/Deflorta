@@ -8,10 +8,24 @@
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Discord.hpp"
 #include "../Base/Input.hpp"
+#include "../Resource/Foley.hpp"
 #include "../Resource/ResourceManager.hpp"
 
 SelectorScene::SelectorScene()
 {
+    auto onPressGrave = []
+    {
+        AudioManager::PlaySfx("SOUND_GRAVEBUTTON");
+    };
+    auto onPress = []
+    {
+        AudioManager::PlaySfx("SOUND_TAP");
+    };
+    auto onHover = []
+    {
+        Foley::Play(FoleyType::Bleep);
+    };
+
     {
         const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/SelectorScreen.xml");
         if (!reanim.has_value())
@@ -51,7 +65,8 @@ SelectorScene::SelectorScene()
             D2D_POINT_2F{314.0f, 125.0f},
             D2D_POINT_2F{1.0f, 78.0f},
         });
-        screenAnimation_->SetLayerVisible("SelectorScreen_Adventure_shadow", false);
+        startButton_->AddHoverCallback(onHover);
+        startButton_->AddClickCallback(onPressGrave);
     }
 
     {
@@ -64,6 +79,8 @@ SelectorScene::SelectorScene()
             D2D_POINT_2F{257.0f, 124.0f},
             D2D_POINT_2F{7.0f, 57.0f},
         });
+        miniGameButton_->AddHoverCallback(onHover);
+        miniGameButton_->AddClickCallback(onPressGrave);
     }
 
     {
@@ -76,6 +93,8 @@ SelectorScene::SelectorScene()
             D2D_POINT_2F{268.0f, 121.0f},
             D2D_POINT_2F{3.0f, 60.0f},
         });
+        puzzleButton_->AddHoverCallback(onHover);
+        puzzleButton_->AddClickCallback(onPressGrave);
     }
 
     {
@@ -88,6 +107,32 @@ SelectorScene::SelectorScene()
             D2D_POINT_2F{257.0f, 124.0f},
             D2D_POINT_2F{7.0f, 57.0f},
         });
+        survivalButton_->AddHoverCallback(onHover);
+        survivalButton_->AddClickCallback(onPressGrave);
+    }
+
+    {
+        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_OPTIONS_BUTTON");
+        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_OPTIONS_HIGHLIGHT");
+        optionsButton_ = std::make_unique<ImageButton>(button, highlight, 813.0f, 470.0f, 81.0f, 31.0f);
+        optionsButton_->AddHoverCallback(onHover);
+        optionsButton_->AddClickCallback(onPress);
+    }
+
+    {
+        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_HELP_BUTTON");
+        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_HELP_HIGHLIGHT");
+        helpButton_ = std::make_unique<ImageButton>(button, highlight, 895.0f, 505.0f, 48.0f, 22.0f);
+        helpButton_->AddHoverCallback(onHover);
+        helpButton_->AddClickCallback(onPress);
+    }
+
+    {
+        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_QUIT_BUTTON");
+        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_QUIT_HIGHLIGHT");
+        quitButton_ = std::make_unique<ImageButton>(button, highlight, 970.0f, 490.0f, 57.0f, 27.0f);
+        quitButton_->AddHoverCallback(onHover);
+        quitButton_->AddClickCallback(onPress);
     }
 
     AudioManager::PlayMusic("resources/sounds/mainmusic.ogg");
@@ -124,6 +169,10 @@ void SelectorScene::Update()
     miniGameButton_->Update();
     puzzleButton_->Update();
     survivalButton_->Update();
+
+    optionsButton_->Update();
+    helpButton_->Update();
+    quitButton_->Update();
 }
 
 void SelectorScene::Render()
@@ -137,4 +186,8 @@ void SelectorScene::Render()
     miniGameButton_->Render();
     puzzleButton_->Render();
     survivalButton_->Render();
+
+    optionsButton_->Render();
+    helpButton_->Render();
+    quitButton_->Render();
 }

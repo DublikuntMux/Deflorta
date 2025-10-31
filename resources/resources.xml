@@ -69,12 +69,12 @@
         <Image id="OPTIONS_SLIDERKNOB_PLANT" path="options_sliderknob_plant" />
         <Image id="OPTIONS_SLIDERSLOT_PLANT" path="options_sliderslot_plant" />
         <Image id="CHALLENGE_SLIDERSLOT" path="challenge_sliderslot" />
-        <Image id="SELECTORSCREEN_HELP1" path="SelectorScreen_Help1" />
-        <Image id="SELECTORSCREEN_HELP2" path="SelectorScreen_Help2" />
-        <Image id="SELECTORSCREEN_OPTIONS1" path="SelectorScreen_Options1" />
-        <Image id="SELECTORSCREEN_OPTIONS2" path="SelectorScreen_Options2" />
-        <Image id="SELECTORSCREEN_QUIT1" path="SelectorScreen_Quit1" />
-        <Image id="SELECTORSCREEN_QUIT2" path="SelectorScreen_Quit2" />
+        <Image id="SELECTORSCREEN_HELP_BUTTON" path="SelectorScreen_Help_Button" />
+        <Image id="SELECTORSCREEN_HELP_HIGHLIGHT" path="SelectorScreen_Help_Highlight" />
+        <Image id="SELECTORSCREEN_OPTIONS_BUTTON" path="SelectorScreen_Options_Button" />
+        <Image id="SELECTORSCREEN_OPTIONS_HIGHLIGHT" path="SelectorScreen_Options_Highlight" />
+        <Image id="SELECTORSCREEN_QUIT_BUTTON" path="SelectorScreen_Quit_Button" />
+        <Image id="SELECTORSCREEN_QUIT_HIGHLIGHT" path="SelectorScreen_Quit_Highlight" />
         <Image id="SELECTORSCREEN_ALMANAC" path="SelectorScreen_Almanac" />
         <Image id="SELECTORSCREEN_ALMANACHIGHLIGHT" path="SelectorScreen_AlmanacHighlight" />
         <Image id="SELECTORSCREEN_STORE" path="SelectorScreen_Store" />
