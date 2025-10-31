@@ -3,6 +3,7 @@
 #include <thread>
 
 #include "Time.hpp"
+#include "Input.hpp"
 #include "Discord.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
@@ -60,12 +61,14 @@ void Game::Run()
         }
 
         Time::Tick();
+        Input::BeginCursorUpdate();
         Renderer::BeginFrame();
         if (scene_)
         {
             scene_->Update();
             scene_->Render();
         }
+        Input::EndCursorUpdate();
         Renderer::Render();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));

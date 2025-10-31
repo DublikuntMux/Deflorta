@@ -2,7 +2,9 @@
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <numeric>
+#include <stdexcept>
 
 #include "Base/Random.hpp"
 
@@ -20,7 +22,13 @@ public:
     {
         if (weight <= 0.0) return;
         entries_.push_back({value, weight});
-        recomputePrefix();
+        needsUpdate_ = true;
+    }
+
+    void reserve(std::size_t capacity)
+    {
+        entries_.reserve(capacity);
+        prefixSums_.reserve(capacity);
     }
 
     const T& pick() const
@@ -28,17 +36,36 @@ public:
         if (entries_.empty())
             throw std::runtime_error("WeightedArray is empty!");
 
+        if (needsUpdate_)
+            recomputePrefix();
+
         const double r = Random::UniformDouble(0.0, totalWeight_);
+        
         const auto it = std::ranges::upper_bound(prefixSums_, r);
-        std::size_t idx = std::distance(prefixSums_.begin(), it);
+        const std::size_t idx = std::distance(prefixSums_.begin(), it);
 
         return entries_[idx].value;
     }
 
-    [[nodiscard]] double totalWeight() const noexcept { return totalWeight_; }
+    [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
+    [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
+    [[nodiscard]] double totalWeight() const noexcept 
+    { 
+        if (needsUpdate_)
+            recomputePrefix();
+        return totalWeight_; 
+    }
+
+    void clear() noexcept
+    {
+        entries_.clear();
+        prefixSums_.clear();
+        totalWeight_ = 0.0;
+        needsUpdate_ = false;
+    }
 
 private:
-    void recomputePrefix()
+    void recomputePrefix() const
     {
         prefixSums_.resize(entries_.size());
         totalWeight_ = 0.0;
@@ -48,9 +75,11 @@ private:
             totalWeight_ += entries_[i].weight;
             prefixSums_[i] = totalWeight_;
         }
+        needsUpdate_ = false;
     }
 
     std::vector<Entry> entries_;
-    std::vector<double> prefixSums_;
-    double totalWeight_ = 0.0;
+    mutable std::vector<double> prefixSums_;
+    mutable double totalWeight_ = 0.0;
+    mutable bool needsUpdate_ = false;
 };

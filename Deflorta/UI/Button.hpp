@@ -30,9 +30,6 @@ public:
     void ClearPolygon();
     [[nodiscard]] bool HasPolygon() const;
 
-    static void SetDebugDrawEnabled(bool enabled);
-    static bool IsDebugDrawEnabled();
-
 protected:
     State state_ = State::Normal;
     std::function<void()> clickCallback_;

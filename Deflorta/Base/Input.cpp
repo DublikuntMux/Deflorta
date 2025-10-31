@@ -9,7 +9,10 @@ POINT Input::mousePos_{0, 0};
 std::unordered_map<int, bool> Input::mouseButtonDown_{};
 std::unordered_map<int, bool> Input::mouseButtonPressed_{};
 LPCWSTR Input::cursorId_ = IDC_ARROW;
+LPCWSTR Input::requestedCursorId_ = IDC_ARROW;
+LPCWSTR Input::activeCursorId_ = IDC_ARROW;
 bool Input::cursorVisible_ = true;
+bool Input::cursorNeedsUpdate_ = false;
 
 void Input::HandleKeyDown(WPARAM key)
 {
@@ -76,7 +79,7 @@ void Input::ResetMousePresses()
 
 void Input::SetCursorType(LPCWSTR idcCursorId)
 {
-    cursorId_ = idcCursorId;
+    requestedCursorId_ = idcCursorId;
 }
 
 LPCWSTR Input::GetCursorType()
@@ -93,4 +96,31 @@ void Input::ShowCursor(bool show)
 bool Input::IsCursorVisible()
 {
     return cursorVisible_;
+}
+
+void Input::BeginCursorUpdate()
+{
+    requestedCursorId_ = IDC_ARROW;
+}
+
+void Input::EndCursorUpdate()
+{
+    if (requestedCursorId_ != cursorId_)
+    {
+        cursorId_ = requestedCursorId_;
+        cursorNeedsUpdate_ = true;
+    }
+}
+
+void Input::UpdateCursor()
+{
+    if (cursorNeedsUpdate_)
+    {
+        if (cursorVisible_)
+            SetCursor(LoadCursor(nullptr, cursorId_));
+        else
+            SetCursor(nullptr);
+        activeCursorId_ = cursorId_;
+        cursorNeedsUpdate_ = false;
+    }
 }

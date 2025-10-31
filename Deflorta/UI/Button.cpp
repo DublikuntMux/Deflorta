@@ -5,8 +5,6 @@
 
 #include <cmath>
 
-static bool g_ButtonDebugEnabled = false;
-
 namespace
 {
     bool IsPointOnSegment(float x, float y, const D2D1_POINT_2F& a, const D2D1_POINT_2F& b)
@@ -94,7 +92,6 @@ void Button::Update()
     else
     {
         state_ = State::Normal;
-        Input::SetCursorType(IDC_ARROW);
     }
 
     wasPressed_ = state_ == State::Pressed;
@@ -135,14 +132,4 @@ void Button::ClearRect()
 {
     width_ = 0.0f;
     height_ = 0.0f;
-}
-
-void Button::SetDebugDrawEnabled(bool enabled)
-{
-    g_ButtonDebugEnabled = enabled;
-}
-
-bool Button::IsDebugDrawEnabled()
-{
-    return g_ButtonDebugEnabled;
 }

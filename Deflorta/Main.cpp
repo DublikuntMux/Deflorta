@@ -15,8 +15,6 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         Input::HandleKeyDown(wParam);
         if (wParam == VK_F1 && Game::IsRunning())
             Renderer::ToggleFPS();
-        else if (wParam == VK_F2 && Game::IsRunning())
-            Button::SetDebugDrawEnabled(true);
         break;
 
     case WM_KEYUP:
@@ -47,26 +45,25 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         break;
     case WM_XBUTTONDOWN:
         {
-            const WORD which = HIWORD(wParam);
-            if (which == XBUTTON1) Input::HandleMouseDown(VK_XBUTTON1);
-            else if (which == XBUTTON2) Input::HandleMouseDown(VK_XBUTTON2);
-            break;
+            if (const WORD which = HIWORD(wParam); which == XBUTTON1) 
+                Input::HandleMouseDown(VK_XBUTTON1);
+            else if (which == XBUTTON2) 
+                Input::HandleMouseDown(VK_XBUTTON2);
+            return TRUE;
         }
     case WM_XBUTTONUP:
         {
-            const WORD which = HIWORD(wParam);
-            if (which == XBUTTON1) Input::HandleMouseUp(VK_XBUTTON1);
-            else if (which == XBUTTON2) Input::HandleMouseUp(VK_XBUTTON2);
-            break;
+            if (const WORD which = HIWORD(wParam); which == XBUTTON1) 
+                Input::HandleMouseUp(VK_XBUTTON1);
+            else if (which == XBUTTON2) 
+                Input::HandleMouseUp(VK_XBUTTON2);
+            return TRUE;
         }
 
     case WM_SETCURSOR:
         if (LOWORD(lParam) == HTCLIENT)
         {
-            if (Input::IsCursorVisible())
-                SetCursor(LoadCursor(nullptr, Input::GetCursorType()));
-            else
-                SetCursor(nullptr);
+            Input::UpdateCursor();
             return TRUE;
         }
         break;
@@ -86,6 +83,11 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
     return 0;
 }
 
+static constexpr wchar_t WINDOW_CLASS_NAME[] = L"Deflorta";
+static constexpr wchar_t WINDOW_TITLE[] = L"Deflorta";
+static constexpr int WINDOW_WIDTH = 1280;
+static constexpr int WINDOW_HEIGHT = 720;
+
 static ATOM RegisterGameClass(HINSTANCE hInstance)
 {
     const WNDCLASSEXW wcex{
@@ -99,7 +101,7 @@ static ATOM RegisterGameClass(HINSTANCE hInstance)
         .hCursor = LoadCursor(nullptr, IDC_ARROW),
         .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
         .lpszMenuName = nullptr,
-        .lpszClassName = L"Destolfa",
+        .lpszClassName = WINDOW_CLASS_NAME,
         .hIconSm = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_SMALL))
     };
     return RegisterClassExW(&wcex);
@@ -107,14 +109,17 @@ static ATOM RegisterGameClass(HINSTANCE hInstance)
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
-    RegisterGameClass(hInstance);
-    const HWND hWnd = CreateWindowW(L"Destolfa", L"Destolfa",
+    if (!RegisterGameClass(hInstance))
+        return FALSE;
+
+    const HWND hWnd = CreateWindowW(WINDOW_CLASS_NAME, WINDOW_TITLE,
                                     WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-                                    CW_USEDEFAULT, 0, 1280, 720,
+                                    CW_USEDEFAULT, 0, WINDOW_WIDTH, WINDOW_HEIGHT,
                                     nullptr, nullptr, hInstance, nullptr);
 
     if (!hWnd) return FALSE;
     ShowWindow(hWnd, nCmdShow);
+    UpdateWindow(hWnd);
 
     Game::Initialize(hWnd);
     Game::SetScene<LoadScene>();

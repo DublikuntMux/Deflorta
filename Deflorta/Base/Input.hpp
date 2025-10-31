@@ -27,6 +27,10 @@ public:
     static void ShowCursor(bool show);
     static bool IsCursorVisible();
 
+    static void BeginCursorUpdate();
+    static void EndCursorUpdate();
+    static void UpdateCursor();
+
 private:
     static std::unordered_map<WPARAM, bool> keyStates_;
 
@@ -34,5 +38,8 @@ private:
     static std::unordered_map<int, bool> mouseButtonDown_;
     static std::unordered_map<int, bool> mouseButtonPressed_;
     static LPCWSTR cursorId_;
+    static LPCWSTR requestedCursorId_;
+    static LPCWSTR activeCursorId_;
     static bool cursorVisible_;
+    static bool cursorNeedsUpdate_;
 };
