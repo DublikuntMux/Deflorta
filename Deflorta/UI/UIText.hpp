@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include <d2d1.h>
+
 #include "Widget.hpp"
 
 class UIText : public Widget
@@ -12,7 +14,10 @@ public:
         std::wstring font,
         float size,
         const D2D1_COLOR_F& color,
-        const D2D1_RECT_F& rect
+        float x,
+        float y,
+        float width,
+        float height
     );
 
     void Render() override;
@@ -33,5 +38,7 @@ private:
     std::wstring text_;
     std::wstring font_;
     float size_;
+    float width_;
+    float height_;
     D2D1_COLOR_F color_;
 };

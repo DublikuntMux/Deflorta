@@ -79,7 +79,6 @@
         <Image id="SELECTORSCREEN_ALMANACHIGHLIGHT" path="SelectorScreen_AlmanacHighlight" />
         <Image id="SELECTORSCREEN_STORE" path="SelectorScreen_Store" />
         <Image id="SELECTORSCREEN_STOREHIGHLIGHT" path="SelectorScreen_StoreHighlight" />
-        <Image id="SELECTORSCREEN_LEVELNUMBERS" path="SelectorScreen_LevelNumbers" cols="10" />
         <Image id="SELECTORSCREEN_ZENGARDEN" path="SelectorScreen_ZenGarden" />
         <Image id="ACHIEVEMENT_BUTTON" path="Achievements_pedestal" />
         <Image id="ACHIEVEMENT_HIGHLIGHT" path="Achievements_pedestal_press" />
@@ -351,24 +350,20 @@
         <Image id="ZOMBIE_SNORKLE_HEAD" path="Zombie_snorkle_head" />
         <Image id="SELECTORSCREEN_ADVENTURE_BUTTON" path="SelectorScreen_Adventure_button" />
         <Image id="SELECTORSCREEN_ADVENTURE_HIGHLIGHT" path="SelectorScreen_Adventure_Highlight" />
-        <Image id="SELECTORSCREEN_STARTADVENTURE_BUTTON"
-               path="SelectorScreen_StartAdventure_Button1" />
-        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT"
-               path="SelectorScreen_StartAdventure_Highlight" />
+        <Image id="SELECTORSCREEN_STARTADVENTURE_BUTTON" path="SelectorScreen_StartAdventure_button" />
+        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT" path="SelectorScreen_StartAdventure_Highlight" />
+        <Image id="SELECTORSCREEN_MINIGAME_BUTTON" path="SelectorScreen_MiniGame_button" />
+        <Image id="SELECTORSCREEN_MINIGAME_HIGHLIGHT" path="SelectorScreen_MiniGame_Highlight" />
+        <Image id="SELECTORSCREEN_PUZZLE_BUTTON" path="SelectorScreen_Puzzle_button" />
+        <Image id="SELECTORSCREEN_PUZZLE_HIGHLIGHT" path="SelectorScreen_Puzzle_Highlight" />
         <Image id="SELECTORSCREEN_SURVIVAL_BUTTON" path="SelectorScreen_Survival_button" />
         <Image id="SELECTORSCREEN_SURVIVAL_HIGHLIGHT" path="SelectorScreen_Survival_Highlight" />
-        <Image id="SELECTORSCREEN_CHALLENGES_BUTTON" path="SelectorScreen_Challenges_button" />
-        <Image id="SELECTORSCREEN_CHALLENGES_HIGHLIGHT"
-               path="SelectorScreen_Challenges_Highlight" />
-        <Image id="SELECTORSCREEN_VASEBREAKER_BUTTON" path="SelectorScreen_Vasebreaker_button" />
-        <Image id="SELECTORSCREEN_VASEBREAKER_HIGHLIGHT"
-               path="SelectorScreen_Vasebreaker_Highlight" />
         <Image id="SELECTORSCREEN_WOODSIGN2_PRESS" path="SelectorScreen_WoodSign2_press" />
         <Image id="SELECTORSCREEN_WOODSIGN3_PRESS" path="SelectorScreen_WoodSign3_press" />
-        <Image id="SELECTORSCREEN_BG" path="SelectorScreen_BG" a8r8g8b8="" />
+        <Image id="SELECTORSCREEN_BG" path="SelectorScreen_BG" />
         <Image id="SELECTORSCREEN_ALMANAC_SHADOW" path="Selectorscreen_almanac_shadow" />
         <Image id="SELECTORSCREEN_KEY_SHADOW" path="Selectorscreen_key_shadow" />
-        <Image id="TREE_BG" path="tree_bg" a8r8g8b8="" />
+        <Image id="TREE_BG" path="tree_bg" />
         <Image id="POT_TOP_DARK" path="Pot_top_dark" />
         <Image id="ZENGARDEN_BUGSPRAY_BOTTLE" path="ZenGarden_bugspray_bottle" />
         <Image id="STINKY_TURN3" path="Stinky_turn3" />
@@ -556,34 +551,34 @@
     </Resources>
     <Resources id="DelayLoad_Background1">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND1" path="background1" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND1" path="background1" ddsurface="" />
         <Image id="BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY"
                path="background1_gameover_interior_overlay" />
         <Image id="BACKGROUND1_GAMEOVER_MASK" path="background1_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_BackgroundUnsodded">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND1UNSODDED" path="background1unsodded" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND1UNSODDED" path="background1unsodded" ddsurface="" />
         <Image id="SOD1ROW" path="sod1row" ddsurface="" />
         <Image id="SOD3ROW" path="sod3row" ddsurface="" />
     </Resources>
     <Resources id="DelayLoad_Background2">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND2" path="background2" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND2" path="background2" ddsurface="" />
         <Image id="BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY"
                path="background2_gameover_interior_overlay" />
         <Image id="BACKGROUND2_GAMEOVER_MASK" path="background2_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background3">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND3" path="background3" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND3" path="background3" ddsurface="" />
         <Image id="BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY"
                path="background3_gameover_interior_overlay" />
         <Image id="BACKGROUND3_GAMEOVER_MASK" path="background3_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background4">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND4" path="background4" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND4" path="background4" ddsurface="" />
         <Image id="BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY"
                path="background4_gameover_interior_overlay" />
         <Image id="BACKGROUND4_GAMEOVER_MASK" path="background4_gameover_mask" />
@@ -591,12 +586,12 @@
     </Resources>
     <Resources id="DelayLoad_Background5">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND5" path="background5" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND5" path="background5" ddsurface="" />
         <Image id="BACKGROUND5_GAMEOVER_MASK" path="background5_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background6">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND6BOSS" path="background6boss" ddsurface="" a8r8g8b8="" />
+        <Image id="BACKGROUND6BOSS" path="background6boss" ddsurface="" />
         <Image id="BACKGROUND6_GAMEOVER_MASK" path="background6_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_MushroomGarden">
@@ -613,7 +608,7 @@
     </Resources>
     <Resources id="DelayLoad_Zombiquarium">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="AQUARIUM1" path="aquarium1" a8r8g8b8="" />
+        <Image id="AQUARIUM1" path="aquarium1" />
         <Image id="WAVECENTER" path="wavecenter" rows="12" />
         <Image id="WAVESIDE" path="waveside" rows="12" />
     </Resources>
@@ -622,12 +617,12 @@
     </Resources>
     <Resources id="DelayLoad_AwardScreen">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="AWARDSCREEN_BACK" path="AwardScreen_Back" a8r8g8b8="" />
+        <Image id="AWARDSCREEN_BACK" path="AwardScreen_Back" />
         <Image id="ACHIEVEMENTS_PORTRAITS" path="acheesements_icons" cols="21" />
     </Resources>
     <Resources id="DelayLoad_ChallengeScreen">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="CHALLENGE_BACKGROUND" path="Challenge_Background" a8r8g8b8="" />
+        <Image id="CHALLENGE_BACKGROUND" path="Challenge_Background" />
         <Image id="CHALLENGE_WINDOW" path="Challenge_Window" />
         <Image id="CHALLENGE_WINDOW_HIGHLIGHT" path="Challenge_Window_Highlight" />
         <Image id="CHALLENGE_BLANK" path="Challenge_Blank" />
@@ -639,12 +634,12 @@
     <Resources id="DelayLoad_Achievements">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="ACHIEVEMENT_TILE" path="acheesements_hole_tile" />
-        <Image id="ACHIEVEMENT_BACK_GLOW" path="acheesements_back_highlight" a8r8g8b8="" />
+        <Image id="ACHIEVEMENT_BACK_GLOW" path="acheesements_back_highlight" />
         <Image id="ACHIEVEMENT_SELECTOR_TILE" path="selectorscreen_achievements_bg" />
         <Image id="ACHIEVEMENT_TILE_CHINA" path="acheesements_china" />
         <Image id="ACHIEVEMENT_MORE" path="acheesements_more_button" />
         <Image id="ACHIEVEMENT_MORE_HIGHLIGHT" path="acheesements_more_button_highlight"
-               a8r8g8b8="" />
+               />
         <Image id="ACHIEVEMENT_TOP" path="acheesements_top_button" />
         <Image id="ACHIEVEMENT_TOP_HIGHLIGHT" path="acheesements_top_button_highlight" />
         <Image id="ACHIEVEMENT_ROCK" path="acheesements_more_rock" />
@@ -667,7 +662,7 @@
     </Resources>
     <Resources id="DelayLoad_Almanac">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="ALMANAC_INDEXBACK" path="Almanac_IndexBack" a8r8g8b8="" />
+        <Image id="ALMANAC_INDEXBACK" path="Almanac_IndexBack" />
         <Image id="ALMANAC_PLANTBACK" path="Almanac_PlantBack" />
         <Image id="ALMANAC_ZOMBIEBACK" path="Almanac_ZombieBack" />
         <Image id="ALMANAC_PLANTCARD" path="Almanac_PlantCard" />

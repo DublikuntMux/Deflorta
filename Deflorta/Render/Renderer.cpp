@@ -49,7 +49,7 @@ namespace
 IDWriteTextFormat* Renderer::GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize)
 {
     const std::wstring key = MakeFormatKey(fontFamily, fontSize);
-    auto it = textFormatCache_.find(key);
+    const auto it = textFormatCache_.find(key);
     if (it != textFormatCache_.end())
         return it->second.Get();
 

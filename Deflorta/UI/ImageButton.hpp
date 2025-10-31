@@ -8,7 +8,10 @@ public:
     ImageButton(
         ID2D1Bitmap* normalImage,
         ID2D1Bitmap* hoverImage,
-        const D2D1_RECT_F& rect
+        float x = 0.0f,
+        float y = 0.0f,
+        float width = 0.0f,
+        float height = 0.0f
     );
 
     void Render() override;

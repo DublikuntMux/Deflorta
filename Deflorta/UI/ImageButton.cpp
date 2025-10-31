@@ -4,9 +4,13 @@
 #include "../Render/Renderer.hpp"
 
 ImageButton::ImageButton(ID2D1Bitmap* normalImage, ID2D1Bitmap* hoverImage,
-                         const D2D1_RECT_F& rect) : normalImage_(normalImage), hoverImage_(hoverImage)
+                         float x, float y, float width, float height)
+    : normalImage_(normalImage), hoverImage_(hoverImage)
 {
-    rect_ = rect;
+    x_ = x;
+    y_ = y;
+    width_ = width;
+    height_ = height;
 }
 
 void ImageButton::Render()
@@ -18,8 +22,8 @@ void ImageButton::Render()
                                             : normalImage_)
         {
             Transform transform;
-            transform.x = rect_.left;
-            transform.y = rect_.top;
+            transform.x = x_;
+            transform.y = y_;
             Renderer::EnqueueImage(currentImage, transform, 1.0f, zOrder_);
         }
     }

@@ -13,7 +13,10 @@ public:
         float size,
         const D2D1_COLOR_F& normalColor,
         const D2D1_COLOR_F& hoverColor,
-        const D2D1_RECT_F& rect
+        float x = 0.0f,
+        float y = 0.0f,
+        float width = 0.0f,
+        float height = 0.0f
     );
 
     void Render() override;

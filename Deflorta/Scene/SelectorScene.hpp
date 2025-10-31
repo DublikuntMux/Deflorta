@@ -5,6 +5,7 @@
 
 #include "Scene.hpp"
 #include "../Render/Reanimator.hpp"
+#include "../UI/ImageButton.hpp"
 
 enum class SelectorState: std::uint8_t
 {
@@ -28,4 +29,9 @@ private:
     std::unique_ptr<Reanimator> grassAnimation_;
     std::unique_ptr<Reanimator> signAnimation_;
     std::unique_ptr<Reanimator> cloudAnimation_;
+
+    std::unique_ptr<ImageButton> startButton_;
+    std::unique_ptr<ImageButton> miniGameButton_;
+    std::unique_ptr<ImageButton> puzzleButton_;
+    std::unique_ptr<ImageButton> survivalButton_;
 };

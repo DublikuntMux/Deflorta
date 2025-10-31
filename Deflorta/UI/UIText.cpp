@@ -3,16 +3,19 @@
 #include "../Render/Renderer.hpp"
 
 UIText::UIText(std::wstring text, std::wstring font, float size, const D2D1_COLOR_F& color,
-               const D2D1_RECT_F& rect) : text_(std::move(text)), font_(std::move(font)), size_(size), color_(color)
+               float x, float y, float width, float height)
+    : text_(std::move(text)), font_(std::move(font)), size_(size), width_(width), height_(height), color_(color)
 {
-    rect_ = rect;
+    x_ = x;
+    y_ = y;
 }
 
 void UIText::Render()
 {
     if (visible_)
     {
-        Renderer::EnqueueTextW(text_, rect_, font_, size_, color_, zOrder_);
+        const D2D1_RECT_F rect = D2D1::RectF(x_, y_, x_ + width_, y_ + height_);
+        Renderer::EnqueueTextW(text_, rect, font_, size_, color_, zOrder_);
     }
 }
 

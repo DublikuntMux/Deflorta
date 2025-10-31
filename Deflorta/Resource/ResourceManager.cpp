@@ -32,7 +32,7 @@ bool ResourceManager::LoadFont(const std::string& id, const std::string& filePat
 std::wstring ResourceManager::GetFont(const std::string& id)
 {
     std::lock_guard lock(groupsMutex_);
-    auto it = fonts_.find(id);
+    const auto it = fonts_.find(id);
     if (it == fonts_.end())
     {
         return std::wstring(id.begin(), id.end());
@@ -134,8 +134,8 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
 
     outData.width = png_get_image_width(png, info);
     outData.height = png_get_image_height(png, info);
-    png_byte color_type = png_get_color_type(png, info);
-    png_byte bit_depth = png_get_bit_depth(png, info);
+    const png_byte color_type = png_get_color_type(png, info);
+    const png_byte bit_depth = png_get_bit_depth(png, info);
 
     if (bit_depth == 16)
         png_set_strip_16(png);
@@ -176,7 +176,7 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
     for (size_t i = 0; i < pixelCount; ++i)
     {
         uint8_t* p = &pixels[i * 4];
-        uint8_t a = p[3];
+        const uint8_t a = p[3];
         if (a == 0)
         {
             p[0] = p[1] = p[2] = 0;
@@ -419,7 +419,7 @@ std::string ResourceManager::TokenToReanimFileName(const std::string& id)
 
     std::vector<std::string> parts;
     std::string cur;
-    for (char c : token)
+    for (const char c : token)
     {
         if (c == '_')
         {

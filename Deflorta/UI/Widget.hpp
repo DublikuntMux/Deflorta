@@ -1,7 +1,5 @@
 #pragma once
 
-#include <d2d1.h>
-
 class Widget
 {
 public:
@@ -14,8 +12,13 @@ public:
 
     virtual void Render() = 0;
 
-    [[nodiscard]] D2D1_RECT_F GetReact() const;
-    void SetRect(const D2D1_RECT_F& rect);
+    [[nodiscard]] float GetX() const;
+    void SetX(float x);
+
+    [[nodiscard]] float GetY() const;
+    void SetY(float y);
+
+    void SetPosition(float x, float y);
 
     [[nodiscard]] int GetZ() const;
     void SetZ(int z);
@@ -24,7 +27,8 @@ public:
     void SetVisible(bool visible);
 
 protected:
-    D2D1_RECT_F rect_{};
+    float x_ = 0.0f;
+    float y_ = 0.0f;
     int zOrder_ = 0;
     bool visible_ = true;
 };

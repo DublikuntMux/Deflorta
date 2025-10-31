@@ -5,6 +5,7 @@
 #include "resource.h"
 #include "Render/Renderer.hpp"
 #include "Scene/LoadScene.hpp"
+#include "UI/Button.hpp"
 
 static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -14,6 +15,8 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM l
         Input::HandleKeyDown(wParam);
         if (wParam == VK_F1 && Game::IsRunning())
             Renderer::ToggleFPS();
+        else if (wParam == VK_F2 && Game::IsRunning())
+            Button::SetDebugDrawEnabled(true);
         break;
 
     case WM_KEYUP:

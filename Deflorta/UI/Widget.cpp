@@ -1,13 +1,29 @@
 ﻿#include "Widget.hpp"
 
-D2D1_RECT_F Widget::GetReact() const
+float Widget::GetX() const
 {
-    return rect_;
+    return x_;
 }
 
-void Widget::SetRect(const D2D1_RECT_F& rect)
+void Widget::SetX(float x)
 {
-    rect_ = rect;
+    x_ = x;
+}
+
+float Widget::GetY() const
+{
+    return y_;
+}
+
+void Widget::SetY(float y)
+{
+    y_ = y;
+}
+
+void Widget::SetPosition(float x, float y)
+{
+    x_ = x;
+    y_ = y;
 }
 
 int Widget::GetZ() const
