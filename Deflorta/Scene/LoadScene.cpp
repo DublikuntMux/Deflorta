@@ -27,6 +27,16 @@ LoadScene::LoadScene()
         ResourceManager::LoadGroup("LoadingFonts");
         g_LoadingDone = true;
     }).detach();
+    
+    screen_ = ResourceManager::GetImage("IMAGE_TITLESCREEN");
+    const auto [screenWidth, screenHeight] = screen_->GetSize();
+    screenTransform_ = Transform{
+        .x = 1280.0f / 2.0f - screenWidth / 2.0f,
+        .y = 720.0f / 2.0f - screenHeight / 2.0f,
+        .rotation = 0.0f,
+        .scaleX = 1.0f,
+        .scaleY = 1.0f
+    };
 
     logo_ = ResourceManager::GetImage("IMAGE_POPCAP_LOGO");
     const auto [logoWidth, logoHeight] = logo_->GetSize();
@@ -129,6 +139,7 @@ void LoadScene::Update()
 
 void LoadScene::Render()
 {
+    Renderer::EnqueueImage(screen_, screenTransform_);
     Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_);
     Renderer::EnqueueImage(rollCap_, rollCapTransform_, rollCapOpacity_);
 }

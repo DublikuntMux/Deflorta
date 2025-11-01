@@ -3,6 +3,7 @@
     <Resources id="Init">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="POPCAP_LOGO" path="PopCap_Logo" />
+        <Image id="TITLESCREEN" path="titlescreen" />
         <SetDefaults path="reanim" idprefix="IMAGE_REANIM_" />
         <Image id="SODROLLCAP" path="SodRollCap" />
     </Resources>
@@ -42,7 +43,7 @@
         <Image id="SEEDS" path="seeds" cols="10" />
         <Image id="SEEDPACKET_LARGER" path="SeedPacket_Larger" />
         <Image id="SEEDPACKETSILHOUETTE" path="SeedPacketSilhouette" />
-        <Image id="FLAGMETER" path="FlagMeter" rows="2" minsubdivide="" />
+        <Image id="FLAGMETER" path="FlagMeter" rows="2" />
         <Image id="FLAGMETERLEVELPROGRESS" path="FlagMeterLevelProgress" />
         <Image id="FLAGMETERPARTS" path="FlagMeterParts" cols="3" />
         <Image id="TROPHY" path="trophy" />
@@ -138,22 +139,21 @@
         <Image id="MELONPULT_PARTICLES" path="Melonpult_particles" cols="9" />
         <Image id="WINTERMELON_PARTICLES" path="WinterMelon_particles" cols="9" />
         <Image id="PROJECTILE_STAR" path="Projectile_star" />
-        <Image id="SEEDBANK" path="SeedBank" minsubdivide="" />
+        <Image id="SEEDBANK" path="SeedBank" />
         <Image id="CONVEYORBELT_BACKDROP" path="ConveyorBelt_backdrop" />
         <Image id="CONVEYORBELT" path="ConveyorBelt" rows="6" />
         <Image id="SHOVELBANK" path="ShovelBank" />
         <Image id="SUNBANK" path="sunbank" />
         <Image id="COINBANK" path="coinbank" />
-        <Image id="POOL" path="pool" minsubdivide="" />
-        <Image id="POOL_NIGHT" path="pool_night" minsubdivide="" />
-        <Image id="POOL_BASE" path="pool_base" minsubdivide="" />
-        <Image id="POOL_BASE_NIGHT" path="pool_base_night" minsubdivide="" />
-        <Image id="POOL_SHADING" path="pool_shading" minsubdivide="" />
-        <Image id="POOL_SHADING_NIGHT" path="pool_shading_night"
-               minsubdivide="" />
-        <Image id="POOL_CAUSTIC_EFFECT" path="pool_caustic_effect" nopal="" minsubdivide="" />
-        <Image id="PLANTSHADOW" path="plantshadow" minsubdivide="" />
-        <Image id="PLANTSHADOW2" path="plantshadow2" minsubdivide="" />
+        <Image id="POOL" path="pool" />
+        <Image id="POOL_NIGHT" path="pool_night" />
+        <Image id="POOL_BASE" path="pool_base" />
+        <Image id="POOL_BASE_NIGHT" path="pool_base_night" />
+        <Image id="POOL_SHADING" path="pool_shading" />
+        <Image id="POOL_SHADING_NIGHT" path="pool_shading_night" />
+        <Image id="POOL_CAUSTIC_EFFECT" path="pool_caustic_effect" />
+        <Image id="PLANTSHADOW" path="plantshadow" />
+        <Image id="PLANTSHADOW2" path="plantshadow2" />
         <Image id="PEA_SHADOWS" path="pea_shadows" cols="2" />
         <Image id="WALLNUT_BOWLINGSTRIPE" path="Wallnut_bowlingstripe" />
         <Image id="ICE" path="ice" />
@@ -208,14 +208,14 @@
         <Image id="IMITATERCLOUDS" path="ImitaterClouds" cols="2" />
         <Image id="IMITATERPUFFS" path="ImitaterPuffs" cols="8" />
         <Image id="ZOMBIE_BOSS_FIREBALL_PARTICLES" path="Zombie_boss_fireball_particles"
-               cols="4" />
+            cols="4" />
         <Image id="ZOMBIE_BOSS_ICEBALL_PARTICLES" path="Zombie_boss_iceball_particles" cols="4" />
         <Image id="ZOMBIE_BOSS_FIREBALL_GROUNDPARTICLES"
-               path="Zombie_boss_fireball_groundparticles"
-               cols="4" />
+            path="Zombie_boss_fireball_groundparticles"
+            cols="4" />
         <Image id="ZOMBIE_BOSS_ICEBALL_GROUNDPARTICLES"
-               path="Zombie_boss_iceball_groundparticles"
-               cols="4" />
+            path="Zombie_boss_iceball_groundparticles"
+            cols="4" />
         <Image id="DOOMSHROOM_EXPLOSION_BASE" path="DoomShroom_Explosion_Base" cols="3" />
         <Image id="RAIN" path="Rain" />
         <Image id="VASE_CHUNKS" path="vase_chunks" cols="9" rows="3" />
@@ -292,7 +292,7 @@
         <Image id="ZOMBIE_GARGANTUAR_HEAD_REDEYE" path="Zombie_gargantuar_head_redeye" />
         <Image id="ZOMBIE_DIGGER_OUTERARM_UPPER2" path="Zombie_digger_outerarm_upper2" />
         <Image id="ZOMBIE_DOLPHINRIDER_OUTERARM_UPPER2"
-               path="Zombie_dolphinrider_outerarm_upper2" />
+            path="Zombie_dolphinrider_outerarm_upper2" />
         <Image id="ZOMBIE_POGO_OUTERARM_UPPER2" path="Zombie_pogo_outerarm_upper2" />
         <Image id="ZOMBIE_POGO_STICKDAMAGE1" path="Zombie_pogo_stickdamage1" />
         <Image id="ZOMBIE_POGO_STICKDAMAGE2" path="Zombie_pogo_stickdamage2" />
@@ -310,7 +310,7 @@
         <Image id="ZOMBIE_CATAPULT_POLE_DAMAGE" path="Zombie_catapult_pole_damage" />
         <Image id="ZOMBIE_CATAPULT_POLE_WITHBALL" path="Zombie_catapult_pole_withball" />
         <Image id="ZOMBIE_CATAPULT_POLE_DAMAGE_WITHBALL"
-               path="Zombie_catapult_pole_damage_withball" />
+            path="Zombie_catapult_pole_damage_withball" />
         <Image id="ZOMBIE_CATAPULT_SIDING_DAMAGE" path="Zombie_catapult_siding_damage" />
         <Image id="ZOMBIE_LADDER_1" path="Zombie_ladder_1" />
         <Image id="ZOMBIE_LADDER_1_DAMAGE1" path="Zombie_ladder_1_damage1" />
@@ -351,7 +351,8 @@
         <Image id="SELECTORSCREEN_ADVENTURE_BUTTON" path="SelectorScreen_Adventure_button" />
         <Image id="SELECTORSCREEN_ADVENTURE_HIGHLIGHT" path="SelectorScreen_Adventure_Highlight" />
         <Image id="SELECTORSCREEN_STARTADVENTURE_BUTTON" path="SelectorScreen_StartAdventure_button" />
-        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT" path="SelectorScreen_StartAdventure_Highlight" />
+        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT"
+            path="SelectorScreen_StartAdventure_Highlight" />
         <Image id="SELECTORSCREEN_MINIGAME_BUTTON" path="SelectorScreen_MiniGame_button" />
         <Image id="SELECTORSCREEN_MINIGAME_HIGHLIGHT" path="SelectorScreen_MiniGame_Highlight" />
         <Image id="SELECTORSCREEN_PUZZLE_BUTTON" path="SelectorScreen_Puzzle_button" />
@@ -551,47 +552,47 @@
     </Resources>
     <Resources id="DelayLoad_Background1">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND1" path="background1" ddsurface="" />
+        <Image id="BACKGROUND1" path="background1" />
         <Image id="BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY"
-               path="background1_gameover_interior_overlay" />
+            path="background1_gameover_interior_overlay" />
         <Image id="BACKGROUND1_GAMEOVER_MASK" path="background1_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_BackgroundUnsodded">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND1UNSODDED" path="background1unsodded" ddsurface="" />
-        <Image id="SOD1ROW" path="sod1row" ddsurface="" />
-        <Image id="SOD3ROW" path="sod3row" ddsurface="" />
+        <Image id="BACKGROUND1UNSODDED" path="background1unsodded" />
+        <Image id="SOD1ROW" path="sod1row" />
+        <Image id="SOD3ROW" path="sod3row" />
     </Resources>
     <Resources id="DelayLoad_Background2">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND2" path="background2" ddsurface="" />
+        <Image id="BACKGROUND2" path="background2" />
         <Image id="BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY"
-               path="background2_gameover_interior_overlay" />
+            path="background2_gameover_interior_overlay" />
         <Image id="BACKGROUND2_GAMEOVER_MASK" path="background2_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background3">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND3" path="background3" ddsurface="" />
+        <Image id="BACKGROUND3" path="background3" />
         <Image id="BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY"
-               path="background3_gameover_interior_overlay" />
+            path="background3_gameover_interior_overlay" />
         <Image id="BACKGROUND3_GAMEOVER_MASK" path="background3_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background4">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND4" path="background4" ddsurface="" />
+        <Image id="BACKGROUND4" path="background4" />
         <Image id="BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY"
-               path="background4_gameover_interior_overlay" />
+            path="background4_gameover_interior_overlay" />
         <Image id="BACKGROUND4_GAMEOVER_MASK" path="background4_gameover_mask" />
         <Image id="FOG" path="fog" cols="8" />
     </Resources>
     <Resources id="DelayLoad_Background5">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND5" path="background5" ddsurface="" />
+        <Image id="BACKGROUND5" path="background5" />
         <Image id="BACKGROUND5_GAMEOVER_MASK" path="background5_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_Background6">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="BACKGROUND6BOSS" path="background6boss" ddsurface="" />
+        <Image id="BACKGROUND6" path="background6" />
         <Image id="BACKGROUND6_GAMEOVER_MASK" path="background6_gameover_mask" />
     </Resources>
     <Resources id="DelayLoad_MushroomGarden">
@@ -639,7 +640,7 @@
         <Image id="ACHIEVEMENT_TILE_CHINA" path="acheesements_china" />
         <Image id="ACHIEVEMENT_MORE" path="acheesements_more_button" />
         <Image id="ACHIEVEMENT_MORE_HIGHLIGHT" path="acheesements_more_button_highlight"
-               />
+        />
         <Image id="ACHIEVEMENT_TOP" path="acheesements_top_button" />
         <Image id="ACHIEVEMENT_TOP_HIGHLIGHT" path="acheesements_top_button_highlight" />
         <Image id="ACHIEVEMENT_ROCK" path="acheesements_more_rock" />
@@ -683,7 +684,7 @@
         <Image id="ALMANAC_INDEXBUTTONHIGHLIGHT" path="Almanac_IndexButtonHighlight" />
         <Image id="ALMANAC_INDEXBUTTON_DISABLE" path="Almanac_IndexButtonDisable" />
         <Image id="ALMANAC_INDEXBUTTONHIGHLIGHT_DISABLE"
-               path="Almanac_IndexButtonHighlightDisable" />
+            path="Almanac_IndexButtonHighlightDisable" />
     </Resources>
     <Resources id="DelayLoad_Store">
         <SetDefaults path="images" idprefix="IMAGE_" />
