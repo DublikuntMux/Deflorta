@@ -28,45 +28,30 @@ LoadScene::LoadScene()
         g_LoadingDone = true;
     }).detach();
 
-    screen_ = ResourceManager::GetImage("IMAGE_TITLESCREEN");
-    const auto [screenWidth, screenHeight] = screen_->GetSize();
-    screenTransform_ = Transform{
-        .x = 1280.0f / 2.0f - screenWidth / 2.0f,
-        .y = 720.0f / 2.0f - screenHeight / 2.0f,
-        .rotation = 0.0f,
-        .scaleX = 1.0f,
-        .scaleY = 1.0f
+    auto loadCentered = [&](const std::string& name, float centerX, float centerY,
+                            float scale = 1.0f) -> std::pair<ID2D1Bitmap*, Transform>
+    {
+        ID2D1Bitmap* img = ResourceManager::GetImage(name);
+        if (!img)
+            return {nullptr, Transform{.x = centerX, .y = centerY, .rotation = 0.0f, .scaleX = scale, .scaleY = scale}};
+        D2D1_SIZE_F size = img->GetSize();
+        Transform t{
+            .x = centerX - size.width / 2.0f, .y = centerY - size.height / 2.0f, .rotation = 0.0f, .scaleX = scale,
+            .scaleY = scale
+        };
+        return {img, t};
     };
 
-    pvzLogo_ = ResourceManager::GetImage("IMAGE_PVZ_LOGO");
-    const auto [pvzWidth, pvzHeight] = pvzLogo_->GetSize();
-    pvzTransform_ = Transform{
-        .x = 1280.0f / 2.0f - pvzWidth / 2.0f,
-        .y = 100.0f - pvzHeight / 2.0f,
-        .rotation = 0.0f,
-        .scaleX = 1.0f,
-        .scaleY = 1.0f
-    };
+    std::tie(screen_, screenTransform_) = loadCentered("IMAGE_TITLESCREEN", 1280.0f / 2.0f, 720.0f / 2.0f);
+    std::tie(pvzLogo_, pvzTransform_) = loadCentered("IMAGE_PVZ_LOGO", 1280.0f / 2.0f, 100.0f);
+    auto logoPair = loadCentered("IMAGE_POPCAP_LOGO", 1280.0f / 2.0f, 720.0f / 2.0f);
+    logo_ = logoPair.first;
+    logoTransform_ = logoPair.second;
+    logoTransform_.scaleX = logoTransform_.scaleY = 0.5f;
 
-    logo_ = ResourceManager::GetImage("IMAGE_POPCAP_LOGO");
-    const auto [logoWidth, logoHeight] = logo_->GetSize();
-    logoTransform_ = Transform{
-        .x = 1280.0f / 2.0f - logoWidth / 2.0f,
-        .y = 720.0f / 2.0f - logoHeight / 2.0f,
-        .rotation = 0.0f,
-        .scaleX = 0.5f,
-        .scaleY = 0.5f
-    };
-
-    rollCap_ = ResourceManager::GetImage("IMAGE_REANIM_SODROLLCAP");
-    const auto [rollWidth, rollHeight] = rollCap_->GetSize();
-    rollCapTransform_ = Transform{
-        .x = 1280.0f / 2.0f - rollWidth / 2.0f,
-        .y = 720.0f / 2.0f + 200.0f - rollHeight / 2.0f,
-        .rotation = 0.0f,
-        .scaleX = 1.0f,
-        .scaleY = 1.0f
-    };
+    auto rollPair = loadCentered("IMAGE_REANIM_SODROLLCAP", 1280.0f / 2.0f, 720.0f / 2.0f + 200.0f);
+    rollCap_ = rollPair.first;
+    rollCapTransform_ = rollPair.second;
 
     const std::vector<TweenProperty> props = {
         {
@@ -79,10 +64,6 @@ LoadScene::LoadScene()
         },
         {
             .start = 0.0f, .end = 1.0f, .setter = [&](float v) { logoOpacity_ = v; },
-            .mode = TweenMode::EaseIn
-        },
-        {
-            .start = 0.0f, .end = 1.0f, .setter = [&](float v) { rollCapOpacity_ = v; },
             .mode = TweenMode::EaseIn
         }
     };
@@ -109,12 +90,6 @@ void LoadScene::Update()
                 .start = logoOpacity_,
                 .end = 0.0f,
                 .setter = [&](float v) { logoOpacity_ = v; },
-                .mode = TweenMode::EaseOut
-            },
-            {
-                .start = rollCapOpacity_,
-                .end = 0.0f,
-                .setter = [&](float v) { rollCapOpacity_ = v; },
                 .mode = TweenMode::EaseOut
             },
             {
@@ -152,5 +127,5 @@ void LoadScene::Render()
     Renderer::EnqueueImage(screen_, screenTransform_);
     Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_);
     Renderer::EnqueueImage(pvzLogo_, pvzTransform_, logoOpacity_);
-    Renderer::EnqueueImage(rollCap_, rollCapTransform_, rollCapOpacity_);
+    Renderer::EnqueueImage(rollCap_, rollCapTransform_, logoOpacity_);
 }

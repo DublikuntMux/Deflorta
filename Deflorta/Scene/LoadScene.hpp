@@ -24,7 +24,6 @@ private:
     Transform rollCapTransform_;
 
     float logoOpacity_ = 0.0f;
-    float rollCapOpacity_ = 0.0f;
 
     std::unique_ptr<Tween> startTween_;
     std::unique_ptr<Tween> exitTween_;

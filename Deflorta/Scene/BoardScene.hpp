@@ -1,12 +1,15 @@
 ﻿#pragma once
 
-#include <d2d1.h>
 #include <string>
+#include <utility>
+
+#include <d2d1.h>
 
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Object/Bush.hpp"
 #include "../Object/Fog.hpp"
+#include "../Object/Plant/BasePlant.hpp"
 
 enum class BackgroundType: std::uint8_t
 {
@@ -26,6 +29,11 @@ struct BoardSettings
     bool hasFog;
     int fogColumns;
 };
+
+static constexpr float kPlantBaseX = 270.0f;
+static constexpr float kPlantBaseY = 150.0f;
+static constexpr float kPlantCellWidth = 81.5f;
+static constexpr float kPlantCellHeight = 97.0f;
 
 class BoardScene final : public Scene
 {
@@ -51,4 +59,9 @@ private:
 
     std::unique_ptr<Bush> bushes_;
     std::unique_ptr<Fog> fog_;
+
+    std::vector<std::shared_ptr<BasePlant>> plants_;
+
+    static std::pair<float, float> GridToPosition(int row, int column);
+    static std::pair<int, int> PositionToGrid(float x, float y);
 };

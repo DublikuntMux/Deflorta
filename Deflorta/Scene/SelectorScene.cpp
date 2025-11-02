@@ -56,100 +56,133 @@ SelectorScene::SelectorScene()
         }
     }
 
+    auto makeImageButton = [&](const std::string& imgName, const std::string& hlName, float x, float y, float hotX,
+                               float hotY,
+                               const std::function<void(ImageButton*)>& extraConfig = {}) -> std::unique_ptr<
+        ImageButton>
     {
-        auto button = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT");
-        startButton_ = std::make_unique<ImageButton>(button, highlight, 649.0f, 37.0f, 0.0f, 0.0f);
-        startButton_->SetPolygon({
-            D2D_POINT_2F{7.0f, 1.0f},
-            D2D_POINT_2F{328.0f, 30.0f},
-            D2D_POINT_2F{314.0f, 125.0f},
-            D2D_POINT_2F{1.0f, 78.0f},
-        });
-        startButton_->AddHoverCallback(onHover);
-        startButton_->AddClickCallback(onPressGrave);
-        startButton_->AddClickCallback([]
-        {
-            const auto settings = BoardSettings{
-                .levelName = "1-1",
-                .backgroundType = BackgroundType::Day,
-                .hasFog = false,
-                .fogColumns = 0,
-            };
-            Game::SetScene<BoardScene>(settings);
-        });
+        auto buttonImg = ResourceManager::GetImage(imgName);
+        auto highlight = ResourceManager::GetImage(hlName);
+        auto btn = std::make_unique<ImageButton>(buttonImg, highlight, x, y, hotX, hotY);
+        if (extraConfig) extraConfig(btn.get());
+        return btn;
+    };
+
+    {
+        startButton_ = makeImageButton("IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_BUTTON",
+                                       "IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT",
+                                       649.0f, 37.0f, 0.0f, 0.0f,
+                                       [&](ImageButton* b)
+                                       {
+                                           b->SetPolygon({
+                                               D2D_POINT_2F{7.0f, 1.0f},
+                                               D2D_POINT_2F{328.0f, 30.0f},
+                                               D2D_POINT_2F{314.0f, 125.0f},
+                                               D2D_POINT_2F{1.0f, 78.0f},
+                                           });
+                                           b->AddHoverCallback(onHover);
+                                           b->AddClickCallback(onPressGrave);
+                                           b->AddClickCallback([]
+                                           {
+                                               const auto settings = BoardSettings{
+                                                   .levelName = "1-1",
+                                                   .backgroundType = BackgroundType::Day,
+                                                   .hasFog = false,
+                                                   .fogColumns = 0,
+                                               };
+                                               Game::SetScene<BoardScene>(settings);
+                                           });
+                                       });
         AddWidget(startButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_MINIGAME_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_MINIGAME_HIGHLIGHT");
-        miniGameButton_ = std::make_unique<ImageButton>(button, highlight, 650.0f, 145.0f, 0.0f, 0.0f);
-        miniGameButton_->SetPolygon({
-            D2D_POINT_2F{7.0f, 1.0f},
-            D2D_POINT_2F{267.0f, 62.0f},
-            D2D_POINT_2F{257.0f, 124.0f},
-            D2D_POINT_2F{7.0f, 57.0f},
-        });
-        miniGameButton_->AddHoverCallback(onHover);
-        miniGameButton_->AddClickCallback(onPressGrave);
+        miniGameButton_ = makeImageButton("IMAGE_REANIM_SELECTORSCREEN_MINIGAME_BUTTON",
+                                          "IMAGE_REANIM_SELECTORSCREEN_MINIGAME_HIGHLIGHT",
+                                          650.0f, 145.0f, 0.0f, 0.0f,
+                                          [&](ImageButton* b)
+                                          {
+                                              b->SetPolygon({
+                                                  D2D_POINT_2F{7.0f, 1.0f},
+                                                  D2D_POINT_2F{267.0f, 62.0f},
+                                                  D2D_POINT_2F{257.0f, 124.0f},
+                                                  D2D_POINT_2F{7.0f, 57.0f},
+                                              });
+                                              b->AddHoverCallback(onHover);
+                                              b->AddClickCallback(onPressGrave);
+                                          });
         AddWidget(miniGameButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_PUZZLE_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_PUZZLE_HIGHLIGHT");
-        puzzleButton_ = std::make_unique<ImageButton>(button, highlight, 654.0f, 229.4f, 0.0f, 0.0f);
-        puzzleButton_->SetPolygon({
-            D2D_POINT_2F{2.0f, 0.0f},
-            D2D_POINT_2F{281.0f, 55.0f},
-            D2D_POINT_2F{268.0f, 121.0f},
-            D2D_POINT_2F{3.0f, 60.0f},
-        });
-        puzzleButton_->AddHoverCallback(onHover);
-        puzzleButton_->AddClickCallback(onPressGrave);
+        puzzleButton_ = makeImageButton("IMAGE_REANIM_SELECTORSCREEN_PUZZLE_BUTTON",
+                                        "IMAGE_REANIM_SELECTORSCREEN_PUZZLE_HIGHLIGHT",
+                                        654.0f, 229.4f, 0.0f, 0.0f,
+                                        [&](ImageButton* b)
+                                        {
+                                            b->SetPolygon({
+                                                D2D_POINT_2F{2.0f, 0.0f},
+                                                D2D_POINT_2F{281.0f, 55.0f},
+                                                D2D_POINT_2F{268.0f, 121.0f},
+                                                D2D_POINT_2F{3.0f, 60.0f},
+                                            });
+                                            b->AddHoverCallback(onHover);
+                                            b->AddClickCallback(onPressGrave);
+                                        });
         AddWidget(puzzleButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_HIGHLIGHT");
-        survivalButton_ = std::make_unique<ImageButton>(button, highlight, 657.0f, 300.0f, 0.0f, 0.0f);
-        survivalButton_->SetPolygon({
-            D2D_POINT_2F{7.0f, 1.0f},
-            D2D_POINT_2F{267.0f, 62.0f},
-            D2D_POINT_2F{257.0f, 124.0f},
-            D2D_POINT_2F{7.0f, 57.0f},
-        });
-        survivalButton_->AddHoverCallback(onHover);
-        survivalButton_->AddClickCallback(onPressGrave);
+        survivalButton_ = makeImageButton("IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_BUTTON",
+                                          "IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_HIGHLIGHT",
+                                          657.0f, 300.0f, 0.0f, 0.0f,
+                                          [&](ImageButton* b)
+                                          {
+                                              b->SetPolygon({
+                                                  D2D_POINT_2F{7.0f, 1.0f},
+                                                  D2D_POINT_2F{267.0f, 62.0f},
+                                                  D2D_POINT_2F{257.0f, 124.0f},
+                                                  D2D_POINT_2F{7.0f, 57.0f},
+                                              });
+                                              b->AddHoverCallback(onHover);
+                                              b->AddClickCallback(onPressGrave);
+                                          });
         AddWidget(survivalButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_OPTIONS_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_OPTIONS_HIGHLIGHT");
-        optionsButton_ = std::make_unique<ImageButton>(button, highlight, 813.0f, 470.0f, 81.0f, 31.0f);
-        optionsButton_->AddHoverCallback(onHover);
-        optionsButton_->AddClickCallback(onPress);
+        optionsButton_ = makeImageButton("IMAGE_SELECTORSCREEN_OPTIONS_BUTTON",
+                                         "IMAGE_SELECTORSCREEN_OPTIONS_HIGHLIGHT",
+                                         813.0f, 470.0f, 81.0f, 31.0f,
+                                         [&](ImageButton* b)
+                                         {
+                                             b->AddHoverCallback(onHover);
+                                             b->AddClickCallback(onPress);
+                                         });
         AddWidget(optionsButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_HELP_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_HELP_HIGHLIGHT");
-        helpButton_ = std::make_unique<ImageButton>(button, highlight, 895.0f, 505.0f, 48.0f, 22.0f);
-        helpButton_->AddHoverCallback(onHover);
-        helpButton_->AddClickCallback(onPress);
+        helpButton_ = makeImageButton("IMAGE_SELECTORSCREEN_HELP_BUTTON",
+                                      "IMAGE_SELECTORSCREEN_HELP_HIGHLIGHT",
+                                      895.0f, 505.0f, 48.0f, 22.0f,
+                                      [&](ImageButton* b)
+                                      {
+                                          b->AddHoverCallback(onHover);
+                                          b->AddClickCallback(onPress);
+                                      });
         AddWidget(helpButton_.get());
     }
 
     {
-        auto button = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_QUIT_BUTTON");
-        auto highlight = ResourceManager::GetImage("IMAGE_SELECTORSCREEN_QUIT_HIGHLIGHT");
-        quitButton_ = std::make_unique<ImageButton>(button, highlight, 970.0f, 490.0f, 57.0f, 27.0f);
-        quitButton_->AddHoverCallback(onHover);
-        quitButton_->AddClickCallback(onPress);
+        quitButton_ = makeImageButton("IMAGE_SELECTORSCREEN_QUIT_BUTTON",
+                                      "IMAGE_SELECTORSCREEN_QUIT_HIGHLIGHT",
+                                      970.0f, 490.0f, 57.0f, 27.0f,
+                                      [&](ImageButton* b)
+                                      {
+                                          b->AddHoverCallback(onHover);
+                                          b->AddClickCallback(onPress);
+                                      });
         AddWidget(quitButton_.get());
     }
 
