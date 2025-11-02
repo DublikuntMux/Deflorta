@@ -58,115 +58,6 @@ inline FoleyFlags& operator&=(FoleyFlags& lhs, FoleyFlags rhs)
     return lhs;
 }
 
-
-enum class FoleyType: std::uint8_t
-{
-    Sun,
-    Splat,
-    Lawnmower,
-    Throw,
-    SpawnSun,
-    Chomp,
-    ChompSoft,
-    Plant,
-    UseShovel,
-    Drop,
-    Bleep,
-    Groan,
-    Brains,
-    Sukhbir,
-    JackInTheBox,
-    ArtChallenge,
-    Zamboni,
-    Thunder,
-    Frozen,
-    ZombieSplash,
-    BowlingImpact,
-    Squish,
-    TirePop,
-    Explosion,
-    Slurp,
-    LimbsPop,
-    PogoZombie,
-    SnowPeaSparkles,
-    ZombieFalling,
-    Puff,
-    Fume,
-    Coin,
-    KernelSplat,
-    Digger,
-    JackSurprise,
-    VaseBreaking,
-    PoolCleaner,
-    BasketBall,
-    Ignite,
-    FirePea,
-    Thumb,
-    SquashHmm,
-    Magnetshroom,
-    Butter,
-    BungeeScream,
-    BossExplosionSmall,
-    ShieldHit,
-    Swing,
-    Bonk,
-    Rain,
-    DolphinBeforeJumping,
-    DolphinAppears,
-    PlantWater,
-    ZombieEnteringWater,
-    GravebusterChomp,
-    Cherrybomb,
-    JalapenoIgnite,
-    ReverseExplosion,
-    PlasticHit,
-    WinMusic,
-    BalloonInflate,
-    BigChomp,
-    MelonImpact,
-    PlantGrow,
-    Shop,
-    Juicy,
-    NewspaperRarrgh,
-    NewspaperRip,
-    Floop,
-    Coffee,
-    LowGroan,
-    Prize,
-    Yuck,
-    Umbrella,
-    GrassStep,
-    Shovel,
-    CobLaunch,
-    Watering,
-    Polevault,
-    GravestoneRumble,
-    DirtRise,
-    Fertilizer,
-    Portal,
-    Wakeup,
-    BugSpray,
-    Scream,
-    Paper,
-    MoneyFalls,
-    Imp,
-    HydraulicShort,
-    Hydraulic,
-    GargantuaDeath,
-    Ceramic,
-    BossBoulderAttack,
-    Chime,
-    CrazyDaveShort,
-    CrazyDaveLong,
-    CrazyDaveExtraLong,
-    CrazyDaveCrazy,
-    Phonograph,
-    Dancer,
-    FinalFanfare,
-    CrazyDaveScream,
-    CrazyDaveScream2
-};
-
 struct FoleyParams
 {
     FoleyFlags foleyFlags;
@@ -177,15 +68,17 @@ struct FoleyParams
 class Foley
 {
 public:
-    static const std::unordered_map<FoleyType, FoleyParams> foleyMap_;
+    static void LoadFromFile(const std::string& path);
 
-    static void Play(FoleyType type);
-    static void Stop(FoleyType type);
+    static void Play(const std::string& name);
+    static void Stop(const std::string& name);
 
 private:
     static float SemitonesToRatio(float semitones);
+    static FoleyFlags ParseFlags(const std::string& flagsStr);
 
-    static std::unordered_map<FoleyType, IXAudio2SourceVoice*> activeVoices_;
-    static std::unordered_map<FoleyType, int> lastIndex_;
+    static std::unordered_map<std::string, FoleyParams> foleyMap_;
+    static std::unordered_map<std::string, IXAudio2SourceVoice*> activeVoices_;
+    static std::unordered_map<std::string, int> lastIndex_;
     static std::mutex mtx_;
 };

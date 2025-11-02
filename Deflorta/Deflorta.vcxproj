@@ -92,7 +92,6 @@
         <ClCompile Include="Render\Renderer.cpp"/>
         <ClCompile Include="Resource\AudioManager.cpp"/>
         <ClCompile Include="Resource\Foley.cpp"/>
-        <ClCompile Include="Resource\FoleyDefenition.cpp"/>
         <ClCompile Include="Resource\ReanimationLoader.cpp"/>
         <ClCompile Include="Resource\ResourceManager.cpp"/>
         <ClCompile Include="Resource\TranslationManager.cpp"/>

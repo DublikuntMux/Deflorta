@@ -1,0 +1,683 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<foley>
+    <sound name="Sun">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_POINTS</sfx>
+    </sound>
+    
+    <sound name="Splat">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_SPLAT</sfx>
+        <sfx>SOUND_SPLAT2</sfx>
+        <sfx>SOUND_SPLAT3</sfx>
+    </sound>
+    
+    <sound name="Lawnmower">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_LAWNMOWER</sfx>
+    </sound>
+    
+    <sound name="Throw">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_THROW</sfx>
+        <sfx>SOUND_THROW</sfx>
+        <sfx>SOUND_THROW</sfx>
+        <sfx>SOUND_THROW2</sfx>
+    </sound>
+    
+    <sound name="SpawnSun">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_THROW</sfx>
+    </sound>
+    
+    <sound name="Chomp">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CHOMP</sfx>
+        <sfx>SOUND_CHOMP2</sfx>
+    </sound>
+    
+    <sound name="ChompSoft">
+        <flags>None</flags>
+        <pitchRange>4.0</pitchRange>
+        <sfx>SOUND_CHOMPSOFT</sfx>
+    </sound>
+    
+    <sound name="Plant">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PLANT</sfx>
+        <sfx>SOUND_PLANT2</sfx>
+    </sound>
+    
+    <sound name="UseShovel">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PLANT2</sfx>
+    </sound>
+    
+    <sound name="Drop">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_TAP2</sfx>
+    </sound>
+    
+    <sound name="Bleep">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_BLEEP</sfx>
+    </sound>
+    
+    <sound name="Groan">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_GROAN</sfx>
+        <sfx>SOUND_GROAN2</sfx>
+        <sfx>SOUND_GROAN3</sfx>
+        <sfx>SOUND_GROAN4</sfx>
+        <sfx>SOUND_GROAN5</sfx>
+        <sfx>SOUND_GROAN6</sfx>
+    </sound>
+    
+    <sound name="Brains">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_GROAN</sfx>
+        <sfx>SOUND_GROAN2</sfx>
+        <sfx>SOUND_GROAN3</sfx>
+        <sfx>SOUND_GROAN4</sfx>
+        <sfx>SOUND_GROAN5</sfx>
+        <sfx>SOUND_GROAN6</sfx>
+        <sfx>SOUND_SUKHBIR4</sfx>
+        <sfx>SOUND_SUKHBIR5</sfx>
+        <sfx>SOUND_SUKHBIR6</sfx>
+    </sound>
+    
+    <sound name="Sukhbir">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_GROAN</sfx>
+        <sfx>SOUND_GROAN2</sfx>
+        <sfx>SOUND_GROAN3</sfx>
+        <sfx>SOUND_GROAN4</sfx>
+        <sfx>SOUND_GROAN5</sfx>
+        <sfx>SOUND_GROAN6</sfx>
+        <sfx>SOUND_SUKHBIR</sfx>
+        <sfx>SOUND_SUKHBIR2</sfx>
+        <sfx>SOUND_SUKHBIR3</sfx>
+    </sound>
+    
+    <sound name="JackInTheBox">
+        <flags>Loop|OneAtTime|MuteOnPause</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_JACKINTHEBOX</sfx>
+    </sound>
+    
+    <sound name="ArtChallenge">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_DIAMOND</sfx>
+    </sound>
+    
+    <sound name="Zamboni">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_ZAMBONI</sfx>
+    </sound>
+    
+    <sound name="Thunder">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_THUNDER</sfx>
+    </sound>
+    
+    <sound name="Frozen">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_FROZEN</sfx>
+    </sound>
+    
+    <sound name="ZombieSplash">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_PLANT_WATER</sfx>
+        <sfx>SOUND_ZOMBIE_ENTERING_WATER</sfx>
+    </sound>
+    
+    <sound name="BowlingImpact">
+        <flags>None</flags>
+        <pitchRange>-3.0</pitchRange>
+        <sfx>SOUND_BOWLINGIMPACT</sfx>
+    </sound>
+    
+    <sound name="Squish">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CHOMP</sfx>
+        <sfx>SOUND_CHOMP2</sfx>
+    </sound>
+    
+    <sound name="TirePop">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_BALLOON_POP</sfx>
+    </sound>
+    
+    <sound name="Explosion">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_EXPLOSION</sfx>
+    </sound>
+    
+    <sound name="Slurp">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_SLURP</sfx>
+    </sound>
+    
+    <sound name="LimbsPop">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_LIMBS_POP</sfx>
+    </sound>
+    
+    <sound name="PogoZombie">
+        <flags>None</flags>
+        <pitchRange>4.0</pitchRange>
+        <sfx>SOUND_POGO_ZOMBIE</sfx>
+    </sound>
+    
+    <sound name="SnowPeaSparkles">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_SNOW_PEA_SPARKLES</sfx>
+    </sound>
+    
+    <sound name="ZombieFalling">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_ZOMBIE_FALLING_1</sfx>
+        <sfx>SOUND_ZOMBIE_FALLING_2</sfx>
+    </sound>
+    
+    <sound name="Puff">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_PUFF</sfx>
+    </sound>
+    
+    <sound name="Fume">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_FUME</sfx>
+    </sound>
+    
+    <sound name="Coin">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_COIN</sfx>
+    </sound>
+    
+    <sound name="KernelSplat">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_KERNELPULT</sfx>
+        <sfx>SOUND_KERNELPULT2</sfx>
+    </sound>
+    
+    <sound name="Digger">
+        <flags>Loop|OneAtTime|MuteOnPause</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_DIGGER_ZOMBIE</sfx>
+    </sound>
+    
+    <sound name="JackSurprise">
+        <flags>None</flags>
+        <pitchRange>1.0</pitchRange>
+        <sfx>SOUND_JACK_SURPRISE</sfx>
+        <sfx>SOUND_JACK_SURPRISE</sfx>
+        <sfx>SOUND_JACK_SURPRISE2</sfx>
+    </sound>
+    
+    <sound name="VaseBreaking">
+        <flags>None</flags>
+        <pitchRange>-5.0</pitchRange>
+        <sfx>SOUND_VASE_BREAKING</sfx>
+    </sound>
+    
+    <sound name="PoolCleaner">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_POOL_CLEANER</sfx>
+    </sound>
+    
+    <sound name="BasketBall">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_BASKETBALL</sfx>
+    </sound>
+    
+    <sound name="Ignite">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_IGNITE</sfx>
+        <sfx>SOUND_IGNITE</sfx>
+        <sfx>SOUND_IGNITE</sfx>
+        <sfx>SOUND_IGNITE2</sfx>
+    </sound>
+    
+    <sound name="FirePea">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_FIREPEA</sfx>
+    </sound>
+    
+    <sound name="Thumb">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_GARGANTUAR_THUMP</sfx>
+    </sound>
+    
+    <sound name="SquashHmm">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_SQUASH_HMM</sfx>
+        <sfx>SOUND_SQUASH_HMM</sfx>
+        <sfx>SOUND_SQUASH_HMM2</sfx>
+    </sound>
+    
+    <sound name="Magnetshroom">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_MAGNETSHROOM</sfx>
+    </sound>
+    
+    <sound name="Butter">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_BUTTER</sfx>
+    </sound>
+    
+    <sound name="BungeeScream">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_BUNGEE_SCREAM</sfx>
+        <sfx>SOUND_BUNGEE_SCREAM2</sfx>
+        <sfx>SOUND_BUNGEE_SCREAM3</sfx>
+    </sound>
+    
+    <sound name="BossExplosionSmall">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_EXPLOSION</sfx>
+    </sound>
+    
+    <sound name="ShieldHit">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_SHIELDHIT</sfx>
+        <sfx>SOUND_SHIELDHIT2</sfx>
+    </sound>
+    
+    <sound name="Swing">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_SWING</sfx>
+    </sound>
+    
+    <sound name="Bonk">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_BONK</sfx>
+    </sound>
+    
+    <sound name="Rain">
+        <flags>Loop|MuteOnPause</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_RAIN</sfx>
+    </sound>
+    
+    <sound name="DolphinBeforeJumping">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_DOLPHIN_BEFORE_JUMPING</sfx>
+    </sound>
+    
+    <sound name="DolphinAppears">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_DOLPHIN_APPEARS</sfx>
+    </sound>
+    
+    <sound name="PlantWater">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PLANT_WATER</sfx>
+    </sound>
+    
+    <sound name="ZombieEnteringWater">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_ZOMBIE_ENTERING_WATER</sfx>
+    </sound>
+    
+    <sound name="GravebusterChomp">
+        <flags>MuteOnPause</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_GRAVEBUSTERCHOMP</sfx>
+    </sound>
+    
+    <sound name="Cherrybomb">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CHERRYBOMB</sfx>
+    </sound>
+    
+    <sound name="JalapenoIgnite">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_JALAPENO</sfx>
+    </sound>
+    
+    <sound name="ReverseExplosion">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_REVERSE_EXPLOSION</sfx>
+    </sound>
+    
+    <sound name="PlasticHit">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_PLASTICHIT</sfx>
+        <sfx>SOUND_PLASTICHIT2</sfx>
+    </sound>
+    
+    <sound name="WinMusic">
+        <flags>MusicVolume</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_WINMUSIC</sfx>
+    </sound>
+    
+    <sound name="BalloonInflate">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_BALLOONINFLATE</sfx>
+    </sound>
+    
+    <sound name="BigChomp">
+        <flags>None</flags>
+        <pitchRange>-2.0</pitchRange>
+        <sfx>SOUND_BIGCHOMP</sfx>
+    </sound>
+    
+    <sound name="MelonImpact">
+        <flags>None</flags>
+        <pitchRange>-5.0</pitchRange>
+        <sfx>SOUND_MELONIMPACT</sfx>
+        <sfx>SOUND_MELONIMPACT2</sfx>
+    </sound>
+    
+    <sound name="PlantGrow">
+        <flags>None</flags>
+        <pitchRange>-2.0</pitchRange>
+        <sfx>SOUND_PLANTGROW</sfx>
+    </sound>
+    
+    <sound name="Shop">
+        <flags>None</flags>
+        <pitchRange>-5.0</pitchRange>
+        <sfx>SOUND_SHOOP</sfx>
+    </sound>
+    
+    <sound name="Juicy">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_JUICY</sfx>
+    </sound>
+    
+    <sound name="NewspaperRarrgh">
+        <flags>None</flags>
+        <pitchRange>-2.0</pitchRange>
+        <sfx>SOUND_NEWSPAPER_RARRGH</sfx>
+        <sfx>SOUND_NEWSPAPER_RARRGH2</sfx>
+        <sfx>SOUND_NEWSPAPER_RARRGH2</sfx>
+    </sound>
+    
+    <sound name="NewspaperRip">
+        <flags>None</flags>
+        <pitchRange>-2.0</pitchRange>
+        <sfx>SOUND_NEWSPAPER_RIP</sfx>
+    </sound>
+    
+    <sound name="Floop">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_FLOOP</sfx>
+    </sound>
+    
+    <sound name="Coffee">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_COFFEE</sfx>
+    </sound>
+    
+    <sound name="LowGroan">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_LOWGROAN</sfx>
+        <sfx>SOUND_LOWGROAN2</sfx>
+    </sound>
+    
+    <sound name="Prize">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PRIZE</sfx>
+    </sound>
+    
+    <sound name="Yuck">
+        <flags>None</flags>
+        <pitchRange>1.0</pitchRange>
+        <sfx>SOUND_YUCK</sfx>
+        <sfx>SOUND_YUCK</sfx>
+        <sfx>SOUND_YUCK2</sfx>
+    </sound>
+    
+    <sound name="Umbrella">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_THROW2</sfx>
+    </sound>
+    
+    <sound name="GrassStep">
+        <flags>None</flags>
+        <pitchRange>2.0</pitchRange>
+        <sfx>SOUND_GRASSSTEP</sfx>
+    </sound>
+    
+    <sound name="Shovel">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_SHOVEL</sfx>
+    </sound>
+    
+    <sound name="CobLaunch">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_COBLAUNCH</sfx>
+    </sound>
+    
+    <sound name="Watering">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_WATERING</sfx>
+    </sound>
+    
+    <sound name="Polevault">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_POLEVAULT</sfx>
+    </sound>
+    
+    <sound name="GravestoneRumble">
+        <flags>None</flags>
+        <pitchRange>10.0</pitchRange>
+        <sfx>SOUND_GRAVESTONE_RUMBLE</sfx>
+    </sound>
+    
+    <sound name="DirtRise">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_DIRT_RISE</sfx>
+    </sound>
+    
+    <sound name="Fertilizer">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_FERTILIZER</sfx>
+    </sound>
+    
+    <sound name="Portal">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PORTAL</sfx>
+    </sound>
+    
+    <sound name="Wakeup">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_WAKEUP</sfx>
+    </sound>
+    
+    <sound name="BugSpray">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_BUGSPRAY</sfx>
+    </sound>
+    
+    <sound name="Scream">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_SCREAM</sfx>
+    </sound>
+    
+    <sound name="Paper">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PAPER</sfx>
+    </sound>
+    
+    <sound name="MoneyFalls">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_MONEYFALLS</sfx>
+    </sound>
+    
+    <sound name="Imp">
+        <flags>None</flags>
+        <pitchRange>5.0</pitchRange>
+        <sfx>SOUND_IMP</sfx>
+        <sfx>SOUND_IMP2</sfx>
+    </sound>
+    
+    <sound name="HydraulicShort">
+        <flags>None</flags>
+        <pitchRange>3.0</pitchRange>
+        <sfx>SOUND_HYDRAULIC_SHORT</sfx>
+    </sound>
+    
+    <sound name="Hydraulic">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_HYDRAULIC</sfx>
+    </sound>
+    
+    <sound name="GargantuaDeath">
+        <flags>None</flags>
+        <pitchRange>3.0</pitchRange>
+        <sfx>SOUND_GARGANTUDEATH</sfx>
+    </sound>
+    
+    <sound name="Ceramic">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CERAMIC</sfx>
+    </sound>
+    
+    <sound name="BossBoulderAttack">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_BOSSBOULDERATTACK</sfx>
+    </sound>
+    
+    <sound name="Chime">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CHIME</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveShort">
+        <flags>DontRepeat</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVESHORT1</sfx>
+        <sfx>SOUND_CRAZYDAVESHORT2</sfx>
+        <sfx>SOUND_CRAZYDAVESHORT3</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveLong">
+        <flags>DontRepeat</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVELONG1</sfx>
+        <sfx>SOUND_CRAZYDAVELONG2</sfx>
+        <sfx>SOUND_CRAZYDAVELONG3</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveExtraLong">
+        <flags>DontRepeat</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVEEXTRALONG1</sfx>
+        <sfx>SOUND_CRAZYDAVEEXTRALONG2</sfx>
+        <sfx>SOUND_CRAZYDAVEEXTRALONG3</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveCrazy">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVECRAZY</sfx>
+    </sound>
+    
+    <sound name="Phonograph">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_PHONOGRAPH</sfx>
+    </sound>
+    
+    <sound name="Dancer">
+        <flags>OneAtTime|MuteOnPause</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_DANCER</sfx>
+    </sound>
+    
+    <sound name="FinalFanfare">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_FINALFANFARE</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveScream">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVESCREAM</sfx>
+    </sound>
+    
+    <sound name="CrazyDaveScream2">
+        <flags>None</flags>
+        <pitchRange>0.0</pitchRange>
+        <sfx>SOUND_CRAZYDAVESCREAM2</sfx>
+    </sound>
+</foley>
+

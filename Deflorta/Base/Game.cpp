@@ -8,6 +8,7 @@
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
+#include "../Resource/Foley.hpp"
 
 HWND Game::hwnd_;
 std::unique_ptr<Scene> Game::scene_;
@@ -24,6 +25,8 @@ void Game::Initialize(HWND hwnd)
         running_ = false;
     if (!ResourceManager::LoadManifest("resources/resources.xml"))
         running_ = false;
+
+    Foley::LoadFromFile("resources/foley.xml");
 
     Discord::Initialize();
 }

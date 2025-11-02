@@ -23,7 +23,7 @@ SelectorScene::SelectorScene()
     };
     auto onHover = []
     {
-        Foley::Play(FoleyType::Bleep);
+        Foley::Play("Bleep");
     };
 
     {

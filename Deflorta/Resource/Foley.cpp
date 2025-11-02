@@ -2,18 +2,28 @@
 
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+#include <sstream>
+
+#include <pugixml.hpp>
 
 #include "ResourceManager.hpp"
+#include "AudioManager.hpp"
 #include "../Base/Random.hpp"
 
-std::unordered_map<FoleyType, IXAudio2SourceVoice*> Foley::activeVoices_;
-std::unordered_map<FoleyType, int> Foley::lastIndex_;
+std::unordered_map<std::string, FoleyParams> Foley::foleyMap_;
+std::unordered_map<std::string, IXAudio2SourceVoice*> Foley::activeVoices_;
+std::unordered_map<std::string, int> Foley::lastIndex_;
 std::mutex Foley::mtx_;
 
-void Foley::Play(FoleyType type)
+void Foley::Play(const std::string& name)
 {
-    const auto it = foleyMap_.find(type);
-    if (it == foleyMap_.end()) return;
+    const auto it = foleyMap_.find(name);
+    if (it == foleyMap_.end())
+    {
+        std::cerr << "Foley::Play - Error: Sound '" << name << "' not found in foley definitions\n";
+        return;
+    }
 
     const FoleyParams& params = it->second;
     const FoleyFlags flags = params.foleyFlags;
@@ -26,7 +36,7 @@ void Foley::Play(FoleyType type)
 
     if (loop)
     {
-        const auto vit = activeVoices_.find(type);
+        const auto vit = activeVoices_.find(name);
         if (vit != activeVoices_.end() && vit->second)
         {
             if (oneAtTime)
@@ -35,7 +45,11 @@ void Foley::Play(FoleyType type)
         }
     }
 
-    if (params.sfxId.empty()) return;
+    if (params.sfxId.empty())
+    {
+        std::cerr << "Foley::Play - Error: Sound '" << name << "' has no sfx entries\n";
+        return;
+    }
 
     for (const auto& id : params.sfxId)
         ResourceManager::PreloadAudio(id);
@@ -48,7 +62,7 @@ void Foley::Play(FoleyType type)
     else
     {
         const int size = static_cast<int>(params.sfxId.size());
-        const int last = dontRepeat ? (lastIndex_.contains(type) ? lastIndex_[type] : -1) : -1;
+        const int last = dontRepeat ? (lastIndex_.contains(name) ? lastIndex_[name] : -1) : -1;
 
         for (int attempts = 0; attempts < 4; ++attempts)
         {
@@ -62,7 +76,7 @@ void Foley::Play(FoleyType type)
         }
     }
 
-    lastIndex_[type] = chosen;
+    lastIndex_[name] = chosen;
     const std::string& sfx = params.sfxId[static_cast<size_t>(chosen)];
 
     const float minSemi = std::min(0.0f, params.pitchRange);
@@ -80,15 +94,15 @@ void Foley::Play(FoleyType type)
     {
         if (voice)
         {
-            activeVoices_[type] = voice;
+            activeVoices_[name] = voice;
         }
     }
 }
 
-void Foley::Stop(FoleyType type)
+void Foley::Stop(const std::string& name)
 {
     std::lock_guard guard(mtx_);
-    const auto it = activeVoices_.find(type);
+    const auto it = activeVoices_.find(name);
     if (it != activeVoices_.end() && it->second)
     {
         AudioManager::StopVoice(it->second);
@@ -100,4 +114,105 @@ void Foley::Stop(FoleyType type)
 float Foley::SemitonesToRatio(float semitones)
 {
     return std::pow(2.0f, semitones / 12.0f);
+}
+
+FoleyFlags Foley::ParseFlags(const std::string& flagsStr)
+{
+    auto result = FoleyFlags::None;
+
+    if (flagsStr.empty() || flagsStr == "None")
+        return result;
+
+    std::istringstream ss(flagsStr);
+    std::string flag;
+
+    while (std::getline(ss, flag, '|'))
+    {
+        flag.erase(0, flag.find_first_not_of(" \t\r\n"));
+        flag.erase(flag.find_last_not_of(" \t\r\n") + 1);
+
+        if (flag == "Loop")
+            result |= FoleyFlags::Loop;
+        else if (flag == "OneAtTime")
+            result |= FoleyFlags::OneAtTime;
+        else if (flag == "MuteOnPause")
+            result |= FoleyFlags::MuteOnPause;
+        else if (flag == "MusicVolume")
+            result |= FoleyFlags::MusicVolume;
+        else if (flag == "DontRepeat")
+            result |= FoleyFlags::DontRepeat;
+    }
+
+    return result;
+}
+
+void Foley::LoadFromFile(const std::string& path)
+{
+    std::cout << "Foley: Loading sound definitions from " << path << "...\n";
+
+    pugi::xml_document doc;
+    const pugi::xml_parse_result result = doc.load_file(path.c_str());
+    if (!result)
+    {
+        std::cerr << "Foley::LoadFromFile - Error: Failed to load XML file '" << path
+            << "' - " << result.description() << " at offset " << result.offset << "\n";
+        return;
+    }
+
+    const pugi::xml_node root = doc.child("foley");
+    if (!root)
+    {
+        std::cerr << "Foley::LoadFromFile - Error: Missing <foley> root element in '" << path << "'\n";
+        return;
+    }
+
+    foleyMap_.clear();
+
+    int loadedCount = 0;
+    int errorCount = 0;
+
+    for (auto soundNode : root.children("sound"))
+    {
+        const std::string name = soundNode.attribute("name").as_string();
+        if (name.empty())
+        {
+            std::cerr << "Foley::LoadFromFile - Warning: Found <sound> element without 'name' attribute, skipping\n";
+            errorCount++;
+            continue;
+        }
+
+        FoleyParams params;
+
+        if (const auto flagsNode = soundNode.child("flags"))
+            params.foleyFlags = ParseFlags(flagsNode.text().as_string());
+        else
+            params.foleyFlags = FoleyFlags::None;
+
+        if (const auto pitchNode = soundNode.child("pitchRange"))
+            params.pitchRange = pitchNode.text().as_float(0.0f);
+        else
+            params.pitchRange = 0.0f;
+
+        for (auto sfxNode : soundNode.children("sfx"))
+        {
+            const std::string sfxId = sfxNode.text().as_string();
+            if (!sfxId.empty())
+                params.sfxId.push_back(sfxId);
+        }
+
+        if (params.sfxId.empty())
+        {
+            std::cerr << "Foley::LoadFromFile - Warning: Sound '" << name << "' has no <sfx> entries, skipping\n";
+            errorCount++;
+            continue;
+        }
+
+        foleyMap_[name] = std::move(params);
+        loadedCount++;
+    }
+
+    std::cout << "Foley: Successfully loaded " << loadedCount << " sound definitions";
+    if (errorCount > 0)
+        std::cout << " (" << errorCount << " errors/warnings)";
+    std::cout << " from " << path << "\n";
 }
