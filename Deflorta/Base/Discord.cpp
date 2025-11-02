@@ -1,21 +1,20 @@
 ﻿#include "Discord.hpp"
 
 #include <ctime>
+#include <iostream>
 
 #include "Time.hpp"
 
 namespace
 {
-    void HandleDiscordReady(const DiscordUser*)
+    void HandleDiscordDisconnected(int, const char* msg)
     {
+        std::cout << "Discord disconnected: " << msg << "\n";
     }
 
-    void HandleDiscordDisconnected(int, const char*)
+    void HandleDiscordErrored(int, const char* err)
     {
-    }
-
-    void HandleDiscordErrored(int, const char*)
-    {
+        std::cout << "Discord errored: " << err << "\n";
     }
 }
 
@@ -27,7 +26,6 @@ DiscordRichPresence Discord::presence_{};
 void Discord::Initialize()
 {
     DiscordEventHandlers handlers{};
-    handlers.ready = HandleDiscordReady;
     handlers.disconnected = HandleDiscordDisconnected;
     handlers.errored = HandleDiscordErrored;
 

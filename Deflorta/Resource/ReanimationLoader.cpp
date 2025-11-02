@@ -1,5 +1,7 @@
 ﻿#include "ReanimationLoader.hpp"
 
+#include <pugixml.hpp>
+
 #include <iostream>
 
 #include "ResourceManager.hpp"

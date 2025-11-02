@@ -70,7 +70,12 @@ SelectorScene::SelectorScene()
         startButton_->AddClickCallback(onPressGrave);
         startButton_->AddClickCallback([]
         {
-            Game::SetScene<BoardScene>(); 
+            const auto settings = BoardSettings{
+                .levelName = "1-1",
+                .backgroundType = BackgroundType::PoolNight,
+                .hasFog = true,
+            };
+            Game::SetScene<BoardScene>(settings);
         });
         AddWidget(startButton_.get());
     }

@@ -348,11 +348,8 @@
         <Image id="ZOMBIE_YETI_OUTERARM_UPPER2" path="Zombie_yeti_outerarm_upper2" />
         <Image id="ZOMBIE_YETI_OUTERARM_HAND" path="Zombie_yeti_outerarm_hand" />
         <Image id="ZOMBIE_SNORKLE_HEAD" path="Zombie_snorkle_head" />
-        <Image id="SELECTORSCREEN_ADVENTURE_BUTTON" path="SelectorScreen_Adventure_button" />
-        <Image id="SELECTORSCREEN_ADVENTURE_HIGHLIGHT" path="SelectorScreen_Adventure_Highlight" />
         <Image id="SELECTORSCREEN_STARTADVENTURE_BUTTON" path="SelectorScreen_StartAdventure_button" />
-        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT"
-            path="SelectorScreen_StartAdventure_Highlight" />
+        <Image id="SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT" path="SelectorScreen_StartAdventure_Highlight" />
         <Image id="SELECTORSCREEN_MINIGAME_BUTTON" path="SelectorScreen_MiniGame_button" />
         <Image id="SELECTORSCREEN_MINIGAME_HIGHLIGHT" path="SelectorScreen_MiniGame_Highlight" />
         <Image id="SELECTORSCREEN_PUZZLE_BUTTON" path="SelectorScreen_Puzzle_button" />
@@ -375,7 +372,6 @@
         <Image id="ZOMBIE_MUSTACHE1" path="Zombie_mustache1" />
         <Image id="ZOMBIE_MUSTACHE2" path="Zombie_mustache2" />
         <Image id="ZOMBIE_MUSTACHE3" path="Zombie_mustache3" />
-        <Image id="ZOMBIE_PORTER" path="Zombie_porter" />
     </Resources>
     <Resources id="LoadingSounds">
         <SetDefaults path="sounds" idprefix="SOUND_" />
@@ -556,6 +552,7 @@
         <Image id="BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY"
             path="background1_gameover_interior_overlay" />
         <Image id="BACKGROUND1_GAMEOVER_MASK" path="background1_gameover_mask" />
+        <Image id="BACKGROUND1_COVER" path="background1_cover" />
     </Resources>
     <Resources id="DelayLoad_BackgroundUnsodded">
         <SetDefaults path="images" idprefix="IMAGE_" />
@@ -569,6 +566,7 @@
         <Image id="BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY"
             path="background2_gameover_interior_overlay" />
         <Image id="BACKGROUND2_GAMEOVER_MASK" path="background2_gameover_mask" />
+        <Image id="BACKGROUND2_COVER" path="background2_cover" />
     </Resources>
     <Resources id="DelayLoad_Background3">
         <SetDefaults path="images" idprefix="IMAGE_" />
@@ -576,6 +574,7 @@
         <Image id="BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY"
             path="background3_gameover_interior_overlay" />
         <Image id="BACKGROUND3_GAMEOVER_MASK" path="background3_gameover_mask" />
+        <Image id="BACKGROUND3_COVER" path="background3_cover" />
     </Resources>
     <Resources id="DelayLoad_Background4">
         <SetDefaults path="images" idprefix="IMAGE_" />
@@ -583,17 +582,22 @@
         <Image id="BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY"
             path="background4_gameover_interior_overlay" />
         <Image id="BACKGROUND4_GAMEOVER_MASK" path="background4_gameover_mask" />
+        <Image id="BACKGROUND4_COVER" path="background4_cover" />
         <Image id="FOG" path="fog" cols="8" />
     </Resources>
     <Resources id="DelayLoad_Background5">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="BACKGROUND5" path="background5" />
         <Image id="BACKGROUND5_GAMEOVER_MASK" path="background5_gameover_mask" />
+        <Image id="BACKGROUND5_POLE" path="background5_pole" />
+        <Image id="BACKGROUND5_TREES" path="background5_trees" />
     </Resources>
     <Resources id="DelayLoad_Background6">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="BACKGROUND6" path="background6" />
         <Image id="BACKGROUND6_GAMEOVER_MASK" path="background6_gameover_mask" />
+        <Image id="BACKGROUND6_POLE" path="background6_pole" />
+        <Image id="BACKGROUND6_TREES" path="background6_trees" />
     </Resources>
     <Resources id="DelayLoad_MushroomGarden">
         <SetDefaults path="images" idprefix="IMAGE_" />

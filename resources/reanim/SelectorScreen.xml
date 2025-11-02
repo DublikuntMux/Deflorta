@@ -17018,7 +17018,7 @@
 </track>
 <track>
 <name>SelectorScreen_Survival_shadow</name>
-<t><x>610.5</x><y>391.7</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_ZENGARDEN</i></t>
+<t><x>610.5</x><y>391.7</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_SURVIVAL</i></t>
 <t><x>614.3</x><y>384.2</y></t>
 <t><x>618.0</x><y>376.7</y></t>
 <t><x>621.9</x><y>369.2</y></t>
@@ -17727,7 +17727,7 @@
 </track>
 <track>
 <name>SelectorScreen_Puzzle_shadow</name>
-<t><x>609.5</x><y>322.5</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_CHALLENGE</i></t>
+<t><x>609.5</x><y>322.5</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_PUZZLE</i></t>
 <t><x>613.3</x><y>314.9</y></t>
 <t><x>617.0</x><y>307.4</y></t>
 <t><x>620.8</x><y>299.8</y></t>
@@ -18436,7 +18436,7 @@
 </track>
 <track>
 <name>SelectorScreen_MiniGame_shadow</name>
-<t><x>605.5</x><y>238.8</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_SURVIVAL</i></t>
+<t><x>605.5</x><y>238.8</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_MINIGAME</i></t>
 <t><x>609.4</x><y>231.4</y></t>
 <t><x>613.1</x><y>223.9</y></t>
 <t><x>617</x><y>216.4</y></t>
@@ -19145,7 +19145,7 @@
 </track>
 <track>
 <name>SelectorScreen_Adventure_shadow</name>
-<t><x>597.0</x><y>128.7</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_STARTADVENTURE</i></t>
+<t><x>597.0</x><y>128.7</y><i>IMAGE_REANIM_SELECTORSCREEN_SHADOW_ADVENTURE</i></t>
 <t><x>600.8</x><y>121.2</y></t>
 <t><x>604.5</x><y>113.6</y></t>
 <t><x>608.3</x><y>106.1</y></t>
