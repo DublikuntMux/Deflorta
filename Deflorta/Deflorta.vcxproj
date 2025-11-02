@@ -96,7 +96,9 @@
         <ClCompile Include="Resource\ReanimationLoader.cpp"/>
         <ClCompile Include="Resource\ResourceManager.cpp"/>
         <ClCompile Include="Resource\TranslationManager.cpp"/>
+        <ClCompile Include="Scene\BoardScene.cpp"/>
         <ClCompile Include="Scene\LoadScene.cpp"/>
+        <ClCompile Include="Scene\Scene.cpp"/>
         <ClCompile Include="Scene\SelectorScene.cpp"/>
         <ClCompile Include="UI\Button.cpp"/>
         <ClCompile Include="UI\ImageButton.cpp"/>
@@ -120,6 +122,7 @@
         <ClInclude Include="Resource\ReanimationLoader.hpp"/>
         <ClInclude Include="Resource\ResourceManager.hpp"/>
         <ClInclude Include="Resource\TranslationManager.hpp"/>
+        <ClInclude Include="Scene\BoardScene.hpp"/>
         <ClInclude Include="Scene\Scene.hpp"/>
         <ClInclude Include="Scene\LoadScene.hpp"/>
         <ClInclude Include="Scene\SelectorScene.hpp"/>

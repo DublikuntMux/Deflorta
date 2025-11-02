@@ -67,6 +67,7 @@ SelectorScene::SelectorScene()
         });
         startButton_->AddHoverCallback(onHover);
         startButton_->AddClickCallback(onPressGrave);
+        AddWidget(startButton_.get());
     }
 
     {
@@ -81,6 +82,7 @@ SelectorScene::SelectorScene()
         });
         miniGameButton_->AddHoverCallback(onHover);
         miniGameButton_->AddClickCallback(onPressGrave);
+        AddWidget(miniGameButton_.get());
     }
 
     {
@@ -95,6 +97,7 @@ SelectorScene::SelectorScene()
         });
         puzzleButton_->AddHoverCallback(onHover);
         puzzleButton_->AddClickCallback(onPressGrave);
+        AddWidget(puzzleButton_.get());
     }
 
     {
@@ -109,6 +112,7 @@ SelectorScene::SelectorScene()
         });
         survivalButton_->AddHoverCallback(onHover);
         survivalButton_->AddClickCallback(onPressGrave);
+        AddWidget(survivalButton_.get());
     }
 
     {
@@ -117,6 +121,7 @@ SelectorScene::SelectorScene()
         optionsButton_ = std::make_unique<ImageButton>(button, highlight, 813.0f, 470.0f, 81.0f, 31.0f);
         optionsButton_->AddHoverCallback(onHover);
         optionsButton_->AddClickCallback(onPress);
+        AddWidget(optionsButton_.get());
     }
 
     {
@@ -125,6 +130,7 @@ SelectorScene::SelectorScene()
         helpButton_ = std::make_unique<ImageButton>(button, highlight, 895.0f, 505.0f, 48.0f, 22.0f);
         helpButton_->AddHoverCallback(onHover);
         helpButton_->AddClickCallback(onPress);
+        AddWidget(helpButton_.get());
     }
 
     {
@@ -133,6 +139,7 @@ SelectorScene::SelectorScene()
         quitButton_ = std::make_unique<ImageButton>(button, highlight, 970.0f, 490.0f, 57.0f, 27.0f);
         quitButton_->AddHoverCallback(onHover);
         quitButton_->AddClickCallback(onPress);
+        AddWidget(quitButton_.get());
     }
 
     AudioManager::PlayMusic("resources/sounds/mainmusic.ogg");
@@ -165,14 +172,7 @@ void SelectorScene::Update()
         cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
     }
 
-    startButton_->Update();
-    miniGameButton_->Update();
-    puzzleButton_->Update();
-    survivalButton_->Update();
-
-    optionsButton_->Update();
-    helpButton_->Update();
-    quitButton_->Update();
+    UpdateWidgets();
 }
 
 void SelectorScene::Render()
@@ -182,12 +182,5 @@ void SelectorScene::Render()
     signAnimation_->Draw();
     cloudAnimation_->Draw();
 
-    startButton_->Render();
-    miniGameButton_->Render();
-    puzzleButton_->Render();
-    survivalButton_->Render();
-
-    optionsButton_->Render();
-    helpButton_->Render();
-    quitButton_->Render();
+    RenderWidgets();
 }

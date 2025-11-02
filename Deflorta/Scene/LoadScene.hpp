@@ -18,9 +18,10 @@ public:
     void Render() override;
 
 private:
-    Transform logoTransform_;
-    Transform rollCapTransform_;
     Transform screenTransform_;
+    Transform logoTransform_;
+    Transform pvzTransform_;
+    Transform rollCapTransform_;
 
     float logoOpacity_ = 0.0f;
     float rollCapOpacity_ = 0.0f;
@@ -28,7 +29,8 @@ private:
     std::unique_ptr<Tween> startTween_;
     std::unique_ptr<Tween> exitTween_;
 
-    ID2D1Bitmap* rollCap_ = nullptr;
-    ID2D1Bitmap* logo_ = nullptr;
     ID2D1Bitmap* screen_ = nullptr;
+    ID2D1Bitmap* logo_ = nullptr;
+    ID2D1Bitmap* pvzLogo_ = nullptr;
+    ID2D1Bitmap* rollCap_ = nullptr;
 };

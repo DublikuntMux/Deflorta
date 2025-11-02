@@ -3,13 +3,13 @@
     <Resources id="Init">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="POPCAP_LOGO" path="PopCap_Logo" />
+        <Image id="PVZ_LOGO" path="PvZ_Logo" />
         <Image id="TITLESCREEN" path="titlescreen" />
         <SetDefaults path="reanim" idprefix="IMAGE_REANIM_" />
         <Image id="SODROLLCAP" path="SodRollCap" />
     </Resources>
     <Resources id="LoadingImages">
         <SetDefaults path="images" idprefix="IMAGE_" />
-        <Image id="PVZ_LOGO" path="PvZ_Logo" />
         <Image id="EDITBOX" path="editbox" />
         <Image id="DIALOG_TOPLEFT" path="dialog_topleft" />
         <Image id="DIALOG_TOPMIDDLE" path="dialog_topmiddle" />

@@ -27,12 +27,22 @@ LoadScene::LoadScene()
         ResourceManager::LoadGroup("LoadingFonts");
         g_LoadingDone = true;
     }).detach();
-    
+
     screen_ = ResourceManager::GetImage("IMAGE_TITLESCREEN");
     const auto [screenWidth, screenHeight] = screen_->GetSize();
     screenTransform_ = Transform{
         .x = 1280.0f / 2.0f - screenWidth / 2.0f,
         .y = 720.0f / 2.0f - screenHeight / 2.0f,
+        .rotation = 0.0f,
+        .scaleX = 1.0f,
+        .scaleY = 1.0f
+    };
+
+    pvzLogo_ = ResourceManager::GetImage("IMAGE_PVZ_LOGO");
+    const auto [pvzWidth, pvzHeight] = pvzLogo_->GetSize();
+    pvzTransform_ = Transform{
+        .x = 1280.0f / 2.0f - pvzWidth / 2.0f,
+        .y = 100.0f - pvzHeight / 2.0f,
         .rotation = 0.0f,
         .scaleX = 1.0f,
         .scaleY = 1.0f
@@ -141,5 +151,6 @@ void LoadScene::Render()
 {
     Renderer::EnqueueImage(screen_, screenTransform_);
     Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_);
+    Renderer::EnqueueImage(pvzLogo_, pvzTransform_, logoOpacity_);
     Renderer::EnqueueImage(rollCap_, rollCapTransform_, rollCapOpacity_);
 }
