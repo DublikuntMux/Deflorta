@@ -148,8 +148,6 @@ FoleyFlags Foley::ParseFlags(const std::string& flagsStr)
 
 void Foley::LoadFromFile(const std::string& path)
 {
-    std::cout << "Foley: Loading sound definitions from " << path << "...\n";
-
     pugi::xml_document doc;
     const pugi::xml_parse_result result = doc.load_file(path.c_str());
     if (!result)
@@ -211,7 +209,6 @@ void Foley::LoadFromFile(const std::string& path)
         loadedCount++;
     }
 
-    std::cout << "Foley: Successfully loaded " << loadedCount << " sound definitions";
     if (errorCount > 0)
         std::cout << " (" << errorCount << " errors/warnings)";
     std::cout << " from " << path << "\n";

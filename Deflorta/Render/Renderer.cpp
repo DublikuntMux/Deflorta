@@ -75,6 +75,8 @@ bool Renderer::Initialize(HWND hwnd)
 {
     hwnd_ = hwnd;
 
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
     D2D1_FACTORY_OPTIONS factoryOptions;
 #ifdef _DEBUG
     factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
@@ -119,13 +121,15 @@ std::optional<HRESULT> Renderer::CreateDeviceResources(HWND hwnd)
     hr = d2dDevice_->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, d2dContext_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return hr;
 
+    d2dContext_->SetUnitMode(D2D1_UNIT_MODE_PIXELS);
+
     DXGI_SWAP_CHAIN_DESC1 scd{};
     scd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.SampleDesc.Count = 1;
     scd.BufferCount = 3;
     scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    scd.Scaling = DXGI_SCALING_STRETCH;
+    scd.Scaling = DXGI_SCALING_NONE;
     scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
 
     hr = dxgiFactory->CreateSwapChainForHwnd(
@@ -145,11 +149,9 @@ void Renderer::RecreateTargetBitmap()
     HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
     if (FAILED(hr)) return;
 
-    constexpr float dpi = 96.f;
     const D2D1_BITMAP_PROPERTIES1 props = D2D1::BitmapProperties1(
         D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE),
-        dpi, dpi);
+        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
 
     hr = d2dContext_->CreateBitmapFromDxgiSurface(dxgiSurface.Get(), &props, d2dTargetBitmap_.ReleaseAndGetAddressOf());
     if (FAILED(hr)) return;
