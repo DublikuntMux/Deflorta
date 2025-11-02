@@ -59,6 +59,7 @@ void Game::Run()
         if (next_scene_)
         {
             if (scene_) scene_->OnExit();
+            Input::SetCursorType(IDC_ARROW);
             scene_ = std::move(next_scene_);
             scene_->OnEnter();
         }

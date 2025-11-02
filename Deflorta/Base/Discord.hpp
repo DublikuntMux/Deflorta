@@ -10,7 +10,7 @@ public:
     static void Initialize();
     static void Shutdown();
     static void Update();
-    static void SetPresence(const std::string& state, const std::string& details = "", bool resetTime = true);
+    static void SetPresence(const std::string& state, const std::string& details = "", bool resetTime = false);
 
 private:
     static void ClearPresence();
