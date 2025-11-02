@@ -1,5 +1,6 @@
 ﻿#include "ResourceManager.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <ranges>
@@ -287,6 +288,11 @@ bool ResourceManager::LoadManifest(const std::string& manifestPath)
                 entry.path = (std::filesystem::path(currentDefaults.basePath) /
                     std::string(resNode.attribute("path").as_string())).string();
 
+                if (auto rowsAttr = resNode.attribute("rows"))
+                    entry.rows = rowsAttr.as_int(1);
+                if (auto colsAttr = resNode.attribute("cols"))
+                    entry.cols = colsAttr.as_int(1);
+
                 group.images[fullId] = entry;
             }
             else if (nodeName == "Font")
@@ -351,15 +357,29 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                 std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
                 if (PngData pngData; LoadPngFile(fullPath, pngData))
                 {
-                    ID2D1Bitmap* bitmap = nullptr;
-                    if (CreateD2DBitmap(pngData, &bitmap))
+                    if (entry.rows > 1 || entry.cols > 1)
                     {
-                        images_[id].Attach(bitmap);
-                        entry.loaded = true;
+                        if (CreateSlicedImages(id, pngData, entry.rows, entry.cols))
+                        {
+                            entry.loaded = true;
+                        }
+                        else
+                        {
+                            std::cout << "Error: Failed to slice image '" << id << "'\n";
+                        }
                     }
                     else
                     {
-                        std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
+                        ID2D1Bitmap* bitmap = nullptr;
+                        if (CreateD2DBitmap(pngData, &bitmap))
+                        {
+                            images_[id].Attach(bitmap);
+                            entry.loaded = true;
+                        }
+                        else
+                        {
+                            std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
+                        }
                     }
                 }
                 else
@@ -399,9 +419,25 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
 {
     std::lock_guard lock(groupsMutex_);
 
+    if (const auto found = images_.find(id); found != images_.end())
+    {
+        return found->second.Get();
+    }
+
+    std::string baseId = id;
+    const size_t lastUnderscore = id.find_last_of('_');
+    if (lastUnderscore != std::string::npos)
+    {
+        std::string suffix = id.substr(lastUnderscore + 1);
+        if (!suffix.empty() && std::ranges::all_of(suffix, isdigit))
+        {
+            baseId = id.substr(0, lastUnderscore);
+        }
+    }
+
     for (auto& group : groups_ | std::views::values)
     {
-        if (auto it = group.images.find(id); it != group.images.end())
+        if (auto it = group.images.find(baseId); it != group.images.end())
         {
             if (!it->second.loaded)
             {
@@ -410,23 +446,38 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                 PngData pngData;
                 if (LoadPngFile(fullPath, pngData))
                 {
-                    ID2D1Bitmap* bitmap = nullptr;
-                    if (CreateD2DBitmap(pngData, &bitmap))
+                    if (it->second.rows > 1 || it->second.cols > 1)
                     {
-                        images_[id].Attach(bitmap);
-                        it->second.loaded = true;
+                        if (CreateSlicedImages(baseId, pngData, it->second.rows, it->second.cols))
+                        {
+                            it->second.loaded = true;
+                        }
+                        else
+                        {
+                            std::cout << "Error: Failed to slice image '" << baseId << "'\n";
+                        }
                     }
                     else
                     {
-                        std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
+                        ID2D1Bitmap* bitmap = nullptr;
+                        if (CreateD2DBitmap(pngData, &bitmap))
+                        {
+                            images_[baseId].Attach(bitmap);
+                            it->second.loaded = true;
+                        }
+                        else
+                        {
+                            std::cout << "Error: Failed to create D2D bitmap for image '" << baseId << "'\n";
+                        }
                     }
                 }
                 else
                 {
-                    std::cout << "Error: Failed to load PNG file for image '" << id << "' from path: " << fullPath <<
+                    std::cout << "Error: Failed to load PNG file for image '" << baseId << "' from path: " << fullPath <<
                         "\n";
                 }
             }
+
             const auto found = images_.find(id);
             if (found == images_.end())
             {
@@ -500,4 +551,63 @@ std::string ResourceManager::TokenToReanimFileName(const std::string& id)
         result += p;
     }
     return result;
+}
+
+bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PngData& sourceData, int rows, int cols)
+{
+    if (rows <= 0 || cols <= 0)
+    {
+        std::cout << "Error: Invalid rows/cols for slicing image '" << baseId << "'\n";
+        return false;
+    }
+
+    const uint32_t tileWidth = sourceData.width / cols;
+    const uint32_t tileHeight = sourceData.height / rows;
+
+    if (tileWidth == 0 || tileHeight == 0)
+    {
+        std::cout << "Error: Tile dimensions too small for image '" << baseId << "'\n";
+        return false;
+    }
+
+    int index = 0;
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col < cols; ++col)
+        {
+            PngData tileData;
+            tileData.width = tileWidth;
+            tileData.height = tileHeight;
+            tileData.pixels.resize(tileWidth * tileHeight * 4);
+
+            for (uint32_t y = 0; y < tileHeight; ++y)
+            {
+                const uint32_t srcY = row * tileHeight + y;
+                const uint32_t srcOffset = (srcY * sourceData.width + col * tileWidth) * 4;
+                const uint32_t dstOffset = y * tileWidth * 4;
+
+                std::memcpy(
+                    tileData.pixels.data() + dstOffset,
+                    sourceData.pixels.data() + srcOffset,
+                    tileWidth * 4
+                );
+            }
+
+            ID2D1Bitmap* bitmap = nullptr;
+            if (CreateD2DBitmap(tileData, &bitmap))
+            {
+                const std::string slicedId = baseId + "_" + std::to_string(index);
+                images_[slicedId].Attach(bitmap);
+            }
+            else
+            {
+                std::cout << "Error: Failed to create D2D bitmap for sliced image '" << baseId << "_" << index << "'\n";
+                return false;
+            }
+
+            ++index;
+        }
+    }
+
+    return true;
 }

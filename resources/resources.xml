@@ -579,11 +579,9 @@
     <Resources id="DelayLoad_Background4">
         <SetDefaults path="images" idprefix="IMAGE_" />
         <Image id="BACKGROUND4" path="background4" />
-        <Image id="BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY"
-            path="background4_gameover_interior_overlay" />
+        <Image id="BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY" path="background4_gameover_interior_overlay" />
         <Image id="BACKGROUND4_GAMEOVER_MASK" path="background4_gameover_mask" />
         <Image id="BACKGROUND4_COVER" path="background4_cover" />
-        <Image id="FOG" path="fog" cols="8" />
     </Resources>
     <Resources id="DelayLoad_Background5">
         <SetDefaults path="images" idprefix="IMAGE_" />
@@ -598,6 +596,10 @@
         <Image id="BACKGROUND6_GAMEOVER_MASK" path="background6_gameover_mask" />
         <Image id="BACKGROUND6_POLE" path="background6_pole" />
         <Image id="BACKGROUND6_TREES" path="background6_trees" />
+    </Resources>
+    <Resources id="DelayLoad_Fog">
+        <SetDefaults path="images" idprefix="IMAGE_" />
+        <Image id="FOG" path="fog" cols="8" />
     </Resources>
     <Resources id="DelayLoad_MushroomGarden">
         <SetDefaults path="images" idprefix="IMAGE_" />

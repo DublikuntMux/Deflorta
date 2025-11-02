@@ -16,7 +16,7 @@ Bush::Bush(int rowCount, bool isNightMode)
     if (!bush1.has_value() || !bush2.has_value() || !bush3.has_value())
         throw std::runtime_error("Failed to load selector bushes reanim");
 
-    auto positions = GenerateBushPositions(rowCount);
+    const auto positions = GenerateBushPositions(rowCount);
     bushAnimations_.reserve(rowCount);
     for (int i = 0; i < rowCount; ++i)
     {

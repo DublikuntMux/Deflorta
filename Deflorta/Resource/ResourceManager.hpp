@@ -13,6 +13,8 @@ struct ResourceEntry
 {
     std::string path;
     bool loaded = false;
+    int rows = 1;
+    int cols = 1;
 };
 
 struct FontEntry
@@ -60,6 +62,7 @@ private:
     static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
     static bool LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName);
     static std::string TokenToReanimFileName(const std::string& id);
+    static bool CreateSlicedImages(const std::string& baseId, const PngData& sourceData, int rows, int cols);
 
     static std::unordered_map<std::string, ResourceGroup> groups_;
     static std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> images_;

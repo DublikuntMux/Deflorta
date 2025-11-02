@@ -111,6 +111,13 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         .scaleX = 1.0f,
         .scaleY = 1.0f
     };
+
+    if (settings_.hasFog)
+    {
+        const int rows = settings_.backgroundType == BackgroundType::Pool || 
+                         settings_.backgroundType == BackgroundType::PoolNight ? 6 : 5;
+        fog_ = std::make_unique<Fog>(rows, settings_.fogColumns);
+    }
 }
 
 void BoardScene::OnEnter()
@@ -123,6 +130,8 @@ void BoardScene::Update()
 {
     if (bushes_)
         bushes_->Update();
+    if (fog_)
+        fog_->Update();
 }
 
 void BoardScene::Render()
@@ -132,6 +141,8 @@ void BoardScene::Render()
         bushes_->Draw();
     if (cover_)
         Renderer::EnqueueImage(cover_, coverTransform_);
+    if (fog_)
+        fog_->Render();
     if (tree_)
         Renderer::EnqueueImage(tree_, treeTransform_);
     if (pole_)

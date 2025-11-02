@@ -1,10 +1,10 @@
 ﻿#include "SaveManager.hpp"
 
-#include <filesystem>
-
 #include <pugixml.hpp>
 #include <Windows.h>
 #include <ShlObj.h>
+
+#include <filesystem>
 
 std::string SaveManager::save_file_path_;
 std::unordered_map<std::string, SaveManager::Value> SaveManager::data_;
@@ -16,17 +16,17 @@ void SaveManager::Initialize()
         return;
 
     PWSTR documents_path = nullptr;
-    HRESULT hr = SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &documents_path);
+    const HRESULT hr = SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &documents_path);
 
     if (SUCCEEDED(hr) && documents_path)
     {
-        int size_needed = WideCharToMultiByte(CP_UTF8, 0, documents_path, -1, nullptr, 0, nullptr, nullptr);
+        const int size_needed = WideCharToMultiByte(CP_UTF8, 0, documents_path, -1, nullptr, 0, nullptr, nullptr);
         std::string documents_str(size_needed - 1, 0);
         WideCharToMultiByte(CP_UTF8, 0, documents_path, -1, &documents_str[0], size_needed, nullptr, nullptr);
 
         CoTaskMemFree(documents_path);
 
-        std::filesystem::path save_dir = std::filesystem::path(documents_str) / "My Games" / "Deflorta";
+        const std::filesystem::path save_dir = std::filesystem::path(documents_str) / "My Games" / "Deflorta";
 
         try
         {

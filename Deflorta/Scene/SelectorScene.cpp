@@ -72,8 +72,9 @@ SelectorScene::SelectorScene()
         {
             const auto settings = BoardSettings{
                 .levelName = "1-1",
-                .backgroundType = BackgroundType::PoolNight,
-                .hasFog = true,
+                .backgroundType = BackgroundType::Day,
+                .hasFog = false,
+                .fogColumns = 0,
             };
             Game::SetScene<BoardScene>(settings);
         });

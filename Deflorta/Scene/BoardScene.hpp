@@ -6,6 +6,7 @@
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Object/Bush.hpp"
+#include "../Object/Fog.hpp"
 
 enum class BackgroundType: std::uint8_t
 {
@@ -23,6 +24,7 @@ struct BoardSettings
 
     BackgroundType backgroundType;
     bool hasFog;
+    int fogColumns;
 };
 
 class BoardScene final : public Scene
@@ -48,4 +50,5 @@ private:
     Transform treeTransform_;
 
     std::unique_ptr<Bush> bushes_;
+    std::unique_ptr<Fog> fog_;
 };
