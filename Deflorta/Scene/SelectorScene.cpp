@@ -2,12 +2,13 @@
 
 #include <stdexcept>
 
+#include "BoardScene.hpp"
 #include "../Base/Random.hpp"
 #include "../Render/Reanimator.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Discord.hpp"
-#include "../Base/Input.hpp"
+#include "../Base/Game.hpp"
 #include "../Resource/Foley.hpp"
 #include "../Resource/ResourceManager.hpp"
 
@@ -67,6 +68,10 @@ SelectorScene::SelectorScene()
         });
         startButton_->AddHoverCallback(onHover);
         startButton_->AddClickCallback(onPressGrave);
+        startButton_->AddClickCallback([]
+        {
+            Game::SetScene<BoardScene>(); 
+        });
         AddWidget(startButton_.get());
     }
 
@@ -149,7 +154,6 @@ SelectorScene::SelectorScene()
 void SelectorScene::OnEnter()
 {
     Discord::SetPresence("Selector: Opening", "Main Menu");
-    Input::SetCursorType(IDC_ARROW);
 }
 
 void SelectorScene::Update()

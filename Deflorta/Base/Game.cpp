@@ -5,6 +5,7 @@
 #include "Time.hpp"
 #include "Input.hpp"
 #include "Discord.hpp"
+#include "SaveManager.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
@@ -18,6 +19,8 @@ bool Game::running_ = true;
 void Game::Initialize(HWND hwnd)
 {
     hwnd_ = hwnd;
+
+    SaveManager::Initialize();
 
     if (!AudioManager::Initialize())
         running_ = false;
@@ -33,6 +36,7 @@ void Game::Initialize(HWND hwnd)
 
 void Game::Uninitialize()
 {
+    SaveManager::Uninitialize();
     Discord::Shutdown();
     AudioManager::Uninitialize();
     Renderer::Cleanup();

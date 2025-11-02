@@ -167,7 +167,6 @@ void Foley::LoadFromFile(const std::string& path)
     foleyMap_.clear();
 
     int loadedCount = 0;
-    int errorCount = 0;
 
     for (auto soundNode : root.children("sound"))
     {
@@ -175,7 +174,6 @@ void Foley::LoadFromFile(const std::string& path)
         if (name.empty())
         {
             std::cerr << "Foley::LoadFromFile - Warning: Found <sound> element without 'name' attribute, skipping\n";
-            errorCount++;
             continue;
         }
 
@@ -201,15 +199,10 @@ void Foley::LoadFromFile(const std::string& path)
         if (params.sfxId.empty())
         {
             std::cerr << "Foley::LoadFromFile - Warning: Sound '" << name << "' has no <sfx> entries, skipping\n";
-            errorCount++;
             continue;
         }
 
         foleyMap_[name] = std::move(params);
         loadedCount++;
     }
-
-    if (errorCount > 0)
-        std::cout << " (" << errorCount << " errors/warnings)";
-    std::cout << " from " << path << "\n";
 }
