@@ -32,8 +32,12 @@ struct BoardSettings
 
 static constexpr float kPlantBaseX = 270.0f;
 static constexpr float kPlantBaseY = 150.0f;
-static constexpr float kPlantCellWidth = 81.5f;
+static constexpr float kPlantCellWidth = 81.0f;
 static constexpr float kPlantCellHeight = 97.0f;
+
+static constexpr float kPlantBaseYRoof = kPlantBaseY + 87.0f;
+static constexpr float kPlantBaseYRoofFlat = kPlantBaseY - 10.0f;
+static constexpr float kPlantCellHeightRoof = 85.0f;
 
 class BoardScene final : public Scene
 {
@@ -43,6 +47,9 @@ public:
     void OnEnter() override;
     void Update() override;
     void Render() override;
+
+    static std::pair<float, float> GridToPosition(int row, int column, BackgroundType bgType);
+    static std::pair<int, int> PositionToGrid(float x, float y, BackgroundType bgType);
 
 private:
     BoardSettings settings_;
@@ -62,6 +69,6 @@ private:
 
     std::vector<std::shared_ptr<BasePlant>> plants_;
 
-    static std::pair<float, float> GridToPosition(int row, int column);
-    static std::pair<int, int> PositionToGrid(float x, float y);
+    bool CanPlantAt(int row, int column, PlantPos pos) const;
+    bool PlantAt(int row, int column, const std::shared_ptr<BasePlant>& plant);
 };

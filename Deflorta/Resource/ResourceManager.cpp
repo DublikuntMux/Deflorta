@@ -473,7 +473,8 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                 }
                 else
                 {
-                    std::cout << "Error: Failed to load PNG file for image '" << baseId << "' from path: " << fullPath <<
+                    std::cout << "Error: Failed to load PNG file for image '" << baseId << "' from path: " << fullPath
+                        <<
                         "\n";
                 }
             }

@@ -129,17 +129,14 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 
     plants_.reserve(Utils::NextPowerOf2(rows * 9));
 
-    auto [x1, y1] = GridToPosition(0, 0);
-    auto testPlant = std::make_shared<SunFlower>(x1, y1);
-    plants_.emplace_back(testPlant);
-
-    auto [x2, y2] = GridToPosition(2, 4);
-    auto testPlant2 = std::make_shared<SunFlower>(x2, y2);
-    plants_.emplace_back(testPlant2);
-
-    auto [x3, y3] = GridToPosition(4, 8);
-    auto testPlant3 = std::make_shared<SunFlower>(x3, y3);
-    plants_.emplace_back(testPlant3);
+    for (int row = 0; row < 5; ++row)
+    {
+        for (int col = 0; col < 9; ++col)
+        {
+            auto testPlant = std::make_shared<SunFlower>();
+            PlantAt(row, col, testPlant);
+        }
+    }
 }
 
 void BoardScene::OnEnter()
@@ -175,23 +172,90 @@ void BoardScene::Render()
         Renderer::EnqueueImage(pole_, poleTransform_);
 }
 
-std::pair<float, float> BoardScene::GridToPosition(int row, int column)
+std::pair<float, float> BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
 {
     float x = kPlantBaseX + kPlantCellWidth * static_cast<float>(column);
-    float y = kPlantBaseY + kPlantCellHeight * static_cast<float>(row);
+    float y;
+    
+    if (bgType == BackgroundType::Roof ||
+        bgType == BackgroundType::RoofNight)
+    {
+        if (column >= 5)
+        {
+            y = kPlantBaseYRoofFlat + kPlantCellHeightRoof * static_cast<float>(row);
+        }
+        else
+        {
+            y = kPlantBaseYRoof - static_cast<float>(column) * 20.0f + kPlantCellHeightRoof * static_cast<float>(row);
+        }
+    }
+    else
+    {
+        y = kPlantBaseY + kPlantCellHeight * static_cast<float>(row);
+    }
+
     return {x, y};
 }
 
-std::pair<int, int> BoardScene::PositionToGrid(float x, float y)
+std::pair<int, int> BoardScene::PositionToGrid(float x, float y, BackgroundType bgType)
 {
     const float colF = (x - kPlantBaseX) / kPlantCellWidth;
-    const float rowF = (y - kPlantBaseY) / kPlantCellHeight;
-
     int col = static_cast<int>(std::round(colF));
-    int row = static_cast<int>(std::round(rowF));
-
     col = std::max(col, 0);
+
+    float rowF;
+    if (bgType == BackgroundType::Roof ||
+        bgType == BackgroundType::RoofNight)
+    {
+        if (col >= 5)
+        {
+            rowF = (y - kPlantBaseYRoofFlat) / kPlantCellHeightRoof;
+        }
+        else
+        {
+            rowF = (y - kPlantBaseYRoof + static_cast<float>(col) * 20.0f) / kPlantCellHeightRoof;
+        }
+    }
+    else
+    {
+        rowF = (y - kPlantBaseY) / kPlantCellHeight;
+    }
+
+    int row = static_cast<int>(std::round(rowF));
     row = std::max(row, 0);
 
     return {row, col};
+}
+
+bool BoardScene::CanPlantAt(int row, int column, PlantPos pos) const
+{
+    const int maxRows = settings_.backgroundType == BackgroundType::Pool ||
+                        settings_.backgroundType == BackgroundType::PoolNight
+                            ? 6
+                            : 5;
+    constexpr int maxColumns = 9;
+
+    if (row < 0 || row >= maxRows || column < 0 || column >= maxColumns)
+        return false;
+
+    return std::ranges::all_of(plants_, [&](const auto& plant)
+    {
+        return !(plant->GetGridRow() == row &&
+            plant->GetGridColumn() == column &&
+            plant->GetPlantPos() == pos);
+    });
+}
+
+bool BoardScene::PlantAt(int row, int column, const std::shared_ptr<BasePlant>& plant)
+{
+    if (!plant)
+        return false;
+
+    if (!CanPlantAt(row, column, plant->GetPlantPos()))
+        return false;
+
+    plant->SetGridPosition(row, column, settings_.backgroundType);
+    plants_.emplace_back(plant);
+
+    return true;
 }

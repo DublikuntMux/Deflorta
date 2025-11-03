@@ -34,4 +34,3 @@ private:
     static ID2D1Bitmap* GetRandomFogTexture();
     void GenerateFogPieces();
 };
-

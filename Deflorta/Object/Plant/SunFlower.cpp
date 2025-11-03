@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-SunFlower::SunFlower(float posX, float posY) : BasePlant(PlantType::SunFlower, posX, posY)
+SunFlower::SunFlower() : BasePlant(PlantType::SunFlower, PlantPos::Base)
 {
     const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/SunFlower.xml");
     if (!reanim.has_value())
