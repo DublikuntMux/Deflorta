@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 
+#include "Layer.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Transform.hpp"
 
@@ -26,7 +27,7 @@ struct FrameTime
 
 struct TrackInstance
 {
-    int renderGroup = 0;
+    int renderGroup = static_cast<int>(RenderLayer::Default);
     float shakeOverride = 0.0f;
     float shakeX = 0.0f;
     float shakeY = 0.0f;

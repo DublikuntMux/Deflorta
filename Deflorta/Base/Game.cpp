@@ -1,7 +1,5 @@
 ﻿#include "Game.hpp"
 
-#include <thread>
-
 #include "Time.hpp"
 #include "Input.hpp"
 #include "Discord.hpp"
@@ -78,8 +76,6 @@ void Game::Run()
         }
         Input::EndCursorUpdate();
         Renderer::Render();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 

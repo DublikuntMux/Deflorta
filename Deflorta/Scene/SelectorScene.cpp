@@ -50,7 +50,7 @@ SelectorScene::SelectorScene()
         cloudAnimation_ = std::make_unique<Reanimator>(reanim.value());
         cloudAnimation_->SetPosition(0, 0);
         const auto cloudId = Random::UniformInt(1, 6);
-        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.5f);
         for (int i = 1; i < 7; ++i)
         {
             cloudAnimation_->SetLayerZ("Cloud" + std::to_string(i), static_cast<int>(RenderLayer::BackgroundCover));
@@ -214,7 +214,7 @@ void SelectorScene::Update()
     if (cloudAnimation_->IsFinished())
     {
         const auto cloudId = Random::UniformInt(1, 6);
-        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
+        cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.5f);
     }
 }
 

@@ -209,7 +209,7 @@ void Renderer::Render()
 
     const HRESULT hr = d2dContext_->EndDraw();
     if (SUCCEEDED(hr))
-        swapChain_->Present(1, 0);
+        swapChain_->Present(0, 0);
     else if (hr == D2DERR_RECREATE_TARGET)
         DiscardDeviceResources();
 }
