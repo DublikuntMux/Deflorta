@@ -143,6 +143,14 @@ void Reanimator::SetLayerZ(const std::string& trackName, int z)
     tracks_[static_cast<size_t>(idx)].renderGroup = z;
 }
 
+void Reanimator::SetAllLayersZ(int z)
+{
+    for (auto& track : tracks_)
+    {
+        track.renderGroup = z;
+    }
+}
+
 std::pair<int, int> Reanimator::GetFramesForLayer(const std::string& trackName) const
 {
     int start = 0;

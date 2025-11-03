@@ -1,8 +1,10 @@
 ﻿#pragma once
 
+#include <memory>
 #include <vector>
 
 class Widget;
+class GameObject;
 
 class Scene
 {
@@ -17,17 +19,19 @@ public:
     {
     }
 
-    virtual void Update() = 0;
-    virtual void Render() = 0;
+    virtual void Update();
+    virtual void Render();
 
 protected:
     void AddWidget(Widget* widget);
     void RemoveWidget(Widget* widget);
     void ClearWidgets();
 
-    void UpdateWidgets() const;
-    void RenderWidgets() const;
+    void AddGameObject(const std::shared_ptr<GameObject>& gameObject);
+    void RemoveGameObject(const std::shared_ptr<GameObject>& gameObject);
+    void ClearGameObjects();
 
 private:
     std::vector<Widget*> widgets_;
+    std::vector<std::shared_ptr<GameObject>> gameObjects_;
 };

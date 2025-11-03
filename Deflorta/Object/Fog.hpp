@@ -5,6 +5,7 @@
 
 #include <d2d1.h>
 
+#include "GameObject.hpp"
 #include "../Base/Transform.hpp"
 #include "../Base/Tween.hpp"
 
@@ -17,13 +18,14 @@ struct FogPiece
     int col = 0;
 };
 
-class Fog
+class Fog : public GameObject
 {
 public:
     Fog(int rowCount, int maxColumns);
 
-    void Update() const;
-    void Render() const;
+    void Update() override;
+    void Render() override;
+
     void MoveFog(float targetX, float duration);
 
 private:

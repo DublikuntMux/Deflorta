@@ -197,6 +197,7 @@ void SelectorScene::OnEnter()
 
 void SelectorScene::Update()
 {
+    Scene::Update();
     screenAnimation_->Update();
     grassAnimation_->Update();
     signAnimation_->Update();
@@ -214,16 +215,13 @@ void SelectorScene::Update()
         const auto cloudId = Random::UniformInt(1, 6);
         cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
     }
-
-    UpdateWidgets();
 }
 
 void SelectorScene::Render()
 {
+    Scene::Render();
     screenAnimation_->Draw();
     grassAnimation_->Draw();
     signAnimation_->Draw();
     cloudAnimation_->Draw();
-
-    RenderWidgets();
 }

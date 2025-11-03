@@ -92,6 +92,7 @@
         <ClCompile Include="Main.cpp"/>
         <ClCompile Include="Object\Bush.cpp"/>
         <ClCompile Include="Object\Fog.cpp"/>
+        <ClCompile Include="Object\GameObject.cpp"/>
         <ClCompile Include="Object\Plant\BasePlant.cpp">
             <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
             <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -199,8 +200,10 @@
         <ClInclude Include="Base\Tween.hpp"/>
         <ClInclude Include="Object\Bush.hpp"/>
         <ClInclude Include="Object\Fog.hpp"/>
+        <ClInclude Include="Object\GameObject.hpp"/>
         <ClInclude Include="Object\Plant\BasePlant.hpp"/>
         <ClInclude Include="Object\Plant\SunFlower.hpp"/>
+        <ClInclude Include="Render\Layer.hpp"/>
         <ClInclude Include="Render\Reanimator.hpp"/>
         <ClInclude Include="Render\Renderer.hpp"/>
         <ClInclude Include="resource.h"/>

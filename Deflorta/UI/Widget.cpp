@@ -26,16 +26,6 @@ void Widget::SetPosition(float x, float y)
     y_ = y;
 }
 
-int Widget::GetZ() const
-{
-    return zOrder_;
-}
-
-void Widget::SetZ(int z)
-{
-    zOrder_ = z;
-}
-
 bool Widget::IsVisible() const
 {
     return visible_;

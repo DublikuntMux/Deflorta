@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "../GameObject.hpp"
 #include "../../Render/Reanimator.hpp"
 
 enum class BackgroundType : std::uint8_t;
@@ -20,14 +21,13 @@ enum class PlantPos: std::uint8_t
     Under
 };
 
-class BasePlant
+class BasePlant : public GameObject
 {
 public:
     BasePlant(PlantType type, PlantPos pos);
-    virtual ~BasePlant();
 
-    virtual void Draw();
-    virtual void Update();
+    void Update() override;
+    void Render() override;
 
     [[nodiscard]] PlantType GetPlantType() const;
     [[nodiscard]] PlantPos GetPlantPos() const;
@@ -38,7 +38,6 @@ public:
 
 protected:
     std::unique_ptr<Reanimator> sprite;
-    Transform transform;
 
     PlantType plantType;
     PlantPos plantPos;

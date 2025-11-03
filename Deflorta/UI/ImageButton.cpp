@@ -1,6 +1,7 @@
 ﻿#include "ImageButton.hpp"
 
 #include "../Base/Transform.hpp"
+#include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
 ImageButton::ImageButton(ID2D1Bitmap* normalImage, ID2D1Bitmap* hoverImage,
@@ -24,7 +25,7 @@ void ImageButton::Render()
             Transform transform;
             transform.x = x_;
             transform.y = y_;
-            Renderer::EnqueueImage(currentImage, transform, 1.0f, zOrder_);
+            Renderer::EnqueueImage(currentImage, transform, 1.0f, static_cast<int>(RenderLayer::UI));
         }
     }
 }

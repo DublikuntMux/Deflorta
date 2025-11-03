@@ -5,6 +5,7 @@
 #include "../Utils.hpp"
 #include "../Base/Discord.hpp"
 #include "../Object/Plant/SunFlower.hpp"
+#include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
 
@@ -111,7 +112,8 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 
     if (!hasPole)
     {
-        bushes_ = std::make_unique<Bush>(rows, bushesNight);
+        bush_ = std::make_shared<Bush>(rows, bushesNight);
+        AddGameObject(bush_);
     }
 
     backgroundTransform_ = Transform{
@@ -125,6 +127,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     if (settings_.hasFog)
     {
         fog_ = std::make_unique<Fog>(rows, settings_.fogColumns);
+        AddGameObject(fog_);
     }
 
     plants_.reserve(Utils::NextPowerOf2(rows * 9));
@@ -147,36 +150,27 @@ void BoardScene::OnEnter()
 
 void BoardScene::Update()
 {
-    for (const auto& plant : plants_)
-        plant->Update();
-    if (bushes_)
-        bushes_->Update();
-    if (fog_)
-        fog_->Update();
+    Scene::Update();
 }
 
 void BoardScene::Render()
 {
-    Renderer::EnqueueImage(background_, backgroundTransform_);
-    for (const auto& plant : plants_)
-        plant->Draw();
-    if (bushes_)
-        bushes_->Draw();
+    Scene::Render();
+
+    Renderer::EnqueueImage(background_, backgroundTransform_, 1, static_cast<int>(RenderLayer::Background));
     if (cover_)
-        Renderer::EnqueueImage(cover_, coverTransform_);
-    if (fog_)
-        fog_->Render();
+        Renderer::EnqueueImage(cover_, coverTransform_, 1, static_cast<int>(RenderLayer::Foreground));
     if (tree_)
-        Renderer::EnqueueImage(tree_, treeTransform_);
+        Renderer::EnqueueImage(tree_, treeTransform_, 1, static_cast<int>(RenderLayer::Foreground));
     if (pole_)
-        Renderer::EnqueueImage(pole_, poleTransform_);
+        Renderer::EnqueueImage(pole_, poleTransform_, 1, static_cast<int>(RenderLayer::Foreground));
 }
 
 std::pair<float, float> BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
 {
     float x = kPlantBaseX + kPlantCellWidth * static_cast<float>(column);
     float y;
-    
+
     if (bgType == BackgroundType::Roof ||
         bgType == BackgroundType::RoofNight)
     {
@@ -256,6 +250,7 @@ bool BoardScene::PlantAt(int row, int column, const std::shared_ptr<BasePlant>& 
 
     plant->SetGridPosition(row, column, settings_.backgroundType);
     plants_.emplace_back(plant);
+    AddGameObject(plant);
 
     return true;
 }

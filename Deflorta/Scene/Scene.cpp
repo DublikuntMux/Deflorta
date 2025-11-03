@@ -2,7 +2,46 @@
 
 #include <algorithm>
 
+#include "../Object/GameObject.hpp"
 #include "../UI/Widget.hpp"
+
+void Scene::Update()
+{
+    for (const auto& gameObject : gameObjects_)
+    {
+        if (gameObject && gameObject->IsActive())
+        {
+            gameObject->Update();
+        }
+    }
+
+    for (auto* widget : widgets_)
+    {
+        if (widget && widget->IsVisible())
+        {
+            widget->Update();
+        }
+    }
+}
+
+void Scene::Render()
+{
+    for (const auto& gameObject : gameObjects_)
+    {
+        if (gameObject && gameObject->IsActive())
+        {
+            gameObject->Render();
+        }
+    }
+
+    for (auto* widget : widgets_)
+    {
+        if (widget && widget->IsVisible())
+        {
+            widget->Render();
+        }
+    }
+}
 
 void Scene::AddWidget(Widget* widget)
 {
@@ -26,24 +65,24 @@ void Scene::ClearWidgets()
     widgets_.clear();
 }
 
-void Scene::UpdateWidgets() const
+void Scene::AddGameObject(const std::shared_ptr<GameObject>& gameObject)
 {
-    for (auto* widget : widgets_)
+    if (gameObject)
     {
-        if (widget && widget->IsVisible())
-        {
-            widget->Update();
-        }
+        gameObjects_.push_back(gameObject);
     }
 }
 
-void Scene::RenderWidgets() const
+void Scene::RemoveGameObject(const std::shared_ptr<GameObject>& gameObject)
 {
-    for (auto* widget : widgets_)
+    const auto it = std::ranges::find(gameObjects_, gameObject);
+    if (it != gameObjects_.end())
     {
-        if (widget && widget->IsVisible())
-        {
-            widget->Render();
-        }
+        gameObjects_.erase(it);
     }
+}
+
+void Scene::ClearGameObjects()
+{
+    gameObjects_.clear();
 }

@@ -1,5 +1,6 @@
 ﻿#include "TextButton.hpp"
 
+#include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
 TextButton::TextButton(std::wstring text, std::wstring font, float size, const D2D1_COLOR_F& normalColor,
@@ -20,7 +21,7 @@ void TextButton::Render()
                                               ? hoverColor_
                                               : normalColor_;
         const D2D1_RECT_F rect = D2D1::RectF(x_, y_, x_ + width_, y_ + height_);
-        Renderer::EnqueueTextW(text_, rect, font_, size_, currentColor, zOrder_);
+        Renderer::EnqueueTextW(text_, rect, font_, size_, currentColor, static_cast<int>(RenderLayer::UI));
     }
 }
 

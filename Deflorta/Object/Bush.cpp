@@ -1,8 +1,10 @@
 ﻿#include "Bush.hpp"
 
 #include "../Base/Random.hpp"
+#include "../Render/Layer.hpp"
 
 Bush::Bush(int rowCount, bool isNightMode)
+    : GameObject(GameObjectTag::Bush)
 {
     auto bush1 = isNightMode
                      ? ReanimationLoader::LoadFromFile("resources/reanim/Night_bush1.xml")
@@ -30,6 +32,7 @@ Bush::Bush(int rowCount, bool isNightMode)
             bushAnim = std::make_shared<Reanimator>(bush3.value());
         bushAnim->SetPosition(static_cast<float>(positions[i].first), static_cast<float>(positions[i].second));
         bushAnim->PlayLayer("anim_rustle", ReanimLoopType::PlayOnceAndHold);
+        bushAnim->SetAllLayersZ(static_cast<int>(RenderLayer::Foreground));
         bushAnimations_.push_back(bushAnim);
     }
 }
@@ -39,7 +42,7 @@ void Bush::Rustle(int row) const
     bushAnimations_[row]->PlayLayer("anim_rustle", ReanimLoopType::PlayOnceAndHold);
 }
 
-void Bush::Update() const
+void Bush::Update()
 {
     for (const auto& bush : bushAnimations_)
     {
@@ -47,7 +50,7 @@ void Bush::Update() const
     }
 }
 
-void Bush::Draw() const
+void Bush::Render()
 {
     for (const auto& bush : bushAnimations_)
     {

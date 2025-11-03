@@ -1,5 +1,6 @@
 ﻿#include "UIText.hpp"
 
+#include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
 UIText::UIText(std::wstring text, std::wstring font, float size, const D2D1_COLOR_F& color,
@@ -15,7 +16,7 @@ void UIText::Render()
     if (visible_)
     {
         const D2D1_RECT_F rect = D2D1::RectF(x_, y_, x_ + width_, y_ + height_);
-        Renderer::EnqueueTextW(text_, rect, font_, size_, color_, zOrder_);
+        Renderer::EnqueueTextW(text_, rect, font_, size_, color_, static_cast<int>(RenderLayer::UI));
     }
 }
 

@@ -20,15 +20,11 @@ public:
 
     void SetPosition(float x, float y);
 
-    [[nodiscard]] int GetZ() const;
-    void SetZ(int z);
-
     [[nodiscard]] bool IsVisible() const;
     void SetVisible(bool visible);
 
 protected:
     float x_ = 0.0f;
     float y_ = 0.0f;
-    int zOrder_ = 0;
     bool visible_ = true;
 };

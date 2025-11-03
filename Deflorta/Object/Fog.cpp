@@ -1,17 +1,18 @@
 ﻿#include "Fog.hpp"
 
 #include "../Base/Random.hpp"
+#include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
 
 Fog::Fog(int rowCount, int maxColumns)
-    : rowCount_(rowCount), maxColumns_(maxColumns)
+    : GameObject(GameObjectTag::Fog), rowCount_(rowCount), maxColumns_(maxColumns)
 {
     ResourceManager::LoadGroup("DelayLoad_Fog");
     GenerateFogPieces();
 }
 
-void Fog::Update() const
+void Fog::Update()
 {
     for (auto& piece : fogPieces_)
     {
@@ -22,13 +23,13 @@ void Fog::Update() const
     }
 }
 
-void Fog::Render() const
+void Fog::Render()
 {
     for (const auto& piece : fogPieces_)
     {
         if (piece.texture)
         {
-            Renderer::EnqueueImage(piece.texture, piece.transform);
+            Renderer::EnqueueImage(piece.texture, piece.transform, 1, static_cast<int>(RenderLayer::Fog));
         }
     }
 }

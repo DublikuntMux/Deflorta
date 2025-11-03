@@ -4,16 +4,18 @@
 #include <vector>
 #include <utility>
 
+#include "GameObject.hpp"
 #include "../Render/Reanimator.hpp"
 
-class Bush
+class Bush : public GameObject
 {
 public:
     Bush(int rowCount, bool isNightMode);
 
+    void Update() override;
+    void Render() override;
+
     void Rustle(int row) const;
-    void Update() const;
-    void Draw() const;
 
 private:
     std::vector<std::shared_ptr<Reanimator>> bushAnimations_;

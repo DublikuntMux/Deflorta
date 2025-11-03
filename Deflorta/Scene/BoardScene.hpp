@@ -64,8 +64,8 @@ private:
     Transform poleTransform_;
     Transform treeTransform_;
 
-    std::unique_ptr<Bush> bushes_;
-    std::unique_ptr<Fog> fog_;
+    std::shared_ptr<Bush> bush_;
+    std::shared_ptr<Fog> fog_;
 
     std::vector<std::shared_ptr<BasePlant>> plants_;
 

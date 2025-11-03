@@ -10,6 +10,7 @@
 #include "../Resource/TranslationManager.hpp"
 #include "../Base/Discord.hpp"
 #include "../Base/Input.hpp"
+#include "../Render/Layer.hpp"
 
 namespace
 {
@@ -80,6 +81,8 @@ void LoadScene::OnEnter()
 
 void LoadScene::Update()
 {
+    Scene::Update();
+
     startTween_->Update();
     rollCapTransform_.rotation += 90.0f * Time::GetDeltaTime();
 
@@ -124,8 +127,10 @@ void LoadScene::Update()
 
 void LoadScene::Render()
 {
-    Renderer::EnqueueImage(screen_, screenTransform_);
-    Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_);
-    Renderer::EnqueueImage(pvzLogo_, pvzTransform_, logoOpacity_);
-    Renderer::EnqueueImage(rollCap_, rollCapTransform_, logoOpacity_);
+    Scene::Render();
+
+    Renderer::EnqueueImage(screen_, screenTransform_, 1, static_cast<int>(RenderLayer::Foreground));
+    Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));
+    Renderer::EnqueueImage(pvzLogo_, pvzTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));
+    Renderer::EnqueueImage(rollCap_, rollCapTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));
 }
