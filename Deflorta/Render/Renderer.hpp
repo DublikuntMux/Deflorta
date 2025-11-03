@@ -19,7 +19,8 @@ struct ReanimatorTransform;
 enum class DrawType : std::uint8_t
 {
     Image,
-    Text
+    Text,
+    Rectangle
 };
 
 struct DrawItem
@@ -51,10 +52,25 @@ struct DrawItem
         }
     };
 
+    struct RectangleData
+    {
+        D2D1_RECT_F rect{};
+        D2D1_COLOR_F color{};
+        float strokeWidth = 1.0f;
+        bool filled = false;
+        RectangleData() = default;
+
+        RectangleData(const D2D1_RECT_F& r, const D2D1_COLOR_F& c, float sw, bool f)
+            : rect(r), color(c), strokeWidth(sw), filled(f)
+        {
+        }
+    };
+
     union ItemData
     {
         ImageData image;
         TextData text;
+        RectangleData rectangle;
 
         ItemData()
         {
@@ -89,9 +105,13 @@ struct DrawItem
         {
             new(&data.image) ImageData(other.data.image);
         }
-        else
+        else if (drawType == DrawType::Text)
         {
             new(&data.text) TextData(other.data.text);
+        }
+        else if (drawType == DrawType::Rectangle)
+        {
+            new(&data.rectangle) RectangleData(other.data.rectangle);
         }
     }
 
@@ -104,9 +124,13 @@ struct DrawItem
         {
             new(&data.image) ImageData(other.data.image);
         }
-        else
+        else if (drawType == DrawType::Text)
         {
             new(&data.text) TextData(std::move(other.data.text));
+        }
+        else if (drawType == DrawType::Rectangle)
+        {
+            new(&data.rectangle) RectangleData(other.data.rectangle);
         }
     }
 
@@ -121,9 +145,13 @@ struct DrawItem
         {
             new(&data.image) ImageData(other.data.image);
         }
-        else
+        else if (drawType == DrawType::Text)
         {
             new(&data.text) TextData(other.data.text);
+        }
+        else if (drawType == DrawType::Rectangle)
+        {
+            new(&data.rectangle) RectangleData(other.data.rectangle);
         }
         return *this;
     }
@@ -139,9 +167,13 @@ struct DrawItem
         {
             new(&data.image) ImageData(other.data.image);
         }
-        else
+        else if (drawType == DrawType::Text)
         {
             new(&data.text) TextData(std::move(other.data.text));
+        }
+        else if (drawType == DrawType::Rectangle)
+        {
+            new(&data.rectangle) RectangleData(other.data.rectangle);
         }
         return *this;
     }
@@ -152,6 +184,10 @@ private:
         if (drawType == DrawType::Text)
         {
             data.text.~TextData();
+        }
+        else if (drawType == DrawType::Rectangle)
+        {
+            data.rectangle.~RectangleData();
         }
         else
         {
@@ -186,6 +222,11 @@ public:
                              float fontSize,
                              const D2D1_COLOR_F& color,
                              int z);
+    static void EnqueueRectangle(const D2D1_RECT_F& rect,
+                                 const D2D1_COLOR_F& color,
+                                 float strokeWidth = 1.0f,
+                                 bool filled = false,
+                                 int z = 0);
 
 private:
     static std::optional<HRESULT> CreateDeviceResources(HWND hwnd);
@@ -200,6 +241,10 @@ private:
                           const std::wstring& fontFamily,
                           float fontSize,
                           const D2D1_COLOR_F& color);
+    static void DrawRectangle(const D2D1_RECT_F& rect,
+                              const D2D1_COLOR_F& color,
+                              float strokeWidth,
+                              bool filled);
 
     static IDWriteTextFormat* GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize);
 

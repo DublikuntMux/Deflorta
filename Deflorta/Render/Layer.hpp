@@ -3,6 +3,7 @@
 enum class RenderLayer: int
 {
     Background = -1,
+    BackgroundCover,
     Default,
     PlantUnder,
     PlantBase,
@@ -12,5 +13,7 @@ enum class RenderLayer: int
     Projectile,
     Foreground,
     Fog,
-    UI
+    UI,
+    Debug,
+    Count
 };

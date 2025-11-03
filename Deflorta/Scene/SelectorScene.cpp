@@ -9,6 +9,7 @@
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Discord.hpp"
 #include "../Base/Game.hpp"
+#include "../Render/Layer.hpp"
 #include "../Resource/Foley.hpp"
 #include "../Resource/ResourceManager.hpp"
 
@@ -36,7 +37,7 @@ SelectorScene::SelectorScene()
         screenAnimation_->SetPosition(0, 0);
         screenAnimation_->SetLayerVisible("almanac_key_shadow", false);
         screenAnimation_->PlayLayer("anim_open", ReanimLoopType::PlayOnceAndHold);
-        screenAnimation_->SetLayerZ("SelectorScreen_BG", -2);
+        screenAnimation_->SetLayerZ("SelectorScreen_BG", static_cast<int>(RenderLayer::Background));
 
         grassAnimation_ = std::make_unique<Reanimator>(reanim.value());
         grassAnimation_->SetPosition(0, -30);
@@ -52,7 +53,7 @@ SelectorScene::SelectorScene()
         cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.3f);
         for (int i = 1; i < 7; ++i)
         {
-            cloudAnimation_->SetLayerZ("Cloud" + std::to_string(i), -1);
+            cloudAnimation_->SetLayerZ("Cloud" + std::to_string(i), static_cast<int>(RenderLayer::BackgroundCover));
         }
     }
 

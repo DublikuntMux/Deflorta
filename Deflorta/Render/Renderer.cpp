@@ -245,6 +245,10 @@ void Renderer::FlushDrawQueue()
             DrawTextW(di.data.text.text, di.data.text.rect, di.data.text.font, di.data.text.fontSize,
                       di.data.text.color);
             break;
+        case DrawType::Rectangle:
+            DrawRectangle(di.data.rectangle.rect, di.data.rectangle.color, di.data.rectangle.strokeWidth,
+                          di.data.rectangle.filled);
+            break;
         }
     }
 
@@ -312,6 +316,30 @@ void Renderer::DrawText(const std::wstring& text,
         brush_.Get());
 }
 
+void Renderer::DrawRectangle(const D2D1_RECT_F& rect,
+                              const D2D1_COLOR_F& color,
+                              float strokeWidth,
+                              bool filled)
+{
+    if (!brush_)
+    {
+        if (FAILED(
+            d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
+            return;
+    }
+
+    brush_->SetColor(color);
+
+    if (filled)
+    {
+        d2dContext_->FillRectangle(rect, brush_.Get());
+    }
+    else
+    {
+        d2dContext_->DrawRectangle(rect, brush_.Get(), strokeWidth);
+    }
+}
+
 void Renderer::EnqueueImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity, int z)
 {
     if (!bitmap) return;
@@ -372,5 +400,20 @@ void Renderer::EnqueueTextW(const std::wstring& text,
     di.data.image.~ImageData();
     new(&di.data.text) DrawItem::TextData(text, fontFamily, layoutRect, fontSize, color);
     di.drawType = DrawType::Text;
+    drawQueue_.push_back(std::move(di));
+}
+
+void Renderer::EnqueueRectangle(const D2D1_RECT_F& rect,
+                                 const D2D1_COLOR_F& color,
+                                 float strokeWidth,
+                                 bool filled,
+                                 int z)
+{
+    DrawItem di;
+    di.z = z;
+    di.seq = submitSeq_++;
+    di.data.image.~ImageData();
+    new(&di.data.rectangle) DrawItem::RectangleData(rect, color, strokeWidth, filled);
+    di.drawType = DrawType::Rectangle;
     drawQueue_.push_back(std::move(di));
 }
