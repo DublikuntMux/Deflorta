@@ -50,7 +50,7 @@ public:
     [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
     [[nodiscard]] bool empty() const noexcept { return entries_.empty(); }
 
-    [[nodiscard]] double totalWeight() const noexcept
+    [[nodiscard]] double totalWeight() const
     {
         if (needsUpdate_)
             recomputePrefix();

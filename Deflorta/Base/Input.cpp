@@ -73,8 +73,8 @@ bool Input::IsMousePressed(int vkButton)
 
 void Input::ResetMousePresses()
 {
-    for (auto& snd : mouseButtonPressed_ | std::views::values)
-        snd = false;
+    for (auto& pressed : mouseButtonPressed_ | std::views::values)
+        pressed = false;
 }
 
 void Input::SetCursorType(LPCWSTR idcCursorId)
@@ -89,6 +89,9 @@ LPCWSTR Input::GetCursorType()
 
 void Input::ShowCursor(bool show)
 {
+    if (cursorVisible_ == show)
+        return;
+    
     cursorVisible_ = show;
     ::ShowCursor(show ? TRUE : FALSE);
 }

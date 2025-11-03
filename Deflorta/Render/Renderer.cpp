@@ -11,6 +11,7 @@
 #include <dwrite.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
+#include <iostream>
 #include <wrl/client.h>
 
 #include "../Base/Time.hpp"
@@ -191,6 +192,8 @@ void Renderer::BeginFrame()
     }
 
     drawQueue_.clear();
+    if (drawQueue_.capacity() < 2048)
+        drawQueue_.reserve(2048);
     submitSeq_ = 0;
 
     d2dContext_->BeginDraw();

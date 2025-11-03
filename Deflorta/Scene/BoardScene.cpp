@@ -195,7 +195,7 @@ std::pair<int, int> BoardScene::PositionToGrid(float x, float y, BackgroundType 
 {
     const float colF = (x - kPlantBaseX) / kPlantCellWidth;
     int col = static_cast<int>(std::round(colF));
-    col = std::max(col, 0);
+    col = std::clamp(col, 0, 8);
 
     float rowF;
     if (bgType == BackgroundType::Roof ||
@@ -216,7 +216,7 @@ std::pair<int, int> BoardScene::PositionToGrid(float x, float y, BackgroundType 
     }
 
     int row = static_cast<int>(std::round(rowF));
-    row = std::max(row, 0);
+    row = std::clamp(row, 0, 5);
 
     return {row, col};
 }
