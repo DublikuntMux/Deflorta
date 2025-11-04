@@ -3,8 +3,6 @@
 #include <string>
 #include <utility>
 
-#include <d2d1.h>
-
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Object/Bush.hpp"
@@ -54,10 +52,10 @@ public:
 private:
     BoardSettings settings_;
 
-    ID2D1Bitmap* background_ = nullptr;
-    ID2D1Bitmap* cover_ = nullptr;
-    ID2D1Bitmap* pole_ = nullptr;
-    ID2D1Bitmap* tree_ = nullptr;
+    std::shared_ptr<ITexture> background_;
+    std::shared_ptr<ITexture> cover_;
+    std::shared_ptr<ITexture> pole_;
+    std::shared_ptr<ITexture> tree_;
 
     Transform backgroundTransform_;
     Transform coverTransform_;

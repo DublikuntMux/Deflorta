@@ -56,7 +56,7 @@ void Fog::MoveFog(float targetX, float duration)
     }
 }
 
-ID2D1Bitmap* Fog::GetRandomFogTexture()
+std::shared_ptr<ITexture> Fog::GetRandomFogTexture()
 {
     const int fogIndex = Random::UniformInt(0, 7);
     const std::string fogId = "IMAGE_FOG_" + std::to_string(fogIndex);

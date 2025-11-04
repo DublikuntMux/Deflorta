@@ -76,10 +76,10 @@ SelectorScene::SelectorScene()
                                        [&](ImageButton* b)
                                        {
                                            b->SetPolygon({
-                                               D2D_POINT_2F{7.0f, 1.0f},
-                                               D2D_POINT_2F{328.0f, 30.0f},
-                                               D2D_POINT_2F{314.0f, 125.0f},
-                                               D2D_POINT_2F{1.0f, 78.0f},
+                                               Point2F(7.0f, 1.0f),
+                                               Point2F(328.0f, 30.0f),
+                                               Point2F(314.0f, 125.0f),
+                                               Point2F(1.0f, 78.0f),
                                            });
                                            b->AddHoverCallback(onHover);
                                            b->AddClickCallback(onPressGrave);
@@ -104,10 +104,10 @@ SelectorScene::SelectorScene()
                                           [&](ImageButton* b)
                                           {
                                               b->SetPolygon({
-                                                  D2D_POINT_2F{7.0f, 1.0f},
-                                                  D2D_POINT_2F{267.0f, 62.0f},
-                                                  D2D_POINT_2F{257.0f, 124.0f},
-                                                  D2D_POINT_2F{7.0f, 57.0f},
+                                                  Point2F(7.0f, 1.0f),
+                                                  Point2F(267.0f, 62.0f),
+                                                  Point2F(257.0f, 124.0f),
+                                                  Point2F(7.0f, 57.0f),
                                               });
                                               b->AddHoverCallback(onHover);
                                               b->AddClickCallback(onPressGrave);
@@ -122,10 +122,10 @@ SelectorScene::SelectorScene()
                                         [&](ImageButton* b)
                                         {
                                             b->SetPolygon({
-                                                D2D_POINT_2F{2.0f, 0.0f},
-                                                D2D_POINT_2F{281.0f, 55.0f},
-                                                D2D_POINT_2F{268.0f, 121.0f},
-                                                D2D_POINT_2F{3.0f, 60.0f},
+                                                Point2F(2.0f, 0.0f),
+                                                Point2F(281.0f, 55.0f),
+                                                Point2F(268.0f, 121.0f),
+                                                Point2F(3.0f, 60.0f),
                                             });
                                             b->AddHoverCallback(onHover);
                                             b->AddClickCallback(onPressGrave);
@@ -140,10 +140,10 @@ SelectorScene::SelectorScene()
                                           [&](ImageButton* b)
                                           {
                                               b->SetPolygon({
-                                                  D2D_POINT_2F{7.0f, 1.0f},
-                                                  D2D_POINT_2F{267.0f, 62.0f},
-                                                  D2D_POINT_2F{257.0f, 124.0f},
-                                                  D2D_POINT_2F{7.0f, 57.0f},
+                                                  Point2F(7.0f, 1.0f),
+                                                  Point2F(267.0f, 62.0f),
+                                                  Point2F(257.0f, 124.0f),
+                                                  Point2F(7.0f, 57.0f),
                                               });
                                               b->AddHoverCallback(onHover);
                                               b->AddClickCallback(onPressGrave);

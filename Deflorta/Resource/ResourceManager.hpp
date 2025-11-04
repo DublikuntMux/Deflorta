@@ -3,11 +3,11 @@
 #include <string>
 #include <unordered_map>
 #include <mutex>
-
-#include <d2d1.h>
-#include <wrl/client.h>
+#include <memory>
 
 #include "AudioManager.hpp"
+#include "../Render/IRenderBackend.hpp"
+#include "../Render/RenderTypes.hpp"
 
 struct ResourceEntry
 {
@@ -38,34 +38,30 @@ struct ResourceGroup
     bool isLoaded = false;
 };
 
-struct PngData
-{
-    std::vector<uint8_t> pixels;
-    uint32_t width = 0;
-    uint32_t height = 0;
-};
-
 class ResourceManager final
 {
 public:
+    static void SetRenderBackend(IRenderBackend* backend);
+
     static bool LoadManifest(const std::string& manifestPath);
     static bool LoadGroup(const std::string& groupName);
 
-    static ID2D1Bitmap* GetImage(const std::string& id);
+    static std::shared_ptr<ITexture> GetImage(const std::string& id);
     static std::wstring GetFont(const std::string& id);
 
     static void PreloadAudio(const std::string& id);
     static bool PreloadReanimImage(const std::string& id);
 
 private:
-    static bool LoadPngFile(const std::string& filePath, PngData& outData);
-    static bool CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap);
+    static bool LoadPngFile(const std::string& filePath, PixelData& outData);
+    static bool CreateTexture(const PixelData& data, std::shared_ptr<ITexture>* outTexture);
     static bool LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName);
     static std::string TokenToReanimFileName(const std::string& id);
-    static bool CreateSlicedImages(const std::string& baseId, const PngData& sourceData, int rows, int cols);
+    static bool CreateSlicedImages(const std::string& baseId, const PixelData& sourceData, int rows, int cols);
 
+    static IRenderBackend* backend_;
     static std::unordered_map<std::string, ResourceGroup> groups_;
-    static std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> images_;
+    static std::unordered_map<std::string, std::shared_ptr<ITexture>> images_;
     static std::unordered_map<std::string, std::wstring> fonts_;
 
     static std::string resourceBasePath_;

@@ -3,6 +3,7 @@
     "libpng",
     "libvorbis",
     "pugixml",
-    "discord-rpc"
+    "discord-rpc",
+    "glm"
   ]
 }

@@ -1,13 +1,16 @@
 ﻿#pragma once
 
+#include <memory>
+
 #include "Button.hpp"
+#include "../Render/IRenderBackend.hpp"
 
 class ImageButton : public Button
 {
 public:
     ImageButton(
-        ID2D1Bitmap* normalImage,
-        ID2D1Bitmap* hoverImage,
+        std::shared_ptr<ITexture> normalImage,
+        std::shared_ptr<ITexture> hoverImage,
         float x = 0.0f,
         float y = 0.0f,
         float width = 0.0f,
@@ -16,13 +19,13 @@ public:
 
     void Render() override;
 
-    [[nodiscard]] ID2D1Bitmap* GetNormalImage() const;
-    void SetNormalImage(ID2D1Bitmap* normal_image);
+    [[nodiscard]] std::shared_ptr<ITexture> GetNormalImage() const;
+    void SetNormalImage(const std::shared_ptr<ITexture>& normal_image);
 
-    [[nodiscard]] ID2D1Bitmap* GetHoverImage() const;
-    void SetHoverImage(ID2D1Bitmap* hover_image);
+    [[nodiscard]] std::shared_ptr<ITexture> GetHoverImage() const;
+    void SetHoverImage(const std::shared_ptr<ITexture>& hover_image);
 
 private:
-    ID2D1Bitmap* normalImage_;
-    ID2D1Bitmap* hoverImage_;
+    std::shared_ptr<ITexture> normalImage_;
+    std::shared_ptr<ITexture> hoverImage_;
 };

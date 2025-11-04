@@ -24,6 +24,9 @@ void Game::Initialize(HWND hwnd)
         running_ = false;
     if (!Renderer::Initialize(hwnd_))
         running_ = false;
+
+    ResourceManager::SetRenderBackend(Renderer::GetRenderBackend());
+
     if (!ResourceManager::LoadManifest("resources/resources.xml"))
         running_ = false;
 

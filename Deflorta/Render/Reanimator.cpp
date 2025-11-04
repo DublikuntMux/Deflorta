@@ -312,7 +312,7 @@ void Reanimator::Draw() const
 
             if (!cur.image.empty() && cur.frame >= 0.0f)
             {
-                if (auto* bmp = ResourceManager::GetImage(cur.image))
+                if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
                     cur.transX += overlay_.x + tracks_[ti].shakeX;
                     cur.transY += overlay_.y + tracks_[ti].shakeY;
@@ -329,8 +329,8 @@ void Reanimator::Draw() const
                 const float x = overlay_.x + cur.transX + tracks_[ti].shakeX;
                 const float y = overlay_.y + cur.transY + tracks_[ti].shakeY;
                 const float size = 16.0f * overlay_.scaleY * cur.scaleY;
-                const auto rect = D2D1::RectF(x - 200.0f, y - size, x + 200.0f, y + size);
-                const auto color = D2D1::ColorF(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
+                const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
+                const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
                 Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
             }
@@ -366,7 +366,7 @@ void Reanimator::Draw() const
 
             if (!cur.image.empty() && cur.frame >= 0.0f)
             {
-                if (auto* bmp = ResourceManager::GetImage(cur.image))
+                if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
                     cur.transX += overlay_.x + tracks_[ti].shakeX;
                     cur.transY += overlay_.y + tracks_[ti].shakeY;
@@ -383,8 +383,8 @@ void Reanimator::Draw() const
                 const float x = overlay_.x + cur.transX + tracks_[ti].shakeX;
                 const float y = overlay_.y + cur.transY + tracks_[ti].shakeY;
                 const float size = 16.0f * overlay_.scaleY * cur.scaleY;
-                const auto rect = D2D1::RectF(x - 200.0f, y - size, x + 200.0f, y + size);
-                const auto color = D2D1::ColorF(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
+                const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
+                const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
                 Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
             }

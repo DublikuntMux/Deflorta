@@ -10,14 +10,18 @@
 #include <png.h>
 #include <Windows.h>
 
-#include "../Render/Renderer.hpp"
-
+IRenderBackend* ResourceManager::backend_ = nullptr;
 std::unordered_map<std::string, ResourceGroup> ResourceManager::groups_;
-std::unordered_map<std::string, Microsoft::WRL::ComPtr<ID2D1Bitmap>> ResourceManager::images_;
+std::unordered_map<std::string, std::shared_ptr<ITexture>> ResourceManager::images_;
 std::unordered_map<std::string, std::wstring> ResourceManager::fonts_;
 std::string ResourceManager::resourceBasePath_;
 DefaultSettings ResourceManager::currentDefaults;
 std::mutex ResourceManager::groupsMutex_;
+
+void ResourceManager::SetRenderBackend(IRenderBackend* backend)
+{
+    backend_ = backend;
+}
 
 bool ResourceManager::LoadFont(const std::string& id, const std::string& filePath, const std::wstring& familyName)
 {
@@ -57,18 +61,18 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
                 {
                     const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string() +
                         ".png";
-                    PngData pngData;
-                    if (LoadPngFile(fullPath, pngData))
+                    PixelData pixelData;
+                    if (LoadPngFile(fullPath, pixelData))
                     {
-                        ID2D1Bitmap* bitmap = nullptr;
-                        if (CreateD2DBitmap(pngData, &bitmap))
+                        std::shared_ptr<ITexture> texture;
+                        if (CreateTexture(pixelData, &texture))
                         {
-                            images_[id].Attach(bitmap);
+                            images_[id] = texture;
                             it->second.loaded = true;
                         }
                         else
                         {
-                            std::cout << "Error: Failed to create D2D bitmap for reanim image '" << id << "'\n";
+                            std::cout << "Error: Failed to create texture for reanim image '" << id << "'\n";
                         }
                     }
                     else
@@ -92,18 +96,18 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
             entry.path = (std::filesystem::path("reanim") / fileNameNoExt).string();
 
             const std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
-            PngData pngData;
-            if (LoadPngFile(fullPath, pngData))
+            PixelData pixelData;
+            if (LoadPngFile(fullPath, pixelData))
             {
-                ID2D1Bitmap* bitmap = nullptr;
-                if (CreateD2DBitmap(pngData, &bitmap))
+                std::shared_ptr<ITexture> texture;
+                if (CreateTexture(pixelData, &texture))
                 {
-                    images_[id].Attach(bitmap);
+                    images_[id] = texture;
                     entry.loaded = true;
                 }
                 else
                 {
-                    std::cout << "Error: Failed to create D2D bitmap for reanim image '" << id << "'\n";
+                    std::cout << "Error: Failed to create texture for reanim image '" << id << "'\n";
                 }
             }
             else
@@ -115,7 +119,7 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
     }
 }
 
-bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
+bool ResourceManager::LoadPngFile(const std::string& filePath, PixelData& outData)
 {
     FILE* fp = nullptr;
     fopen_s(&fp, filePath.c_str(), "rb");
@@ -213,24 +217,20 @@ bool ResourceManager::LoadPngFile(const std::string& filePath, PngData& outData)
     return true;
 }
 
-bool ResourceManager::CreateD2DBitmap(const PngData& data, ID2D1Bitmap** outBitmap)
+bool ResourceManager::CreateTexture(const PixelData& data, std::shared_ptr<ITexture>* outTexture)
 {
-    Renderer::D2DGuard guard;
+    if (!backend_)
+    {
+        std::cout << "Error: Render backend not set in ResourceManager\n";
+        return false;
+    }
 
-    const auto d2dContext = Renderer::GetD2DContext();
-    if (!d2dContext) return false;
+    if (!outTexture) return false;
 
-    const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
-        D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)
-    );
+    RenderBackendLock lock(backend_);
 
-    return SUCCEEDED(d2dContext->CreateBitmap(
-        D2D1::SizeU(data.width, data.height),
-        data.pixels.data(),
-        data.width * 4,
-        props,
-        outBitmap
-    ));
+    *outTexture = backend_->CreateTexture(data);
+    return *outTexture != nullptr;
 }
 
 bool ResourceManager::LoadManifest(const std::string& manifestPath)
@@ -355,11 +355,11 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
             if (!entry.loaded)
             {
                 std::string fullPath = (std::filesystem::path(resourceBasePath_) / entry.path).string() + ".png";
-                if (PngData pngData; LoadPngFile(fullPath, pngData))
+                if (PixelData pixelData; LoadPngFile(fullPath, pixelData))
                 {
                     if (entry.rows > 1 || entry.cols > 1)
                     {
-                        if (CreateSlicedImages(id, pngData, entry.rows, entry.cols))
+                        if (CreateSlicedImages(id, pixelData, entry.rows, entry.cols))
                         {
                             entry.loaded = true;
                         }
@@ -370,15 +370,15 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
                     }
                     else
                     {
-                        ID2D1Bitmap* bitmap = nullptr;
-                        if (CreateD2DBitmap(pngData, &bitmap))
+                        std::shared_ptr<ITexture> texture;
+                        if (CreateTexture(pixelData, &texture))
                         {
-                            images_[id].Attach(bitmap);
+                            images_[id] = texture;
                             entry.loaded = true;
                         }
                         else
                         {
-                            std::cout << "Error: Failed to create D2D bitmap for image '" << id << "'\n";
+                            std::cout << "Error: Failed to create texture for image '" << id << "'\n";
                         }
                     }
                 }
@@ -415,13 +415,13 @@ bool ResourceManager::LoadGroup(const std::string& groupName)
     return true;
 }
 
-ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
+std::shared_ptr<ITexture> ResourceManager::GetImage(const std::string& id)
 {
     std::lock_guard lock(groupsMutex_);
 
     if (const auto found = images_.find(id); found != images_.end())
     {
-        return found->second.Get();
+        return found->second;
     }
 
     std::string baseId = id;
@@ -443,12 +443,12 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
             {
                 const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string() +
                     ".png";
-                PngData pngData;
-                if (LoadPngFile(fullPath, pngData))
+                PixelData pixelData;
+                if (LoadPngFile(fullPath, pixelData))
                 {
                     if (it->second.rows > 1 || it->second.cols > 1)
                     {
-                        if (CreateSlicedImages(baseId, pngData, it->second.rows, it->second.cols))
+                        if (CreateSlicedImages(baseId, pixelData, it->second.rows, it->second.cols))
                         {
                             it->second.loaded = true;
                         }
@@ -459,15 +459,15 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                     }
                     else
                     {
-                        ID2D1Bitmap* bitmap = nullptr;
-                        if (CreateD2DBitmap(pngData, &bitmap))
+                        std::shared_ptr<ITexture> texture;
+                        if (CreateTexture(pixelData, &texture))
                         {
-                            images_[baseId].Attach(bitmap);
+                            images_[baseId] = texture;
                             it->second.loaded = true;
                         }
                         else
                         {
-                            std::cout << "Error: Failed to create D2D bitmap for image '" << baseId << "'\n";
+                            std::cout << "Error: Failed to create texture for image '" << baseId << "'\n";
                         }
                     }
                 }
@@ -485,7 +485,7 @@ ID2D1Bitmap* ResourceManager::GetImage(const std::string& id)
                 std::cout << "Error: Image '" << id << "' not found in loaded images after load attempt\n";
                 return nullptr;
             }
-            return found->second.Get();
+            return found->second;
         }
     }
     std::cout << "Error: Image '" << id << "' not found in any resource group\n";
@@ -554,7 +554,7 @@ std::string ResourceManager::TokenToReanimFileName(const std::string& id)
     return result;
 }
 
-bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PngData& sourceData, int rows, int cols)
+bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PixelData& sourceData, int rows, int cols)
 {
     if (rows <= 0 || cols <= 0)
     {
@@ -576,7 +576,7 @@ bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PngDat
     {
         for (int col = 0; col < cols; ++col)
         {
-            PngData tileData;
+            PixelData tileData;
             tileData.width = tileWidth;
             tileData.height = tileHeight;
             tileData.pixels.resize(tileWidth * tileHeight * 4);
@@ -594,15 +594,15 @@ bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PngDat
                 );
             }
 
-            ID2D1Bitmap* bitmap = nullptr;
-            if (CreateD2DBitmap(tileData, &bitmap))
+            std::shared_ptr<ITexture> texture;
+            if (CreateTexture(tileData, &texture))
             {
                 const std::string slicedId = baseId + "_" + std::to_string(index);
-                images_[slicedId].Attach(bitmap);
+                images_[slicedId] = texture;
             }
             else
             {
-                std::cout << "Error: Failed to create D2D bitmap for sliced image '" << baseId << "_" << index << "'\n";
+                std::cout << "Error: Failed to create texture for sliced image '" << baseId << "_" << index << "'\n";
                 return false;
             }
 

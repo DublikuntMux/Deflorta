@@ -3,43 +3,51 @@
 #include "../Base/Input.hpp"
 #include "../Render/Renderer.hpp"
 
-#include <cmath>
-
 namespace
 {
-    bool IsPointOnSegment(float x, float y, const D2D1_POINT_2F& a, const D2D1_POINT_2F& b)
-    {
-        const float vx = b.x - a.x;
-        const float vy = b.y - a.y;
-        const float wx = x - a.x;
-        const float wy = y - a.y;
-        const float cross = vx * wy - vy * wx;
-        constexpr float eps = 1e-4f;
-        if (std::fabs(cross) > eps) return false;
-        const float minX = a.x < b.x ? a.x : b.x;
-        const float maxX = a.x > b.x ? a.x : b.x;
-        const float minY = a.y < b.y ? a.y : b.y;
-        const float maxY = a.y > b.y ? a.y : b.y;
-        return x >= minX - eps && x <= maxX + eps && y >= minY - eps && y <= maxY + eps;
-    }
-
-    bool PointInPolygon(float x, float y, const std::vector<D2D1_POINT_2F>& poly)
+    // Efficient point-in-polygon test using ray casting algorithm
+    bool PointInPolygon(float x, float y, const std::vector<Point2F>& poly)
     {
         const size_t n = poly.size();
         if (n < 3) return false;
-        for (size_t i = 0, j = n - 1; i < n; j = i++)
-        {
-            if (IsPointOnSegment(x, y, poly[j], poly[i])) return true;
-        }
+
         bool inside = false;
-        for (size_t i = 0, j = n - 1; i < n; j = i++)
+        float p1x = poly[0].x;
+        float p1y = poly[0].y;
+
+        for (size_t i = 1; i <= n; ++i)
         {
-            const auto& pi = poly[i];
-            const auto& pj = poly[j];
-            const bool intersect = pi.y > y != pj.y > y &&
-                x < (pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x;
-            if (intersect) inside = !inside;
+            const float p2x = poly[i % n].x;
+            const float p2y = poly[i % n].y;
+
+            if (y > std::min(p1y, p2y))
+            {
+                if (y <= std::max(p1y, p2y))
+                {
+                    if (x <= std::max(p1x, p2x))
+                    {
+                        float xinters;
+                        if (p1y != p2y)
+                        {
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x;
+                        }
+                        else
+                        {
+                            xinters = p1x;
+                        }
+
+                        if (p1x == p2x || x <= xinters)
+                        {
+                            inside = !inside;
+                        }
+                    }
+                }
+            }
+
+            p1x = p2x;
+            p1y = p2y;
         }
+
         return inside;
     }
 }
@@ -50,24 +58,24 @@ void Button::Update()
         return;
 
     const auto [x, y] = Input::GetMousePosition();
-    const float floatX = static_cast<float>(x);
-    const float floatY = static_cast<float>(y);
+    const float mouseX = static_cast<float>(x);
+    const float mouseY = static_cast<float>(y);
 
     bool mouseOver;
     if (!polygon_.empty() && polygon_.size() >= 3)
     {
-        std::vector<D2D1_POINT_2F> worldPolygon;
+        std::vector<Point2F> worldPolygon;
         worldPolygon.reserve(polygon_.size());
         for (const auto& point : polygon_)
         {
-            worldPolygon.push_back({.x = point.x + x_, .y = point.y + y_});
+            worldPolygon.emplace_back(point.x + x_, point.y + y_);
         }
-        mouseOver = PointInPolygon(floatX, floatY, worldPolygon);
+        mouseOver = PointInPolygon(mouseX, mouseY, worldPolygon);
     }
     else
     {
-        mouseOver = floatX >= x_ && floatX <= x_ + width_ &&
-            floatY >= y_ && floatY <= y_ + height_;
+        mouseOver = mouseX >= x_ && mouseX <= x_ + width_ &&
+            mouseY >= y_ && mouseY <= y_ + height_;
     }
 
     if (mouseOver)
@@ -120,7 +128,7 @@ void Button::AddHoverCallback(const std::function<void()>& callback)
     hoverCallback_.push_back(callback);
 }
 
-void Button::SetPolygon(const std::vector<D2D1_POINT_2F>& polygon)
+void Button::SetPolygon(const std::vector<Point2F>& polygon)
 {
     polygon_ = polygon;
 }

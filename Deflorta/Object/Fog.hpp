@@ -3,15 +3,14 @@
 #include <memory>
 #include <vector>
 
-#include <d2d1.h>
-
 #include "GameObject.hpp"
 #include "../Base/Transform.hpp"
 #include "../Base/Tween.hpp"
+#include "../Render/IRenderBackend.hpp"
 
 struct FogPiece
 {
-    ID2D1Bitmap* texture = nullptr;
+    std::shared_ptr<ITexture> texture;
     Transform transform;
     std::unique_ptr<Tween> tween;
     int row = 0;
@@ -33,6 +32,6 @@ private:
     int rowCount_;
     int maxColumns_;
 
-    static ID2D1Bitmap* GetRandomFogTexture();
+    std::shared_ptr<ITexture> GetRandomFogTexture();
     void GenerateFogPieces();
 };

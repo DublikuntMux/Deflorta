@@ -11,8 +11,8 @@ public:
         std::wstring text,
         std::wstring font,
         float size,
-        const D2D1_COLOR_F& normalColor,
-        const D2D1_COLOR_F& hoverColor,
+        const Color& normalColor,
+        const Color& hoverColor,
         float x = 0.0f,
         float y = 0.0f,
         float width = 0.0f,
@@ -30,16 +30,16 @@ public:
     [[nodiscard]] float GetSize() const;
     void SetSize(float size);
 
-    [[nodiscard]] D2D1_COLOR_F GetNormalColor() const;
-    void SetNormalColor(const D2D1_COLOR_F& normal_color);
+    [[nodiscard]] Color GetNormalColor() const;
+    void SetNormalColor(const Color& normal_color);
 
-    [[nodiscard]] D2D1_COLOR_F GetHoverColor() const;
-    void SetHoverColor(const D2D1_COLOR_F& hover_color);
+    [[nodiscard]] Color GetHoverColor() const;
+    void SetHoverColor(const Color& hover_color);
 
 private:
     std::wstring text_;
     std::wstring font_;
     float size_;
-    D2D1_COLOR_F normalColor_;
-    D2D1_COLOR_F hoverColor_;
+    Color normalColor_;
+    Color hoverColor_;
 };

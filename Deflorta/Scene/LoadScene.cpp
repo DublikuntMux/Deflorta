@@ -30,12 +30,12 @@ LoadScene::LoadScene()
     }).detach();
 
     auto loadCentered = [&](const std::string& name, float centerX, float centerY,
-                            float scale = 1.0f) -> std::pair<ID2D1Bitmap*, Transform>
+                            float scale = 1.0f) -> std::pair<std::shared_ptr<ITexture>, Transform>
     {
-        ID2D1Bitmap* img = ResourceManager::GetImage(name);
+        auto img = ResourceManager::GetImage(name);
         if (!img)
             return {nullptr, Transform{.x = centerX, .y = centerY, .rotation = 0.0f, .scaleX = scale, .scaleY = scale}};
-        D2D1_SIZE_F size = img->GetSize();
+        const auto size = img->GetSize();
         Transform t{
             .x = centerX - size.width / 2.0f, .y = centerY - size.height / 2.0f, .rotation = 0.0f, .scaleX = scale,
             .scaleY = scale

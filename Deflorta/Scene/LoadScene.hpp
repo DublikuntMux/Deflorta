@@ -2,11 +2,10 @@
 
 #include <memory>
 
-#include <d2d1.h>
-
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Base/Tween.hpp"
+#include "../Render/IRenderBackend.hpp"
 
 class LoadScene final : public Scene
 {
@@ -28,8 +27,8 @@ private:
     std::unique_ptr<Tween> startTween_;
     std::unique_ptr<Tween> exitTween_;
 
-    ID2D1Bitmap* screen_ = nullptr;
-    ID2D1Bitmap* logo_ = nullptr;
-    ID2D1Bitmap* pvzLogo_ = nullptr;
-    ID2D1Bitmap* rollCap_ = nullptr;
+    std::shared_ptr<ITexture> screen_;
+    std::shared_ptr<ITexture> logo_;
+    std::shared_ptr<ITexture> pvzLogo_;
+    std::shared_ptr<ITexture> rollCap_;
 };

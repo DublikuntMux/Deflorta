@@ -3,9 +3,8 @@
 #include <functional>
 #include <vector>
 
-#include <d2d1.h>
-
 #include "Widget.hpp"
+#include "../Render/RenderTypes.hpp"
 
 class Button : public Widget
 {
@@ -27,7 +26,7 @@ public:
     void SetRect(float width, float height);
     void ClearRect();
 
-    void SetPolygon(const std::vector<D2D1_POINT_2F>& polygon);
+    void SetPolygon(const std::vector<Point2F>& polygon);
     void ClearPolygon();
     [[nodiscard]] bool HasPolygon() const;
 
@@ -39,5 +38,5 @@ protected:
     bool wasHovered_ = false;
     float width_ = 0.0f;
     float height_ = 0.0f;
-    std::vector<D2D1_POINT_2F> polygon_;
+    std::vector<Point2F> polygon_;
 };

@@ -91,7 +91,7 @@ void Input::ShowCursor(bool show)
 {
     if (cursorVisible_ == show)
         return;
-    
+
     cursorVisible_ = show;
     ::ShowCursor(show ? TRUE : FALSE);
 }

@@ -2,9 +2,8 @@
 
 #include <string>
 
-#include <d2d1.h>
-
 #include "Widget.hpp"
+#include "../Render/RenderTypes.hpp"
 
 class UIText : public Widget
 {
@@ -13,7 +12,7 @@ public:
         std::wstring text,
         std::wstring font,
         float size,
-        const D2D1_COLOR_F& color,
+        const Color& color,
         float x,
         float y,
         float width,
@@ -31,8 +30,8 @@ public:
     [[nodiscard]] float GetSize() const;
     void SetSize(float size);
 
-    [[nodiscard]] D2D1_COLOR_F GetColor() const;
-    void SetColor(const D2D1_COLOR_F& color);
+    [[nodiscard]] Color GetColor() const;
+    void SetColor(const Color& color);
 
 private:
     std::wstring text_;
@@ -40,5 +39,5 @@ private:
     float size_;
     float width_;
     float height_;
-    D2D1_COLOR_F color_;
+    Color color_;
 };

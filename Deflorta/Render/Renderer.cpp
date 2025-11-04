@@ -1,175 +1,161 @@
 #include "Renderer.hpp"
 
-#include <numbers>
-#include <string>
-#include <format>
-#include <optional>
 #include <algorithm>
-#include <unordered_map>
+#include <format>
+#include <numbers>
 
-#include <d2d1_1.h>
-#include <dwrite.h>
-#include <d3d11.h>
-#include <dxgi1_2.h>
-#include <iostream>
-#include <wrl/client.h>
-
+#include "D2DRenderBackend.hpp"
 #include "../Base/Time.hpp"
-#include "../Base/Transform.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 
-HWND Renderer::hwnd_ = nullptr;
+std::unique_ptr<IRenderBackend> Renderer::backend_;
 bool Renderer::showFPS_ = false;
-
-Microsoft::WRL::ComPtr<ID3D11Device> Renderer::d3dDevice_;
-Microsoft::WRL::ComPtr<ID3D11DeviceContext> Renderer::d3dContext_;
-Microsoft::WRL::ComPtr<IDXGISwapChain1> Renderer::swapChain_;
-
-Microsoft::WRL::ComPtr<ID2D1Factory1> Renderer::d2dFactory_;
-Microsoft::WRL::ComPtr<ID2D1Device> Renderer::d2dDevice_;
-Microsoft::WRL::ComPtr<ID2D1DeviceContext> Renderer::d2dContext_;
-Microsoft::WRL::ComPtr<ID2D1Bitmap1> Renderer::d2dTargetBitmap_;
-Microsoft::WRL::ComPtr<ID2D1SolidColorBrush> Renderer::brush_;
-Microsoft::WRL::ComPtr<IDWriteFactory> Renderer::dwFactory_;
-
-std::recursive_mutex Renderer::d2dMutex_;
-
 std::vector<DrawItem> Renderer::drawQueue_;
 size_t Renderer::submitSeq_ = 0;
 
-std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<IDWriteTextFormat>> Renderer::textFormatCache_;
-
-namespace
+DrawItem::DrawItem(const DrawItem& other)
 {
-    std::wstring MakeFormatKey(const std::wstring& fontFamily, float fontSize)
+    z = other.z;
+    seq = other.seq;
+    drawType = other.drawType;
+    if (drawType == DrawType::Image)
     {
-        return fontFamily + L"|" + std::to_wstring(fontSize);
+        new(&data.image) ImageData(other.data.image);
+    }
+    else if (drawType == DrawType::Text)
+    {
+        new(&data.text) TextData(other.data.text);
+    }
+    else if (drawType == DrawType::Rectangle)
+    {
+        new(&data.rectangle) RectangleData(other.data.rectangle);
     }
 }
 
-IDWriteTextFormat* Renderer::GetOrCreateTextFormat(const std::wstring& fontFamily, float fontSize)
+DrawItem::DrawItem(DrawItem&& other) noexcept
 {
-    const std::wstring key = MakeFormatKey(fontFamily, fontSize);
-    const auto it = textFormatCache_.find(key);
-    if (it != textFormatCache_.end())
-        return it->second.Get();
-
-    Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
-    if (FAILED(dwFactory_->CreateTextFormat(
-        fontFamily.c_str(),
-        nullptr,
-        DWRITE_FONT_WEIGHT_NORMAL,
-        DWRITE_FONT_STYLE_NORMAL,
-        DWRITE_FONT_STRETCH_NORMAL,
-        fontSize,
-        L"en-us",
-        format.ReleaseAndGetAddressOf())))
+    z = other.z;
+    seq = other.seq;
+    drawType = other.drawType;
+    if (drawType == DrawType::Image)
     {
-        return nullptr;
+        new(&data.image) ImageData(std::move(other.data.image));
     }
-
-    textFormatCache_[key] = format;
-    return textFormatCache_[key].Get();
+    else if (drawType == DrawType::Text)
+    {
+        new(&data.text) TextData(std::move(other.data.text));
+    }
+    else if (drawType == DrawType::Rectangle)
+    {
+        new(&data.rectangle) RectangleData(other.data.rectangle);
+    }
 }
 
-bool Renderer::Initialize(HWND hwnd)
+DrawItem& DrawItem::operator=(const DrawItem& other)
 {
-    hwnd_ = hwnd;
-
-    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-
-    D2D1_FACTORY_OPTIONS factoryOptions;
-#ifdef _DEBUG
-    factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
-#endif
-    HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_MULTI_THREADED, factoryOptions,
-                                   d2dFactory_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
-
-    hr = DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
-                             reinterpret_cast<IUnknown**>(dwFactory_.ReleaseAndGetAddressOf()));
-    if (FAILED(hr)) return false;
-
-    return !CreateDeviceResources(hwnd).has_value();
+    if (this == &other) return *this;
+    DestroyActive();
+    z = other.z;
+    seq = other.seq;
+    drawType = other.drawType;
+    if (drawType == DrawType::Image)
+    {
+        new(&data.image) ImageData(other.data.image);
+    }
+    else if (drawType == DrawType::Text)
+    {
+        new(&data.text) TextData(other.data.text);
+    }
+    else if (drawType == DrawType::Rectangle)
+    {
+        new(&data.rectangle) RectangleData(other.data.rectangle);
+    }
+    return *this;
 }
 
-std::optional<HRESULT> Renderer::CreateDeviceResources(HWND hwnd)
+DrawItem& DrawItem::operator=(DrawItem&& other) noexcept
 {
-    UINT creationFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#ifdef _DEBUG
-    creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-
-    constexpr D3D_FEATURE_LEVEL fl = D3D_FEATURE_LEVEL_11_0;
-    HRESULT hr = D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags,
-        &fl, 1, D3D11_SDK_VERSION, d3dDevice_.ReleaseAndGetAddressOf(),
-        nullptr, d3dContext_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return hr;
-
-    Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
-    d3dDevice_.As(&dxgiDevice);
-
-    Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
-    dxgiDevice->GetAdapter(adapter.GetAddressOf());
-
-    Microsoft::WRL::ComPtr<IDXGIFactory2> dxgiFactory;
-    adapter->GetParent(IID_PPV_ARGS(&dxgiFactory));
-
-    hr = d2dFactory_->CreateDevice(dxgiDevice.Get(), d2dDevice_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return hr;
-
-    hr = d2dDevice_->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, d2dContext_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return hr;
-
-    d2dContext_->SetUnitMode(D2D1_UNIT_MODE_PIXELS);
-
-    DXGI_SWAP_CHAIN_DESC1 scd{};
-    scd.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    scd.SampleDesc.Count = 1;
-    scd.BufferCount = 3;
-    scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-    scd.Scaling = DXGI_SCALING_NONE;
-    scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-
-    hr = dxgiFactory->CreateSwapChainForHwnd(
-        d3dDevice_.Get(), hwnd, &scd, nullptr, nullptr, swapChain_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return hr;
-
-    RecreateTargetBitmap();
-
-    return std::nullopt;
+    if (this == &other) return *this;
+    DestroyActive();
+    z = other.z;
+    seq = other.seq;
+    drawType = other.drawType;
+    if (drawType == DrawType::Image)
+    {
+        new(&data.image) ImageData(std::move(other.data.image));
+    }
+    else if (drawType == DrawType::Text)
+    {
+        new(&data.text) TextData(std::move(other.data.text));
+    }
+    else if (drawType == DrawType::Rectangle)
+    {
+        new(&data.rectangle) RectangleData(other.data.rectangle);
+    }
+    return *this;
 }
 
-void Renderer::RecreateTargetBitmap()
+void DrawItem::DestroyActive()
 {
-    std::lock_guard lock(d2dMutex_);
-
-    Microsoft::WRL::ComPtr<IDXGISurface> dxgiSurface;
-    HRESULT hr = swapChain_->GetBuffer(0, IID_PPV_ARGS(&dxgiSurface));
-    if (FAILED(hr)) return;
-
-    const D2D1_BITMAP_PROPERTIES1 props = D2D1::BitmapProperties1(
-        D2D1_BITMAP_OPTIONS_TARGET | D2D1_BITMAP_OPTIONS_CANNOT_DRAW,
-        D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE));
-
-    hr = d2dContext_->CreateBitmapFromDxgiSurface(dxgiSurface.Get(), &props, d2dTargetBitmap_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return;
-
-    d2dContext_->SetTarget(d2dTargetBitmap_.Get());
-    d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::CornflowerBlue), brush_.ReleaseAndGetAddressOf());
+    if (drawType == DrawType::Text)
+    {
+        data.text.~TextData();
+    }
+    else if (drawType == DrawType::Rectangle)
+    {
+        data.rectangle.~RectangleData();
+    }
+    else
+    {
+        data.image.~ImageData();
+    }
 }
 
-void Renderer::Resize(UINT width, UINT height)
+bool Renderer::Initialize(void* windowHandle)
 {
-    std::lock_guard lock(d2dMutex_);
-    if (!swapChain_) return;
+    backend_ = std::make_unique<D2DRenderBackend>();
+    return backend_->Initialize(windowHandle);
+}
 
-    d2dContext_->SetTarget(nullptr);
-    d2dTargetBitmap_.Reset();
-    swapChain_->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
-    RecreateTargetBitmap();
+void Renderer::Resize(uint32_t width, uint32_t height)
+{
+    if (backend_)
+        backend_->Resize(width, height);
+}
+
+void Renderer::BeginFrame()
+{
+    if (!backend_) return;
+
+    drawQueue_.clear();
+    if (drawQueue_.capacity() < 2048)
+        drawQueue_.reserve(2048);
+    submitSeq_ = 0;
+
+    backend_->BeginFrame();
+    backend_->Clear(Color::Black());
+}
+
+void Renderer::Render()
+{
+    if (!backend_) return;
+
+    FlushDrawQueue();
+    DrawFPS();
+
+    backend_->EndFrame();
+}
+
+void Renderer::Cleanup()
+{
+    if (backend_)
+        backend_->Shutdown();
+    backend_.reset();
+}
+
+void Renderer::ToggleFPS()
+{
+    showFPS_ = !showFPS_;
 }
 
 void Renderer::DrawFPS()
@@ -177,52 +163,14 @@ void Renderer::DrawFPS()
     if (!showFPS_) return;
 
     const std::wstring text = std::format(L"FPS: {:.1f}", Time::GetFps());
-    const D2D1_RECT_F layoutRect = D2D1::RectF(8.0f, 4.0f, 300.0f, 40.0f);
-    DrawTextW(text, layoutRect, L"Consolas", 16, D2D1::ColorF(D2D1::ColorF::White));
-}
+    const Rect layoutRect(8.0f, 4.0f, 300.0f, 40.0f);
 
-void Renderer::BeginFrame()
-{
-    std::lock_guard lock(d2dMutex_);
-
-    if (!swapChain_)
+    const auto textFormat = backend_->CreateTextFormat(L"Consolas", 16.0f);
+    if (textFormat)
     {
-        if (CreateDeviceResources(hwnd_).has_value())
-            return;
+        backend_->DrawTexts(text, layoutRect, textFormat.get(), Color::White());
     }
-
-    drawQueue_.clear();
-    if (drawQueue_.capacity() < 2048)
-        drawQueue_.reserve(2048);
-    submitSeq_ = 0;
-
-    d2dContext_->BeginDraw();
-    d2dContext_->Clear(D2D1::ColorF(D2D1::ColorF::Black));
 }
-
-void Renderer::Render()
-{
-    std::lock_guard lock(d2dMutex_);
-
-    FlushDrawQueue();
-    DrawFPS();
-
-    const HRESULT hr = d2dContext_->EndDraw();
-    if (SUCCEEDED(hr))
-        swapChain_->Present(0, 0);
-    else if (hr == D2DERR_RECREATE_TARGET)
-        DiscardDeviceResources();
-}
-
-void Renderer::ToggleFPS() { showFPS_ = !showFPS_; }
-
-ID2D1DeviceContext* Renderer::GetD2DContext()
-{
-    return d2dContext_.Get();
-}
-
-Renderer::D2DGuard::D2DGuard() { d2dMutex_.lock(); }
-Renderer::D2DGuard::~D2DGuard() { d2dMutex_.unlock(); }
 
 void Renderer::FlushDrawQueue()
 {
@@ -239,15 +187,30 @@ void Renderer::FlushDrawQueue()
         switch (di.drawType)
         {
         case DrawType::Image:
-            DrawImage(di.data.image.bmp, di.data.image.t, di.data.image.opacity);
+            if (di.data.image.texture)
+            {
+                backend_->DrawTexture(
+                    di.data.image.texture.get(),
+                    di.data.image.transform,
+                    di.data.image.opacity);
+            }
             break;
         case DrawType::Text:
-            DrawTextW(di.data.text.text, di.data.text.rect, di.data.text.font, di.data.text.fontSize,
-                      di.data.text.color);
+            if (di.data.text.textFormat)
+            {
+                backend_->DrawTexts(
+                    di.data.text.text,
+                    di.data.text.rect,
+                    di.data.text.textFormat.get(),
+                    di.data.text.color);
+            }
             break;
         case DrawType::Rectangle:
-            DrawRectangle(di.data.rectangle.rect, di.data.rectangle.color, di.data.rectangle.strokeWidth,
-                          di.data.rectangle.filled);
+            backend_->DrawRectangle(
+                di.data.rectangle.rect,
+                di.data.rectangle.color,
+                di.data.rectangle.strokeWidth,
+                di.data.rectangle.filled);
             break;
         }
     }
@@ -255,114 +218,32 @@ void Renderer::FlushDrawQueue()
     drawQueue_.clear();
 }
 
-void Renderer::DiscardDeviceResources()
+void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Transform& transform,
+                            float opacity, int z)
 {
-    std::lock_guard lock(d2dMutex_);
+    if (!texture) return;
 
-    brush_.Reset();
-    d2dTargetBitmap_.Reset();
-    swapChain_.Reset();
-    d2dContext_.Reset();
-    d2dDevice_.Reset();
-    d3dContext_.Reset();
-    d3dDevice_.Reset();
-}
+    const auto size = texture->GetSize();
 
-void Renderer::Cleanup()
-{
-    std::lock_guard lock(d2dMutex_);
+    const Matrix mat1 = MatrixHelper::Translation(-size.width / 2.0f, -size.height / 2.0f);
+    const Matrix mat2 = MatrixHelper::Scale(transform.scaleX, transform.scaleY);
+    const Matrix mat3 = MatrixHelper::Rotation(transform.rotation);
+    const Matrix mat4 = MatrixHelper::Translation(transform.x + size.width / 2.0f, transform.y + size.height / 2.0f);
 
-    DiscardDeviceResources();
-    d2dFactory_.Reset();
-    dwFactory_.Reset();
-}
-
-void Renderer::DrawImage(ID2D1Bitmap* bitmap, const D2D1_MATRIX_3X2_F& mat, float opacity)
-{
-    if (!bitmap) return;
-
-    const auto size = bitmap->GetSize();
-
-    d2dContext_->SetTransform(mat);
-    d2dContext_->DrawBitmap(bitmap, D2D1::RectF(0, 0, size.width, size.height), opacity);
-    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
-}
-
-void Renderer::DrawText(const std::wstring& text,
-                        const D2D1_RECT_F& layoutRect,
-                        const std::wstring& fontFamily,
-                        float fontSize,
-                        const D2D1_COLOR_F& color)
-{
-    if (text.empty()) return;
-
-    if (!brush_)
-    {
-        if (FAILED(
-            d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
-            return;
-    }
-
-    IDWriteTextFormat* format = GetOrCreateTextFormat(fontFamily, fontSize);
-    if (!format) return;
-
-    brush_->SetColor(color);
-
-    d2dContext_->DrawTextW(
-        text.c_str(),
-        static_cast<UINT32>(text.size()),
-        format,
-        layoutRect,
-        brush_.Get());
-}
-
-void Renderer::DrawRectangle(const D2D1_RECT_F& rect,
-                              const D2D1_COLOR_F& color,
-                              float strokeWidth,
-                              bool filled)
-{
-    if (!brush_)
-    {
-        if (FAILED(
-            d2dContext_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), brush_.ReleaseAndGetAddressOf())))
-            return;
-    }
-
-    brush_->SetColor(color);
-
-    if (filled)
-    {
-        d2dContext_->FillRectangle(rect, brush_.Get());
-    }
-    else
-    {
-        d2dContext_->DrawRectangle(rect, brush_.Get(), strokeWidth);
-    }
-}
-
-void Renderer::EnqueueImage(ID2D1Bitmap* bitmap, const Transform& transform, float opacity, int z)
-{
-    if (!bitmap) return;
-
-    const auto [width, height] = bitmap->GetSize();
-    const D2D1_MATRIX_3X2_F mat =
-        D2D1::Matrix3x2F::Translation(-width / 2.0f, -height / 2.0f) *
-        D2D1::Matrix3x2F::Scale(transform.scaleX, transform.scaleY, D2D1::Point2F(0, 0)) *
-        D2D1::Matrix3x2F::Rotation(transform.rotation, D2D1::Point2F(0, 0)) *
-        D2D1::Matrix3x2F::Translation(transform.x + width / 2.0f, transform.y + height / 2.0f);
+    const Matrix mat = mat4 * mat3 * mat2 * mat1;
 
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.image) DrawItem::ImageData(bitmap, mat, opacity);
+    new(&di.data.image) DrawItem::ImageData(texture, mat, opacity);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
 
-void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& transform, int z)
+void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z)
 {
-    if (!bitmap) return;
+    if (!texture) return;
 
     const float kx = transform.skewX * std::numbers::pi_v<float> / 180.0f;
     const float ky = transform.skewY * std::numbers::pi_v<float> / 180.0f;
@@ -372,7 +253,7 @@ void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& tra
     const float c = -std::sin(ky) * transform.scaleY;
     const float d = std::cos(ky) * transform.scaleY;
 
-    const D2D1_MATRIX_3X2_F mat = D2D1::Matrix3x2F(
+    const Matrix mat = MatrixHelper::CreateMatrix(
         a, b,
         c, d,
         transform.transX, transform.transY);
@@ -381,33 +262,37 @@ void Renderer::EnqueueReanim(ID2D1Bitmap* bitmap, const ReanimatorTransform& tra
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.image) DrawItem::ImageData(bitmap, mat, 1.0f);
+    new(&di.data.image) DrawItem::ImageData(texture, mat, 1.0f);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
 
 void Renderer::EnqueueTextW(const std::wstring& text,
-                            const D2D1_RECT_F& layoutRect,
+                            const Rect& layoutRect,
                             const std::wstring& fontFamily,
                             float fontSize,
-                            const D2D1_COLOR_F& color,
+                            const Color& color,
                             int z)
 {
-    if (text.empty()) return;
+    if (text.empty() || !backend_) return;
+
+    const auto textFormat = backend_->CreateTextFormat(fontFamily, fontSize);
+    if (!textFormat) return;
+
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.text) DrawItem::TextData(text, fontFamily, layoutRect, fontSize, color);
+    new(&di.data.text) DrawItem::TextData(text, textFormat, layoutRect, color);
     di.drawType = DrawType::Text;
     drawQueue_.push_back(std::move(di));
 }
 
-void Renderer::EnqueueRectangle(const D2D1_RECT_F& rect,
-                                 const D2D1_COLOR_F& color,
-                                 float strokeWidth,
-                                 bool filled,
-                                 int z)
+void Renderer::EnqueueRectangle(const Rect& rect,
+                                const Color& color,
+                                float strokeWidth,
+                                bool filled,
+                                int z)
 {
     DrawItem di;
     di.z = z;
@@ -416,4 +301,9 @@ void Renderer::EnqueueRectangle(const D2D1_RECT_F& rect,
     new(&di.data.rectangle) DrawItem::RectangleData(rect, color, strokeWidth, filled);
     di.drawType = DrawType::Rectangle;
     drawQueue_.push_back(std::move(di));
+}
+
+IRenderBackend* Renderer::GetRenderBackend()
+{
+    return backend_.get();
 }

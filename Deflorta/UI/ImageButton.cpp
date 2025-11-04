@@ -4,7 +4,7 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
-ImageButton::ImageButton(ID2D1Bitmap* normalImage, ID2D1Bitmap* hoverImage,
+ImageButton::ImageButton(std::shared_ptr<ITexture> normalImage, std::shared_ptr<ITexture> hoverImage,
                          float x, float y, float width, float height)
     : normalImage_(normalImage), hoverImage_(hoverImage)
 {
@@ -18,9 +18,9 @@ void ImageButton::Render()
 {
     if (visible_)
     {
-        if (ID2D1Bitmap* currentImage = state_ == State::Hovered || state_ == State::Pressed
-                                            ? hoverImage_
-                                            : normalImage_)
+        if (std::shared_ptr<ITexture> currentImage = state_ == State::Hovered || state_ == State::Pressed
+                                                         ? hoverImage_
+                                                         : normalImage_)
         {
             Transform transform;
             transform.x = x_;
@@ -30,22 +30,22 @@ void ImageButton::Render()
     }
 }
 
-ID2D1Bitmap* ImageButton::GetNormalImage() const
+std::shared_ptr<ITexture> ImageButton::GetNormalImage() const
 {
     return normalImage_;
 }
 
-void ImageButton::SetNormalImage(ID2D1Bitmap* normal_image)
+void ImageButton::SetNormalImage(const std::shared_ptr<ITexture>& normal_image)
 {
     normalImage_ = normal_image;
 }
 
-ID2D1Bitmap* ImageButton::GetHoverImage() const
+std::shared_ptr<ITexture> ImageButton::GetHoverImage() const
 {
     return hoverImage_;
 }
 
-void ImageButton::SetHoverImage(ID2D1Bitmap* hover_image)
+void ImageButton::SetHoverImage(const std::shared_ptr<ITexture>& hover_image)
 {
     hoverImage_ = hover_image;
 }
