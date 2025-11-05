@@ -9,11 +9,10 @@ enum class GameObjectTag : std::uint8_t
 {
     None,
     Plant,
-    Bush,
-    Fog,
     Zombie,
     Projectile,
     Sun,
+    Ambient,
     Coin
 };
 
@@ -28,9 +27,17 @@ public:
     virtual void Update() = 0;
     virtual void Render();
 
-    virtual void OnCollisionEnter(GameObject* other) {}
-    virtual void OnCollisionStay(GameObject* other) {}
-    virtual void OnCollisionExit(GameObject* other) {}
+    virtual void OnCollisionEnter(GameObject* other)
+    {
+    }
+
+    virtual void OnCollisionStay(GameObject* other)
+    {
+    }
+
+    virtual void OnCollisionExit(GameObject* other)
+    {
+    }
 
     [[nodiscard]] GameObjectTag GetTag() const;
     void SetTag(GameObjectTag tag);
@@ -44,7 +51,7 @@ public:
 
     [[nodiscard]] Collider* GetCollider() const { return collider_.get(); }
     void SetCollider(std::unique_ptr<Collider> collider);
-    template<typename T, typename... Args>
+    template <typename T, typename... Args>
     T* AddCollider(Args&&... args);
 
 protected:
@@ -54,7 +61,7 @@ protected:
     std::unique_ptr<Collider> collider_;
 };
 
-template<typename T, typename... Args>
+template <typename T, typename... Args>
 T* GameObject::AddCollider(Args&&... args)
 {
     static_assert(std::is_base_of_v<Collider, T>, "T must derive from Collider");

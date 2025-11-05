@@ -4,7 +4,7 @@
 #include "../Render/Layer.hpp"
 
 Bush::Bush(int rowCount, bool isNightMode)
-    : GameObject(GameObjectTag::Bush)
+    : GameObject(GameObjectTag::Ambient)
 {
     auto bush1 = isNightMode
                      ? ReanimationLoader::LoadFromFile("resources/reanim/Night_bush1.xml")

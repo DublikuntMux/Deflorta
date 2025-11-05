@@ -1,4 +1,4 @@
-﻿#include "Game.hpp"
+#include "Game.hpp"
 
 #include "Time.hpp"
 #include "Input.hpp"
@@ -71,6 +71,23 @@ void Game::Run()
 
         Time::Tick();
         Input::BeginCursorUpdate();
+
+        // Toggle collision debug rendering with F3
+        static bool f3WasPressed = false;
+        if (Input::IsKeyPressed(VK_F3))
+        {
+            if (!f3WasPressed && scene_ && scene_->GetCollisionSystem())
+            {
+                const bool currentState = scene_->GetCollisionSystem()->IsDebugRenderEnabled();
+                scene_->GetCollisionSystem()->SetDebugRenderEnabled(!currentState);
+            }
+            f3WasPressed = true;
+        }
+        else
+        {
+            f3WasPressed = false;
+        }
+
         Renderer::BeginFrame();
         if (scene_)
         {

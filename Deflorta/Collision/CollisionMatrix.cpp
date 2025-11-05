@@ -21,10 +21,10 @@ bool CollisionMatrix::CanCollide(GameObjectTag tag1, GameObjectTag tag2) const
 {
     const size_t index1 = TagToIndex(tag1);
     const size_t index2 = TagToIndex(tag2);
-    
+
     if (index1 >= MAX_TAGS || index2 >= MAX_TAGS)
         return false;
-    
+
     return matrix_[index1][index2];
 }
 
@@ -32,7 +32,7 @@ void CollisionMatrix::SetCollision(GameObjectTag tag1, GameObjectTag tag2, bool 
 {
     const size_t index1 = TagToIndex(tag1);
     const size_t index2 = TagToIndex(tag2);
-    
+
     if (index1 < MAX_TAGS && index2 < MAX_TAGS)
     {
         matrix_[index1][index2] = canCollide;
@@ -48,4 +48,3 @@ void CollisionMatrix::DisableCollision(GameObjectTag tag1, GameObjectTag tag2)
 {
     SetCollision(tag1, tag2, false);
 }
-

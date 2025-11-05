@@ -58,15 +58,15 @@ struct Rect
     [[nodiscard]] bool Contains(const glm::vec2& point) const
     {
         return point.x >= left && point.x <= right &&
-               point.y >= top && point.y <= bottom;
+            point.y >= top && point.y <= bottom;
     }
 
     [[nodiscard]] bool Intersects(const Rect& other) const
     {
         return left < other.right &&
-               right > other.left &&
-               top < other.bottom &&
-               bottom > other.top;
+            right > other.left &&
+            top < other.bottom &&
+            bottom > other.top;
     }
 };
 

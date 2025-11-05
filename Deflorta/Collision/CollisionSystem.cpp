@@ -1,7 +1,9 @@
 #include "CollisionSystem.hpp"
 
 #include "../Object/GameObject.hpp"
+#include "../Render/Renderer.hpp"
 #include "Collider.hpp"
+#include "../Render/Layer.hpp"
 
 CollisionSystem::CollisionSystem(const Rect& worldBounds)
 {
@@ -91,4 +93,78 @@ void CollisionSystem::Update(const std::vector<std::shared_ptr<GameObject>>& obj
     }
 
     previousCollisions_ = currentCollisions_;
+}
+
+void CollisionSystem::DebugRender() const
+{
+    if (!debugRenderEnabled_) return;
+
+    if (quadTree_)
+    {
+        quadTree_->DebugRender();
+    }
+
+    std::vector<GameObject*> allObjects;
+    if (quadTree_)
+    {
+        quadTree_->GetAllObjects(allObjects);
+    }
+
+    for (const auto* obj : allObjects)
+    {
+        if (!obj || !obj->IsActive()) continue;
+
+        const auto* collider = obj->GetCollider();
+        if (!collider || !collider->IsEnabled()) continue;
+
+        const Color color = GetColorForTag(obj->GetTag());
+
+        if (collider->GetType() == ColliderType::Box)
+        {
+            const auto* boxCollider = dynamic_cast<const BoxCollider*>(collider);
+            const glm::vec2 min = boxCollider->GetMin();
+            const glm::vec2 max = boxCollider->GetMax();
+            const Rect bounds = Rect::FromXYWH(min.x, min.y, max.x - min.x, max.y - min.y);
+            Renderer::EnqueueRectangle(bounds, color, 2.0f, false, static_cast<int>(RenderLayer::Debug));
+        }
+        else if (collider->GetType() == ColliderType::Circle)
+        {
+            const auto* circleCollider = dynamic_cast<const CircleCollider*>(collider);
+            const glm::vec2 worldPos = circleCollider->GetWorldPosition();
+            const float radius = circleCollider->GetRadius();
+
+            const Rect bounds = Rect::FromXYWH(
+                worldPos.x - radius,
+                worldPos.y - radius,
+                radius * 2.0f,
+                radius * 2.0f);
+            Renderer::EnqueueRectangle(bounds, color, 2.0f, false, static_cast<int>(RenderLayer::Debug));
+
+            const Rect centerH = Rect::FromXYWH(worldPos.x - radius, worldPos.y - 1.0f, radius * 2.0f, 2.0f);
+            const Rect centerV = Rect::FromXYWH(worldPos.x - 1.0f, worldPos.y - radius, 2.0f, radius * 2.0f);
+            Renderer::EnqueueRectangle(centerH, color, 1.0f, true, static_cast<int>(RenderLayer::Debug));
+            Renderer::EnqueueRectangle(centerV, color, 1.0f, true, static_cast<int>(RenderLayer::Debug));
+        }
+    }
+}
+
+Color CollisionSystem::GetColorForTag(GameObjectTag tag)
+{
+    switch (tag)
+    {
+    case GameObjectTag::None:
+        return {1.0f, 1.0f, 1.0f, 0.7f};
+    case GameObjectTag::Plant:
+        return {0.0f, 1.0f, 0.0f, 0.7f};
+    case GameObjectTag::Zombie:
+        return {1.0f, 0.0f, 0.0f, 0.7f};
+    case GameObjectTag::Projectile:
+        return {1.0f, 1.0f, 0.0f, 0.7f};
+    case GameObjectTag::Sun:
+        return {1.0f, 0.8f, 0.0f, 0.7f};
+    case GameObjectTag::Coin:
+        return {1.0f, 0.843f, 0.0f, 0.7f};
+    default:
+        return {1.0f, 1.0f, 1.0f, 0.7f};
+    }
 }

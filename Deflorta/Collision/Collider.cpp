@@ -32,11 +32,11 @@ bool BoxCollider::Intersects(const Collider* other) const
 
     if (other->GetType() == ColliderType::Box)
     {
-        return IntersectsBox(static_cast<const BoxCollider*>(other));
+        return IntersectsBox(dynamic_cast<const BoxCollider*>(other));
     }
-    else if (other->GetType() == ColliderType::Circle)
+    if (other->GetType() == ColliderType::Circle)
     {
-        return IntersectsCircle(static_cast<const CircleCollider*>(other));
+        return IntersectsCircle(dynamic_cast<const CircleCollider*>(other));
     }
     return false;
 }
@@ -51,7 +51,7 @@ bool BoxCollider::IntersectsBox(const BoxCollider* box) const
     const glm::vec2 max2 = box->GetMax();
 
     return min1.x <= max2.x && max1.x >= min2.x &&
-           min1.y <= max2.y && max1.y >= min2.y;
+        min1.y <= max2.y && max1.y >= min2.y;
 }
 
 bool BoxCollider::IntersectsCircle(const CircleCollider* circle) const
@@ -66,7 +66,7 @@ bool BoxCollider::IntersectsCircle(const CircleCollider* circle) const
     const float halfHeight = height_ * 0.5f;
 
     const glm::vec2 delta = circleCenter - boxCenter;
-    const glm::vec2 closest = glm::vec2(
+    const auto closest = glm::vec2(
         std::clamp(delta.x, -halfWidth, halfWidth),
         std::clamp(delta.y, -halfHeight, halfHeight)
     );
@@ -85,11 +85,11 @@ bool CircleCollider::Intersects(const Collider* other) const
 
     if (other->GetType() == ColliderType::Box)
     {
-        return IntersectsBox(static_cast<const BoxCollider*>(other));
+        return IntersectsBox(dynamic_cast<const BoxCollider*>(other));
     }
-    else if (other->GetType() == ColliderType::Circle)
+    if (other->GetType() == ColliderType::Circle)
     {
-        return IntersectsCircle(static_cast<const CircleCollider*>(other));
+        return IntersectsCircle(dynamic_cast<const CircleCollider*>(other));
     }
     return false;
 }

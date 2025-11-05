@@ -18,6 +18,7 @@ public:
     void Insert(GameObject* object);
     void Retrieve(std::vector<GameObject*>& returnObjects, GameObject* object) const;
     void GetAllObjects(std::vector<GameObject*>& returnObjects) const;
+    void DebugRender(int depth = 0) const;
 
 private:
     int level_;

@@ -53,6 +53,12 @@ void Scene::Render()
             widget->Render();
         }
     }
+
+    // Debug render collision system
+    if (collisionSystem_)
+    {
+        collisionSystem_->DebugRender();
+    }
 }
 
 void Scene::AddWidget(Widget* widget)

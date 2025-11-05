@@ -14,17 +14,17 @@ class Collider
 {
 public:
     explicit Collider(GameObject* owner, ColliderType type)
-        : owner_(owner), type_(type) {}
+        : owner_(owner), type_(type)
+    {
+    }
+
     virtual ~Collider() = default;
 
     [[nodiscard]] ColliderType GetType() const { return type_; }
     [[nodiscard]] GameObject* GetOwner() const { return owner_; }
-    
+
     [[nodiscard]] bool IsEnabled() const { return enabled_; }
     void SetEnabled(bool enabled) { enabled_ = enabled; }
-
-    [[nodiscard]] bool IsTrigger() const { return isTrigger_; }
-    void SetTrigger(bool trigger) { isTrigger_ = trigger; }
 
     [[nodiscard]] const glm::vec2& GetOffset() const { return offset_; }
     void SetOffset(const glm::vec2& offset) { offset_ = offset; }
@@ -40,14 +40,15 @@ protected:
     ColliderType type_;
     glm::vec2 offset_ = glm::vec2(0.0f, 0.0f);
     bool enabled_ = true;
-    bool isTrigger_ = false;
 };
 
 class BoxCollider : public Collider
 {
 public:
     explicit BoxCollider(GameObject* owner, float width = 1.0f, float height = 1.0f)
-        : Collider(owner, ColliderType::Box), width_(width), height_(height) {}
+        : Collider(owner, ColliderType::Box), width_(width), height_(height)
+    {
+    }
 
     [[nodiscard]] float GetWidth() const { return width_; }
     void SetWidth(float width) { width_ = width; }
@@ -77,7 +78,9 @@ class CircleCollider : public Collider
 {
 public:
     explicit CircleCollider(GameObject* owner, float radius = 1.0f)
-        : Collider(owner, ColliderType::Circle), radius_(radius) {}
+        : Collider(owner, ColliderType::Circle), radius_(radius)
+    {
+    }
 
     [[nodiscard]] float GetRadius() const { return radius_; }
     void SetRadius(float radius) { radius_ = radius; }

@@ -132,7 +132,6 @@ namespace
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
     attachConsole();
-    std::cout << "Deflorta starting...\n";
 
     if (!RegisterGameClass(hInstance))
         return FALSE;

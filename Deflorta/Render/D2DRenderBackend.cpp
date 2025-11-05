@@ -254,7 +254,7 @@ void D2DRenderBackend::DrawTexture(
 
     if (!texture) return;
 
-    const auto d2dTexture = static_cast<D2DTexture*>(texture);
+    const auto d2dTexture = dynamic_cast<D2DTexture*>(texture);
     ID2D1Bitmap* bitmap = d2dTexture->GetBitmap();
     if (!bitmap) return;
 
@@ -286,7 +286,7 @@ void D2DRenderBackend::DrawTexts(
         if (!brush_) return;
     }
 
-    const auto dwFormat = static_cast<DWriteTextFormat*>(textFormat);
+    const auto dwFormat = dynamic_cast<DWriteTextFormat*>(textFormat);
 
     brush_->SetColor(ConvertColor(color));
 

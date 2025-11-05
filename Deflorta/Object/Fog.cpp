@@ -6,7 +6,7 @@
 #include "../Resource/ResourceManager.hpp"
 
 Fog::Fog(int rowCount, int maxColumns)
-    : GameObject(GameObjectTag::Fog), rowCount_(rowCount), maxColumns_(maxColumns)
+    : GameObject(GameObjectTag::Ambient), rowCount_(rowCount), maxColumns_(maxColumns)
 {
     ResourceManager::LoadGroup("DelayLoad_Fog");
     GenerateFogPieces();
