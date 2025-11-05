@@ -26,9 +26,9 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     bool hasPole = false;
     bool hasTree = false;
 
-    Transform tempCoverTransform{.x = 0, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
-    Transform tempPoleTransform{.x = 0, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
-    Transform tempTreeTransform{.x = 0, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+    Transform tempCoverTransform;
+    Transform tempPoleTransform;
+    Transform tempTreeTransform;
 
     switch (settings_.backgroundType)
     {
@@ -38,7 +38,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND1_COVER";
         hasCover = true;
         bushesNight = false;
-        tempCoverTransform = Transform{.x = 920, .y = 580, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempCoverTransform = Transform{.position = {920, 580}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Night:
         loadGroup = "DelayLoad_Background2";
@@ -46,7 +46,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND2_COVER";
         hasCover = true;
         bushesNight = true;
-        tempCoverTransform = Transform{.x = 920, .y = 580, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempCoverTransform = Transform{.position = {920, 580}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Pool:
         loadGroup = "DelayLoad_Background3";
@@ -54,7 +54,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND3_COVER";
         hasCover = true;
         bushesNight = false;
-        tempCoverTransform = Transform{.x = 925, .y = 635, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempCoverTransform = Transform{.position = {925, 635}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::PoolNight:
         loadGroup = "DelayLoad_Background4";
@@ -62,23 +62,23 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND4_COVER";
         hasCover = true;
         bushesNight = true;
-        tempCoverTransform = Transform{.x = 925, .y = 635, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempCoverTransform = Transform{.position = {925, 635}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Roof:
         loadGroup = "DelayLoad_Background5";
         bgName = "IMAGE_BACKGROUND5";
         hasPole = true;
         hasTree = true;
-        tempPoleTransform = Transform{.x = 870, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
-        tempTreeTransform = Transform{.x = 930, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempPoleTransform = Transform{.position = {870, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempTreeTransform = Transform{.position = {930, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::RoofNight:
         loadGroup = "DelayLoad_Background6";
         bgName = "IMAGE_BACKGROUND6";
         hasPole = true;
         hasTree = true;
-        tempPoleTransform = Transform{.x = 870, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
-        tempTreeTransform = Transform{.x = 930, .y = 0, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f};
+        tempPoleTransform = Transform{.position = {870, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempTreeTransform = Transform{.position = {930, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     }
 
@@ -119,11 +119,9 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     }
 
     backgroundTransform_ = Transform{
-        .x = -220,
-        .y = 0,
-        .rotation = 0.0f,
-        .scaleX = 1.0f,
-        .scaleY = 1.0f
+        .position = {-220, 0},
+        .scale = {1.0f, 1.0f},
+        .rotation = 0.0f
     };
 
     if (settings_.hasFog)
@@ -144,7 +142,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     }
 
     auto testSun = std::make_shared<SunObject>();
-    testSun->SetTransform(Transform{.x = 200.0f, .y = 200.0f, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f});
+    testSun->SetTransform(Transform{.position = {200.0f, 200.0f}, .scale = {1.0f, 1.0f}, .rotation = 0.0f});
     AddGameObject(testSun);
 }
 
@@ -172,7 +170,7 @@ void BoardScene::Render()
         Renderer::EnqueueImage(pole_, poleTransform_, 1, static_cast<int>(RenderLayer::Foreground));
 }
 
-std::pair<float, float> BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
+glm::vec2 BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
 {
     float x = kPlantBaseX + kPlantCellWidth * static_cast<float>(column);
     float y;
@@ -197,7 +195,7 @@ std::pair<float, float> BoardScene::GridToPosition(int row, int column, Backgrou
     return {x, y};
 }
 
-std::pair<int, int> BoardScene::PositionToGrid(float x, float y, BackgroundType bgType)
+glm::ivec2 BoardScene::PositionToGrid(float x, float y, BackgroundType bgType)
 {
     const float colF = (x - kPlantBaseX) / kPlantCellWidth;
     int col = static_cast<int>(std::round(colF));

@@ -32,6 +32,6 @@ private:
     int rowCount_;
     int maxColumns_;
 
-    std::shared_ptr<ITexture> GetRandomFogTexture();
+    static std::shared_ptr<ITexture> GetRandomFogTexture();
     void GenerateFogPieces();
 };

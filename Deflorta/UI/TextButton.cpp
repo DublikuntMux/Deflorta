@@ -3,14 +3,18 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
-TextButton::TextButton(std::wstring text, std::wstring font, float size, const Color& normalColor,
-                       const Color& hoverColor, float x, float y, float width, float height)
-    : text_(std::move(text)), font_(std::move(font)), size_(size), normalColor_(normalColor), hoverColor_(hoverColor)
+TextButton::TextButton(std::wstring text,
+                       std::wstring font,
+                       float size,
+                       const Color& normalColor,
+                       const Color& hoverColor,
+                       glm::vec2 position,
+                       glm::vec2 dimensions)
+    : text_(std::move(text)), font_(std::move(font)), fontSize_(size), normalColor_(normalColor),
+      hoverColor_(hoverColor)
 {
-    x_ = x;
-    y_ = y;
-    width_ = width;
-    height_ = height;
+    position_ = position;
+    dimensions_ = dimensions;
 }
 
 void TextButton::Render()
@@ -20,8 +24,8 @@ void TextButton::Render()
         const Color currentColor = state_ == State::Hovered || state_ == State::Pressed
                                        ? hoverColor_
                                        : normalColor_;
-        const auto rect = Rect(x_, y_, x_ + width_, y_ + height_);
-        Renderer::EnqueueTextW(text_, rect, font_, size_, currentColor, static_cast<int>(RenderLayer::UI));
+        const auto rect = Rect(position_.x, position_.y, position_.x + dimensions_.x, position_.y + dimensions_.y);
+        Renderer::EnqueueTextW(text_, rect, font_, fontSize_, currentColor, static_cast<int>(RenderLayer::UI));
     }
 }
 
@@ -45,14 +49,14 @@ void TextButton::SetFont(std::wstring font)
     font_ = std::move(font);
 }
 
-float TextButton::GetSize() const
+float TextButton::GetFontSize() const
 {
-    return size_;
+    return fontSize_;
 }
 
-void TextButton::SetSize(float size)
+void TextButton::SetFontSize(float size)
 {
-    size_ = size;
+    fontSize_ = size;
 }
 
 Color TextButton::GetNormalColor() const

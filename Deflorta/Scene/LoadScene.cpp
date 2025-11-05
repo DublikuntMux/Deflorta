@@ -34,11 +34,10 @@ LoadScene::LoadScene()
     {
         auto img = ResourceManager::GetImage(name);
         if (!img)
-            return {nullptr, Transform{.x = centerX, .y = centerY, .rotation = 0.0f, .scaleX = scale, .scaleY = scale}};
+            return {nullptr, Transform{.position = {centerX, centerY}, .scale = {scale, scale}, .rotation = 0.0f}};
         const auto size = img->GetSize();
         Transform t{
-            .x = centerX - size.x / 2.0f, .y = centerY - size.y / 2.0f, .rotation = 0.0f, .scaleX = scale,
-            .scaleY = scale
+            .position = {centerX - size.x / 2.0f, centerY - size.y / 2.0f}, .scale = {scale, scale}, .rotation = 0.0f
         };
         return {img, t};
     };
@@ -48,7 +47,7 @@ LoadScene::LoadScene()
     auto logoPair = loadCentered("IMAGE_POPCAP_LOGO", 1280.0f / 2.0f, 720.0f / 2.0f);
     logo_ = logoPair.first;
     logoTransform_ = logoPair.second;
-    logoTransform_.scaleX = logoTransform_.scaleY = 0.5f;
+    logoTransform_.scale = {0.5f, 0.5f};
 
     auto rollPair = loadCentered("IMAGE_REANIM_SODROLLCAP", 1280.0f / 2.0f, 720.0f / 2.0f + 200.0f);
     rollCap_ = rollPair.first;
@@ -58,8 +57,7 @@ LoadScene::LoadScene()
         {
             .start = 0.5f, .end = 1.2f, .setter = [&](float v)
             {
-                logoTransform_.scaleX = v;
-                logoTransform_.scaleY = v;
+                logoTransform_.scale = {v, v};
             },
             .mode = TweenMode::EaseOut
         },
@@ -96,12 +94,11 @@ void LoadScene::Update()
                 .mode = TweenMode::EaseOut
             },
             {
-                .start = logoTransform_.scaleX,
+                .start = logoTransform_.scale.x,
                 .end = 1.0f,
                 .setter = [&](float v)
                 {
-                    logoTransform_.scaleX = v;
-                    logoTransform_.scaleY = v;
+                    logoTransform_.scale = {v, v};
                 },
                 .mode = TweenMode::EaseIn
             }

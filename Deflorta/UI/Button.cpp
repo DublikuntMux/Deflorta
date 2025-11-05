@@ -5,7 +5,7 @@
 
 namespace
 {
-    bool PointInPolygon(float x, float y, const std::vector<Point2F>& poly)
+    bool PointInPolygon(float x, float y, const std::vector<glm::vec2>& poly)
     {
         const size_t n = poly.size();
         if (n < 3) return false;
@@ -56,25 +56,23 @@ void Button::Update()
     if (!visible_)
         return;
 
-    const auto [x, y] = Input::GetMousePosition();
-    const float mouseX = static_cast<float>(x);
-    const float mouseY = static_cast<float>(y);
+    const auto mousePos = Input::GetMousePosition();
 
     bool mouseOver;
     if (!polygon_.empty() && polygon_.size() >= 3)
     {
-        std::vector<Point2F> worldPolygon;
+        std::vector<glm::vec2> worldPolygon;
         worldPolygon.reserve(polygon_.size());
         for (const auto& point : polygon_)
         {
-            worldPolygon.emplace_back(point.x + x_, point.y + y_);
+            worldPolygon.emplace_back(point.x + position_.x, point.y + position_.y);
         }
-        mouseOver = PointInPolygon(mouseX, mouseY, worldPolygon);
+        mouseOver = PointInPolygon(mousePos.x, mousePos.y, worldPolygon);
     }
     else
     {
-        mouseOver = mouseX >= x_ && mouseX <= x_ + width_ &&
-            mouseY >= y_ && mouseY <= y_ + height_;
+        mouseOver = mousePos.x >= position_.x && mousePos.x <= position_.x + dimensions_.x &&
+            mousePos.y >= position_.y && mousePos.y <= position_.y + dimensions_.y;
     }
 
     if (mouseOver)
@@ -127,7 +125,7 @@ void Button::AddHoverCallback(const std::function<void()>& callback)
     hoverCallback_.push_back(callback);
 }
 
-void Button::SetPolygon(const std::vector<Point2F>& polygon)
+void Button::SetPolygon(const std::vector<glm::vec2>& polygon)
 {
     polygon_ = polygon;
 }
@@ -144,12 +142,10 @@ bool Button::HasPolygon() const
 
 void Button::SetRect(float width, float height)
 {
-    width_ = width;
-    height_ = height;
+    dimensions_ = {width, height};
 }
 
 void Button::ClearRect()
 {
-    width_ = 0.0f;
-    height_ = 0.0f;
+    dimensions_ = {0.0f, 0.0f};
 }

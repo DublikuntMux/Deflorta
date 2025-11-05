@@ -14,10 +14,8 @@ public:
         float size,
         const Color& normalColor,
         const Color& hoverColor,
-        float x = 0.0f,
-        float y = 0.0f,
-        float width = 0.0f,
-        float height = 0.0f
+        glm::vec2 position,
+        glm::vec2 dimensions = {0.0f, 0.0f}
     );
 
     void Render() override;
@@ -28,8 +26,8 @@ public:
     [[nodiscard]] std::wstring GetFont() const;
     void SetFont(std::wstring font);
 
-    [[nodiscard]] float GetSize() const;
-    void SetSize(float size);
+    [[nodiscard]] float GetFontSize() const;
+    void SetFontSize(float size);
 
     [[nodiscard]] Color GetNormalColor() const;
     void SetNormalColor(const Color& normal_color);
@@ -40,7 +38,7 @@ public:
 private:
     std::wstring text_;
     std::wstring font_;
-    float size_;
+    float fontSize_;
     Color normalColor_;
     Color hoverColor_;
 };

@@ -1,10 +1,10 @@
 ﻿#pragma once
 
 #include "Widget.hpp"
-#include "../Base/Point2F.hpp"
 
 #include <functional>
 #include <vector>
+#include <glm/glm.hpp>
 
 class Button : public Widget
 {
@@ -26,7 +26,7 @@ public:
     void SetRect(float width, float height);
     void ClearRect();
 
-    void SetPolygon(const std::vector<Point2F>& polygon);
+    void SetPolygon(const std::vector<glm::vec2>& polygon);
     void ClearPolygon();
     [[nodiscard]] bool HasPolygon() const;
 
@@ -36,7 +36,6 @@ protected:
     std::vector<std::function<void()>> hoverCallback_;
     bool wasPressed_ = false;
     bool wasHovered_ = false;
-    float width_ = 0.0f;
-    float height_ = 0.0f;
-    std::vector<Point2F> polygon_;
+    glm::vec2 dimensions_;
+    std::vector<glm::vec2> polygon_;
 };

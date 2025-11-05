@@ -38,14 +38,14 @@ void Fog::MoveFog(float targetX, float duration)
 {
     for (auto& piece : fogPieces_)
     {
-        const float startX = piece.transform.x;
+        const float startX = piece.transform.position.x;
 
         piece.tween = std::make_unique<Tween>(
             std::vector{
                 TweenProperty{
                     .start = startX,
                     .end = targetX + piece.col * 80.0f,
-                    .setter = [&piece](float value) { piece.transform.x = value; },
+                    .setter = [&piece](float value) { piece.transform.position.x = value; },
                     .mode = TweenMode::EaseInOut
                 }
             },
@@ -79,11 +79,11 @@ void Fog::GenerateFogPieces()
             piece.row = row;
             piece.col = col;
 
-            piece.transform.x = 870.0f - static_cast<float>(col) * 80.0f + Random::UniformFloat(-10.0f, 10.0f);
-            piece.transform.y = 85.0f + static_cast<float>(row) * 90.0f + Random::UniformFloat(-10.0f, 10.0f);
+            piece.transform.position.x = 870.0f - static_cast<float>(col) * 80.0f + Random::UniformFloat(-10.0f, 10.0f);
+            piece.transform.position.y = 85.0f + static_cast<float>(row) * 90.0f + Random::UniformFloat(-10.0f, 10.0f);
             piece.transform.rotation = 0.0f;
-            piece.transform.scaleX = 1.0f + Random::UniformFloat(-0.1f, 0.1f);
-            piece.transform.scaleY = 1.0f + Random::UniformFloat(-0.1f, 0.1f);
+            piece.transform.scale.x = 1.0f + Random::UniformFloat(-0.1f, 0.1f);
+            piece.transform.scale.y = 1.0f + Random::UniformFloat(-0.1f, 0.1f);
 
             fogPieces_.push_back(std::move(piece));
         }

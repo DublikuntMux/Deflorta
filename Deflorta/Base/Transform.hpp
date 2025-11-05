@@ -4,25 +4,21 @@
 
 struct Transform
 {
-    float x = 0.0f;
-    float y = 0.0f;
+    glm::vec2 position = {0.0f, 0.0f};
+    glm::vec2 scale = {1.0f, 1.0f};
     float rotation = 0.0f;
-    float scaleX = 1.0f;
-    float scaleY = 1.0f;
 
-    glm::vec2 GetPosition() const { return glm::vec2(x, y); }
+    [[nodiscard]] glm::vec2 GetPosition() const { return position; }
 
     void SetPosition(const glm::vec2& pos)
     {
-        x = pos.x;
-        y = pos.y;
+        position = pos;
     }
 
-    glm::vec2 GetScale() const { return glm::vec2(scaleX, scaleY); }
+    [[nodiscard]] glm::vec2 GetScale() const { return scale; }
 
-    void SetScale(const glm::vec2& scale)
+    void SetScale(const glm::vec2& newScale)
     {
-        scaleX = scale.x;
-        scaleY = scale.y;
+        scale = newScale;
     }
 };

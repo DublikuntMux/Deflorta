@@ -1,29 +1,13 @@
 ﻿#include "Widget.hpp"
 
-float Widget::GetX() const
+void Widget::SetPosition(glm::vec2 position)
 {
-    return x_;
+    position_ = position;
 }
 
-void Widget::SetX(float x)
+glm::vec2 Widget::GetPosition() const
 {
-    x_ = x;
-}
-
-float Widget::GetY() const
-{
-    return y_;
-}
-
-void Widget::SetY(float y)
-{
-    y_ = y;
-}
-
-void Widget::SetPosition(float x, float y)
-{
-    x_ = x;
-    y_ = y;
+    return position_;
 }
 
 bool Widget::IsVisible() const

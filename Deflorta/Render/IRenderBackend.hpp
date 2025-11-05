@@ -3,7 +3,6 @@
 #include "PixelData.hpp"
 #include "../Base/Color.hpp"
 #include "../Base/Matrix.hpp"
-#include "../Base/Point2F.hpp"
 #include "../Base/Rect.hpp"
 
 #include <memory>
@@ -13,7 +12,7 @@ class ITexture
 {
 public:
     virtual ~ITexture() = default;
-    virtual Point2F GetSize() const = 0;
+    virtual glm::vec2 GetSize() const = 0;
     virtual void* GetNativeHandle() const = 0;
 };
 
@@ -48,7 +47,7 @@ public:
 
     virtual void DrawTexture(
         ITexture* texture,
-        const Matrix& transform,
+        const glm::mat3& transform,
         float opacity = 1.0f) = 0;
 
     virtual void DrawTexts(
@@ -63,8 +62,8 @@ public:
         float strokeWidth = 1.0f,
         bool filled = false) = 0;
 
-    virtual void SetTransform(const Matrix& transform) = 0;
-    virtual Matrix GetTransform() const = 0;
+    virtual void SetTransform(const glm::mat3& transform) = 0;
+    virtual glm::mat3 GetTransform() const = 0;
 
     virtual void Lock() = 0;
     virtual void Unlock() = 0;

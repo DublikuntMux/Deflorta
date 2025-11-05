@@ -15,7 +15,7 @@ public:
     void DisableCollision(GameObjectTag tag1, GameObjectTag tag2);
 
 private:
-    static constexpr size_t MAX_TAGS = 8;
+    static constexpr size_t MAX_TAGS = static_cast<size_t>(GameObjectTag::Count);
     std::array<std::array<bool, MAX_TAGS>, MAX_TAGS> matrix_;
 
     [[nodiscard]] static size_t TagToIndex(GameObjectTag tag);

@@ -225,12 +225,12 @@ void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Tran
 
     const auto size = texture->GetSize();
 
-    const Matrix mat1 = MatrixHelper::Translation(-size.x / 2.0f, -size.y / 2.0f);
-    const Matrix mat2 = MatrixHelper::Scale(transform.scaleX, transform.scaleY);
-    const Matrix mat3 = MatrixHelper::Rotation(transform.rotation);
-    const Matrix mat4 = MatrixHelper::Translation(transform.x + size.x / 2.0f, transform.y + size.y / 2.0f);
+    const glm::mat3 mat1 = MatrixHelper::Translation(-size / 2.0f);
+    const glm::mat3 mat2 = MatrixHelper::Scale(transform.scale);
+    const glm::mat3 mat3 = MatrixHelper::Rotation(transform.rotation);
+    const glm::mat3 mat4 = MatrixHelper::Translation(transform.position + size / 2.0f);
 
-    const Matrix mat = mat4 * mat3 * mat2 * mat1;
+    const glm::mat3 mat = mat4 * mat3 * mat2 * mat1;
 
     DrawItem di;
     di.z = z;
@@ -253,7 +253,7 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
     const float c = -std::sin(ky) * transform.scaleY;
     const float d = std::cos(ky) * transform.scaleY;
 
-    const Matrix mat = MatrixHelper::CreateMatrix(
+    const glm::mat3 mat = MatrixHelper::CreateMatrix(
         a, b,
         c, d,
         transform.transX, transform.transY);

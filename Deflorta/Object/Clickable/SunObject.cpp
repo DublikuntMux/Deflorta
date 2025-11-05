@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-SunObject::SunObject(): ClickableObject(GameObjectTag::Sun)
+SunObject::SunObject() : ClickableObject(GameObjectTag::Sun)
 {
     const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/Sun.xml");
     if (!reanim.has_value())
@@ -12,7 +12,7 @@ SunObject::SunObject(): ClickableObject(GameObjectTag::Sun)
     sprite->PlayLayer("Sun1", ReanimLoopType::Loop);
     sprite->SetAllLayersZ(static_cast<int>(RenderLayer::Collectable));
 
-    auto collider = std::make_unique<CircleCollider>(this,30.0f);
+    auto collider = std::make_unique<CircleCollider>(this, 30.0f);
     SetCollider(std::move(collider));
 }
 
@@ -30,7 +30,7 @@ void SunObject::Update()
 
     if (sprite)
     {
-        sprite->SetPosition(transform_.x, transform_.y);
+        sprite->SetPosition(transform_.position);
         sprite->Update();
     }
 }

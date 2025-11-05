@@ -46,8 +46,8 @@ public:
     void Update() override;
     void Render() override;
 
-    static std::pair<float, float> GridToPosition(int row, int column, BackgroundType bgType);
-    static std::pair<int, int> PositionToGrid(float x, float y, BackgroundType bgType);
+    static glm::vec2 GridToPosition(int row, int column, BackgroundType bgType);
+    static glm::ivec2 PositionToGrid(float x, float y, BackgroundType bgType);
 
 private:
     BoardSettings settings_;

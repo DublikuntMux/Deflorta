@@ -5,11 +5,9 @@
 GameObject::GameObject(GameObjectTag tag) : tag_(tag)
 {
     transform_ = Transform{
-        .x = 0.0f,
-        .y = 0.0f,
+        .position = {0.0f, 0.0f},
+        .scale = {1.0f, 1.0f},
         .rotation = 0.0f,
-        .scaleX = 1.0f,
-        .scaleY = 1.0f
     };
 }
 

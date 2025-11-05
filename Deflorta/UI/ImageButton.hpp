@@ -11,10 +11,8 @@ public:
     ImageButton(
         const std::shared_ptr<ITexture>& normalImage,
         const std::shared_ptr<ITexture>& hoverImage,
-        float x = 0.0f,
-        float y = 0.0f,
-        float width = 0.0f,
-        float height = 0.0f
+        glm::vec2 position,
+        glm::vec2 dimensions = {0.0f, 0.0f}
     );
 
     void Render() override;

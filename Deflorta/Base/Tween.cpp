@@ -39,8 +39,8 @@ void Tween::Update()
     {
         for (auto& [start, end, setter, mode] : properties_)
         {
-            const float interp = Interpolate(t, mode);
-            const float value = start + (end - start) * interp;
+            const float inter = Interpolate(t, mode);
+            const float value = start + (end - start) * inter;
             if (setter)
                 setter(value);
         }

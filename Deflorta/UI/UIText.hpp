@@ -11,12 +11,10 @@ public:
     UIText(
         std::wstring text,
         std::wstring font,
-        float size,
+        float fontSize,
         const Color& color,
-        float x,
-        float y,
-        float width,
-        float height
+        glm::vec2 position,
+        glm::vec2 dimensions
     );
 
     void Render() override;
@@ -27,8 +25,8 @@ public:
     [[nodiscard]] std::wstring GetFont() const;
     void SetFont(std::wstring font);
 
-    [[nodiscard]] float GetSize() const;
-    void SetSize(float size);
+    [[nodiscard]] float GetFontSize() const;
+    void SetFontSize(float size);
 
     [[nodiscard]] Color GetColor() const;
     void SetColor(const Color& color);
@@ -36,8 +34,7 @@ public:
 private:
     std::wstring text_;
     std::wstring font_;
-    float size_;
-    float width_;
-    float height_;
+    float fontSize_;
+    glm::vec2 dimensions_;
     Color color_;
 };

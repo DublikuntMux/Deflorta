@@ -9,11 +9,25 @@ public:
 
     void Update() override;
 
-    virtual void OnMouseEnter() {}
-    virtual void OnMouseExit() {}
-    virtual void OnMouseDown() {}
-    virtual void OnMouseUp() {}
-    virtual void OnMouseClick() {}
+    virtual void OnMouseEnter()
+    {
+    }
+
+    virtual void OnMouseExit()
+    {
+    }
+
+    virtual void OnMouseDown()
+    {
+    }
+
+    virtual void OnMouseUp()
+    {
+    }
+
+    virtual void OnMouseClick()
+    {
+    }
 
     [[nodiscard]] bool IsMouseOver() const { return isMouseOver_; }
     [[nodiscard]] bool WasClicked() const { return wasClicked_; }

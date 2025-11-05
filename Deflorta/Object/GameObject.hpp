@@ -13,7 +13,8 @@ enum class GameObjectTag : std::uint8_t
     Projectile,
     Ambient,
     Sun,
-    Coin
+    Coin,
+    Count
 };
 
 class Collider;

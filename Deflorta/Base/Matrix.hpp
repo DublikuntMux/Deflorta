@@ -2,13 +2,11 @@
 
 #include <glm/mat3x3.hpp>
 
-using Matrix = glm::mat3;
-
 namespace MatrixHelper
 {
-    Matrix Identity();
-    Matrix Translation(float x, float y);
-    Matrix Scale(float sx, float sy);
-    Matrix Rotation(float angleInDegrees);
-    Matrix CreateMatrix(float m11, float m12, float m21, float m22, float dx, float dy);
+    glm::mat3 Identity();
+    glm::mat3 Translation(glm::vec2 vec);
+    glm::mat3 Scale(glm::vec2 scale);
+    glm::mat3 Rotation(float angleInDegrees);
+    glm::mat3 CreateMatrix(float m11, float m12, float m21, float m22, float dx, float dy);
 }

@@ -5,26 +5,24 @@
 #include "../Render/Renderer.hpp"
 
 ImageButton::ImageButton(const std::shared_ptr<ITexture>& normalImage, const std::shared_ptr<ITexture>& hoverImage,
-                         float x, float y, float width, float height)
+                         glm::vec2 position,
+                         glm::vec2 dimensions)
     : normalImage_(normalImage), hoverImage_(hoverImage)
 {
-    x_ = x;
-    y_ = y;
-    width_ = width;
-    height_ = height;
+    position_ = position;
+    dimensions_ = dimensions;
 }
 
 void ImageButton::Render()
 {
     if (visible_)
     {
-        if (std::shared_ptr<ITexture> currentImage = state_ == State::Hovered || state_ == State::Pressed
-                                                         ? hoverImage_
-                                                         : normalImage_)
+        if (const std::shared_ptr<ITexture> currentImage = state_ == State::Hovered || state_ == State::Pressed
+                                                               ? hoverImage_
+                                                               : normalImage_)
         {
             Transform transform;
-            transform.x = x_;
-            transform.y = y_;
+            transform.position = position_;
             Renderer::EnqueueImage(currentImage, transform, 1.0f, static_cast<int>(RenderLayer::UI));
         }
     }

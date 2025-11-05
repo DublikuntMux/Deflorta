@@ -34,21 +34,21 @@ SelectorScene::SelectorScene()
             throw std::runtime_error("Failed to load selector scene reanim");
 
         screenAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        screenAnimation_->SetPosition(0, 0);
+        screenAnimation_->SetPosition({0.0f, 0.0f});
         screenAnimation_->SetLayerVisible("almanac_key_shadow", false);
         screenAnimation_->PlayLayer("anim_open", ReanimLoopType::PlayOnceAndHold);
         screenAnimation_->SetLayerZ("SelectorScreen_BG", static_cast<int>(RenderLayer::Background));
 
         grassAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        grassAnimation_->SetPosition(0, -30);
+        grassAnimation_->SetPosition({0.0f, -30.0f});
         grassAnimation_->PlayLayer("anim_grass", ReanimLoopType::Loop, 6.0f);
 
         signAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        signAnimation_->SetPosition(0, -60);
+        signAnimation_->SetPosition({0.0f, -60.0f});
         signAnimation_->PlayLayer("anim_sign", ReanimLoopType::PlayOnceAndHold);
 
         cloudAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        cloudAnimation_->SetPosition(0, 0);
+        cloudAnimation_->SetPosition({0.0f, 0.0f});
         const auto cloudId = Random::UniformInt(1, 6);
         cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.5f);
         for (int i = 1; i < 7; ++i)
@@ -64,7 +64,7 @@ SelectorScene::SelectorScene()
     {
         auto buttonImg = ResourceManager::GetImage(imgName);
         auto highlight = ResourceManager::GetImage(hlName);
-        auto btn = std::make_unique<ImageButton>(buttonImg, highlight, x, y, hotX, hotY);
+        auto btn = std::make_unique<ImageButton>(buttonImg, highlight, glm::vec2{x, y}, glm::vec2{hotX, hotY});
         if (extraConfig) extraConfig(btn.get());
         return btn;
     };
@@ -76,10 +76,10 @@ SelectorScene::SelectorScene()
                                        [&](ImageButton* b)
                                        {
                                            b->SetPolygon({
-                                               Point2F(7.0f, 1.0f),
-                                               Point2F(328.0f, 30.0f),
-                                               Point2F(314.0f, 125.0f),
-                                               Point2F(1.0f, 78.0f),
+                                               {7.0f, 1.0f},
+                                               {328.0f, 30.0f},
+                                               {314.0f, 125.0f},
+                                               {1.0f, 78.0f},
                                            });
                                            b->AddHoverCallback(onHover);
                                            b->AddClickCallback(onPressGrave);
@@ -104,10 +104,10 @@ SelectorScene::SelectorScene()
                                           [&](ImageButton* b)
                                           {
                                               b->SetPolygon({
-                                                  Point2F(7.0f, 1.0f),
-                                                  Point2F(267.0f, 62.0f),
-                                                  Point2F(257.0f, 124.0f),
-                                                  Point2F(7.0f, 57.0f),
+                                                  {7.0f, 1.0f},
+                                                  {267.0f, 62.0f},
+                                                  {257.0f, 124.0f},
+                                                  {7.0f, 57.0f},
                                               });
                                               b->AddHoverCallback(onHover);
                                               b->AddClickCallback(onPressGrave);
@@ -122,10 +122,10 @@ SelectorScene::SelectorScene()
                                         [&](ImageButton* b)
                                         {
                                             b->SetPolygon({
-                                                Point2F(2.0f, 0.0f),
-                                                Point2F(281.0f, 55.0f),
-                                                Point2F(268.0f, 121.0f),
-                                                Point2F(3.0f, 60.0f),
+                                                {2.0f, 0.0f},
+                                                {281.0f, 55.0f},
+                                                {268.0f, 121.0f},
+                                                {3.0f, 60.0f},
                                             });
                                             b->AddHoverCallback(onHover);
                                             b->AddClickCallback(onPressGrave);
@@ -140,10 +140,10 @@ SelectorScene::SelectorScene()
                                           [&](ImageButton* b)
                                           {
                                               b->SetPolygon({
-                                                  Point2F(7.0f, 1.0f),
-                                                  Point2F(267.0f, 62.0f),
-                                                  Point2F(257.0f, 124.0f),
-                                                  Point2F(7.0f, 57.0f),
+                                                  {7.0f, 1.0f},
+                                                  {267.0f, 62.0f},
+                                                  {257.0f, 124.0f},
+                                                  {7.0f, 57.0f},
                                               });
                                               b->AddHoverCallback(onHover);
                                               b->AddClickCallback(onPressGrave);

@@ -30,7 +30,7 @@ Bush::Bush(int rowCount, bool isNightMode)
             bushAnim = std::make_shared<Reanimator>(bush2.value());
         else
             bushAnim = std::make_shared<Reanimator>(bush3.value());
-        bushAnim->SetPosition(static_cast<float>(positions[i].first), static_cast<float>(positions[i].second));
+        bushAnim->SetPosition(positions[i]);
         bushAnim->PlayLayer("anim_rustle", ReanimLoopType::PlayOnceAndHold);
         bushAnim->SetAllLayersZ(static_cast<int>(RenderLayer::Foreground));
         bushAnimations_.push_back(bushAnim);
@@ -58,9 +58,9 @@ void Bush::Render()
     }
 }
 
-std::vector<std::pair<int, int>> Bush::GenerateBushPositions(int rowCount)
+std::vector<glm::vec2> Bush::GenerateBushPositions(int rowCount)
 {
-    std::vector<std::pair<int, int>> positions;
+    std::vector<glm::vec2> positions;
     positions.reserve(rowCount);
 
     for (int i = 0; i < rowCount; ++i)

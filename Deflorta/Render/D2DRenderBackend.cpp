@@ -247,7 +247,7 @@ std::shared_ptr<ITextFormat> D2DRenderBackend::CreateTextFormat(
 
 void D2DRenderBackend::DrawTexture(
     ITexture* texture,
-    const Matrix& transform,
+    const glm::mat3& transform,
     float opacity)
 {
     std::lock_guard lock(mutex_);
@@ -328,13 +328,13 @@ void D2DRenderBackend::DrawRectangle(
     }
 }
 
-void D2DRenderBackend::SetTransform(const Matrix& transform)
+void D2DRenderBackend::SetTransform(const glm::mat3& transform)
 {
     std::lock_guard lock(mutex_);
     d2dContext_->SetTransform(ConvertMatrix(transform));
 }
 
-Matrix D2DRenderBackend::GetTransform() const
+glm::mat3 D2DRenderBackend::GetTransform() const
 {
     D2D1_MATRIX_3X2_F mat;
     d2dContext_->GetTransform(&mat);
@@ -355,7 +355,7 @@ void D2DRenderBackend::Unlock()
     mutex_.unlock();
 }
 
-D2D1_MATRIX_3X2_F D2DRenderBackend::ConvertMatrix(const Matrix& mat) const
+D2D1_MATRIX_3X2_F D2DRenderBackend::ConvertMatrix(const glm::mat3& mat) const
 {
     return D2D1::Matrix3x2F(
         mat[0][0], mat[0][1],

@@ -20,7 +20,7 @@ void BasePlant::Update()
 {
     if (sprite)
     {
-        sprite->SetPosition(transform_.x, transform_.y);
+        sprite->SetPosition(transform_.position);
         sprite->Update();
     }
 }
@@ -39,9 +39,8 @@ void BasePlant::SetGridPosition(int row, int column, BackgroundType bgType)
 {
     gridRow = row;
     gridColumn = column;
-    const auto [x, y] = BoardScene::GridToPosition(gridRow, gridColumn, bgType);
-    transform_.x = x;
-    transform_.y = y;
+    const auto pos = BoardScene::GridToPosition(gridRow, gridColumn, bgType);
+    transform_.position = pos;
 }
 
 int BasePlant::GetGridRow() const

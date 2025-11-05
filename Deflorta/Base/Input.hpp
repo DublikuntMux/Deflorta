@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <glm/vec2.hpp>
+
 #include <Windows.h>
 
 #include <unordered_map>
@@ -12,9 +14,7 @@ public:
     static bool IsKeyPressed(WPARAM key);
 
     static void HandleMouseMove(LPARAM lParam);
-    static int GetMouseX();
-    static int GetMouseY();
-    static POINT GetMousePosition();
+    static glm::vec2 GetMousePosition();
 
     static void HandleMouseDown(int vkButton);
     static void HandleMouseUp(int vkButton);
@@ -34,7 +34,7 @@ public:
 private:
     static std::unordered_map<WPARAM, bool> keyStates_;
 
-    static POINT mousePos_;
+    static glm::vec2 mousePos_;
     static std::unordered_map<int, bool> mouseButtonDown_;
     static std::unordered_map<int, bool> mouseButtonPressed_;
     static LPCWSTR cursorId_;

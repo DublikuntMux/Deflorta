@@ -19,11 +19,11 @@ public:
     {
     }
 
-    Point2F GetSize() const override
+    glm::vec2 GetSize() const override
     {
-        if (!bitmap_) return Point2F(0, 0);
+        if (!bitmap_) return {0, 0};
         const auto [width, height] = bitmap_->GetSize();
-        return Point2F(width, height);
+        return {width, height};
     }
 
     void* GetNativeHandle() const override
@@ -80,7 +80,7 @@ public:
 
     void DrawTexture(
         ITexture* texture,
-        const Matrix& transform,
+        const glm::mat3& transform,
         float opacity = 1.0f) override;
 
     void DrawTexts(
@@ -95,15 +95,15 @@ public:
         float strokeWidth = 1.0f,
         bool filled = false) override;
 
-    void SetTransform(const Matrix& transform) override;
-    Matrix GetTransform() const override;
+    void SetTransform(const glm::mat3& transform) override;
+    glm::mat3 GetTransform() const override;
 
     void Lock() override;
     void Unlock() override;
 
 private:
     void RecreateTargetBitmap();
-    D2D1_MATRIX_3X2_F ConvertMatrix(const Matrix& mat) const;
+    D2D1_MATRIX_3X2_F ConvertMatrix(const glm::mat3& mat) const;
     D2D1_COLOR_F ConvertColor(const Color& color) const;
     D2D1_RECT_F ConvertRect(const Rect& rect) const;
 

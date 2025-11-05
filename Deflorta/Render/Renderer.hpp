@@ -21,11 +21,11 @@ struct DrawItem
     struct ImageData
     {
         std::shared_ptr<ITexture> texture;
-        Matrix transform{};
+        glm::mat3 transform{};
         float opacity = 1.0f;
         ImageData() = default;
 
-        ImageData(std::shared_ptr<ITexture> tex, const Matrix& m, float o)
+        ImageData(std::shared_ptr<ITexture> tex, const glm::mat3& m, float o)
             : texture(std::move(tex)), transform(m), opacity(o)
         {
         }

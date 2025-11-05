@@ -314,10 +314,10 @@ void Reanimator::Draw() const
             {
                 if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    cur.transX += overlay_.x + tracks_[ti].shakeX;
-                    cur.transY += overlay_.y + tracks_[ti].shakeY;
-                    cur.scaleX *= overlay_.scaleX;
-                    cur.scaleY *= overlay_.scaleY;
+                    cur.transX += overlay_.position.x + tracks_[ti].shakeX;
+                    cur.transY += overlay_.position.y + tracks_[ti].shakeY;
+                    cur.scaleX *= overlay_.scale.x;
+                    cur.scaleY *= overlay_.scale.y;
 
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
@@ -326,9 +326,9 @@ void Reanimator::Draw() const
             {
                 const std::wstring text(cur.text.begin(), cur.text.end());
                 const std::wstring font = ResourceManager::GetFont(cur.font);
-                const float x = overlay_.x + cur.transX + tracks_[ti].shakeX;
-                const float y = overlay_.y + cur.transY + tracks_[ti].shakeY;
-                const float size = 16.0f * overlay_.scaleY * cur.scaleY;
+                const float x = overlay_.position.x + cur.transX + tracks_[ti].shakeX;
+                const float y = overlay_.position.y + cur.transY + tracks_[ti].shakeY;
+                const float size = 16.0f * overlay_.scale.y * cur.scaleY;
                 const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
@@ -368,10 +368,10 @@ void Reanimator::Draw() const
             {
                 if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    cur.transX += overlay_.x + tracks_[ti].shakeX;
-                    cur.transY += overlay_.y + tracks_[ti].shakeY;
-                    cur.scaleX *= overlay_.scaleX;
-                    cur.scaleY *= overlay_.scaleY;
+                    cur.transX += overlay_.position.x + tracks_[ti].shakeX;
+                    cur.transY += overlay_.position.y + tracks_[ti].shakeY;
+                    cur.scaleX *= overlay_.scale.x;
+                    cur.scaleY *= overlay_.scale.y;
 
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
@@ -380,9 +380,9 @@ void Reanimator::Draw() const
             {
                 const std::wstring text(cur.text.begin(), cur.text.end());
                 const std::wstring font = ResourceManager::GetFont(cur.font);
-                const float x = overlay_.x + cur.transX + tracks_[ti].shakeX;
-                const float y = overlay_.y + cur.transY + tracks_[ti].shakeY;
-                const float size = 16.0f * overlay_.scaleY * cur.scaleY;
+                const float x = overlay_.position.x + cur.transX + tracks_[ti].shakeX;
+                const float y = overlay_.position.y + cur.transY + tracks_[ti].shakeY;
+                const float size = 16.0f * overlay_.scale.y * cur.scaleY;
                 const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
@@ -396,16 +396,14 @@ void Reanimator::Draw() const
     }
 }
 
-void Reanimator::SetPosition(float x, float y)
+void Reanimator::SetPosition(glm::vec2 pos)
 {
-    overlay_.x = x;
-    overlay_.y = y;
+    overlay_.position = pos;
 }
 
-void Reanimator::OverrideScale(float sx, float sy)
+void Reanimator::OverrideScale(glm::vec2 scale)
 {
-    overlay_.scaleX = sx;
-    overlay_.scaleY = sy;
+    overlay_.scale = scale;
 }
 
 FrameTime Reanimator::GetFrameTime() const

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/vec2.hpp>
+
 class Widget
 {
 public:
@@ -12,19 +14,13 @@ public:
 
     virtual void Render() = 0;
 
-    [[nodiscard]] float GetX() const;
-    void SetX(float x);
-
-    [[nodiscard]] float GetY() const;
-    void SetY(float y);
-
-    void SetPosition(float x, float y);
+    void SetPosition(glm::vec2 position);
+    [[nodiscard]] glm::vec2 GetPosition() const;
 
     [[nodiscard]] bool IsVisible() const;
     void SetVisible(bool visible);
 
 protected:
-    float x_ = 0.0f;
-    float y_ = 0.0f;
+    glm::vec2 position_ = {0.0f, 0.0f};
     bool visible_ = true;
 };

@@ -51,8 +51,8 @@ public:
     void Update();
     void Draw() const;
 
-    void SetPosition(float x, float y);
-    void OverrideScale(float sx, float sy);
+    void SetPosition(glm::vec2 pos);
+    void OverrideScale(glm::vec2 scale);
     void OverrideLayerImage(const std::string& trackName, const std::string& image);
     void ClearLayerImageOverride(const std::string& trackName);
     void SetLayerVisible(const std::string& trackName, bool visible);

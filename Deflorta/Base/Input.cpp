@@ -6,7 +6,7 @@
 
 std::unordered_map<WPARAM, bool> Input::keyStates_;
 
-POINT Input::mousePos_{0, 0};
+glm::vec2 Input::mousePos_{0, 0};
 std::unordered_map<int, bool> Input::mouseButtonDown_{};
 std::unordered_map<int, bool> Input::mouseButtonPressed_{};
 LPCWSTR Input::cursorId_ = IDC_ARROW;
@@ -36,17 +36,7 @@ void Input::HandleMouseMove(LPARAM lParam)
     mousePos_.y = GET_Y_LPARAM(lParam);
 }
 
-int Input::GetMouseX()
-{
-    return mousePos_.x;
-}
-
-int Input::GetMouseY()
-{
-    return mousePos_.y;
-}
-
-POINT Input::GetMousePosition()
+glm::vec2 Input::GetMousePosition()
 {
     return mousePos_;
 }

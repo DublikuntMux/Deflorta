@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <vector>
-#include <utility>
 
 #include "GameObject.hpp"
 #include "../Render/Reanimator.hpp"
@@ -19,5 +18,5 @@ public:
 
 private:
     std::vector<std::shared_ptr<Reanimator>> bushAnimations_;
-    static std::vector<std::pair<int, int>> GenerateBushPositions(int rowCount);
+    static std::vector<glm::vec2> GenerateBushPositions(int rowCount);
 };
