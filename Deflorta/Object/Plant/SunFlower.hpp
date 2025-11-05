@@ -2,7 +2,7 @@
 
 #include "BasePlant.hpp"
 
-class SunFlower : public BasePlant
+class SunFlower final : public BasePlant
 {
 public:
     SunFlower();

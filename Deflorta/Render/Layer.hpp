@@ -13,6 +13,7 @@ enum class RenderLayer: int
     Projectile,
     Foreground,
     Fog,
+    Collectable,
     UI,
     Debug,
     Count

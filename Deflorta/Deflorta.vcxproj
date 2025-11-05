@@ -92,387 +92,87 @@
         <ClCompile Include="Base\SaveManager.cpp"/>
         <ClCompile Include="Base\Time.cpp"/>
         <ClCompile Include="Base\Tween.cpp"/>
-        <ClCompile Include="Collision\Collider.cpp">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp23</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>x64\Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>x64\Debug\Deflorta.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>x64\Debug\Deflorta.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <LinkCompiled>true</LinkCompiled>
-            <AdditionalIncludeDirectories>;D:\Develop\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-        </ClCompile>
-        <ClCompile Include="Collision\CollisionMatrix.cpp">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp23</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>x64\Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>x64\Debug\Deflorta.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>x64\Debug\Deflorta.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <LinkCompiled>true</LinkCompiled>
-            <AdditionalIncludeDirectories>;D:\Develop\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-        </ClCompile>
-        <ClCompile Include="Collision\CollisionSystem.cpp">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp23</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>x64\Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>x64\Debug\Deflorta.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>x64\Debug\Deflorta.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <LinkCompiled>true</LinkCompiled>
-            <AdditionalIncludeDirectories>;D:\Develop\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-        </ClCompile>
-        <ClCompile Include="Collision\QuadTree.cpp">
-            <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-            <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-            <Optimization>Disabled</Optimization>
-            <SupportJustMyCode>true</SupportJustMyCode>
-            <AssemblerOutput>NoListing</AssemblerOutput>
-            <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
-            <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-            <BrowseInformation>false</BrowseInformation>
-            <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
-            <CompileAs>Default</CompileAs>
-            <UseDynamicDebugging>false</UseDynamicDebugging>
-            <ConformanceMode>true</ConformanceMode>
-            <DiagnosticsFormat>Column</DiagnosticsFormat>
-            <DisableLanguageExtensions>false</DisableLanguageExtensions>
-            <ErrorReporting>Prompt</ErrorReporting>
-            <ExpandAttributedSource>false</ExpandAttributedSource>
-            <ExceptionHandling>Sync</ExceptionHandling>
-            <EnableASAN>false</EnableASAN>
-            <EnableFuzzer>false</EnableFuzzer>
-            <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-            <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-            <EnableVectorLength>NotSet</EnableVectorLength>
-            <FloatingPointModel>Precise</FloatingPointModel>
-            <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-            <GenerateModuleDependencies>false</GenerateModuleDependencies>
-            <GenerateSourceDependencies>false</GenerateSourceDependencies>
-            <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-            <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-            <IntrinsicFunctions>false</IntrinsicFunctions>
-            <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-            <LanguageStandard>stdcpp23</LanguageStandard>
-            <LanguageStandard_C>Default</LanguageStandard_C>
-            <MinimalRebuild>false</MinimalRebuild>
-            <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
-            <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
-            <OmitDefaultLibName>false</OmitDefaultLibName>
-            <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-            <WholeProgramOptimization>false</WholeProgramOptimization>
-            <ObjectFileName>x64\Debug\</ObjectFileName>
-            <CallingConvention>Cdecl</CallingConvention>
-            <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
-            <PrecompiledHeader>NotUsing</PrecompiledHeader>
-            <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
-            <PrecompiledHeaderOutputFile>x64\Debug\Deflorta.pch</PrecompiledHeaderOutputFile>
-            <PreprocessToFile>false</PreprocessToFile>
-            <PreprocessKeepComments>false</PreprocessKeepComments>
-            <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-            <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-            <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-            <ShowIncludes>false</ShowIncludes>
-            <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
-            <SuppressStartupBanner>true</SuppressStartupBanner>
-            <BufferSecurityCheck>true</BufferSecurityCheck>
-            <SmallerTypeCheck>false</SmallerTypeCheck>
-            <SpectreMitigation>false</SpectreMitigation>
-            <StructMemberAlignment>Default</StructMemberAlignment>
-            <TrackerLogDirectory>x64\Debug\Deflorta.tlog\</TrackerLogDirectory>
-            <TranslateIncludes>false</TranslateIncludes>
-            <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-            <TreatWarningAsError>false</TreatWarningAsError>
-            <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-            <UseFullPaths>true</UseFullPaths>
-            <WarningLevel>Level4</WarningLevel>
-            <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
-            <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-            <IntelJCCErratum>false</IntelJCCErratum>
-            <BuildStlModules>false</BuildStlModules>
-            <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-            <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-            <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-            <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-            <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;</PreprocessorDefinitions>
-            <SDLCheck>true</SDLCheck>
-            <LinkCompiled>true</LinkCompiled>
-            <AdditionalIncludeDirectories>;D:\Develop\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-        </ClCompile>
+        <ClCompile Include="Collision\Collider.cpp" />
+        <ClCompile Include="Collision\CollisionMatrix.cpp" />
+        <ClCompile Include="Collision\CollisionSystem.cpp" />
+        <ClCompile Include="Collision\QuadTree.cpp" />
         <ClCompile Include="Main.cpp"/>
         <ClCompile Include="Object\Bush.cpp"/>
-        <ClCompile Include="Object\Fog.cpp"/>
-        <ClCompile Include="Object\GameObject.cpp"/>
-        <ClCompile Include="Object\Plant\BasePlant.cpp"/>
-        <ClCompile Include="Object\Plant\SunFlower.cpp"/>
-        <ClCompile Include="Render\D2DRenderBackend.cpp"/>
-        <ClCompile Include="Render\Reanimator.cpp"/>
-        <ClCompile Include="Render\Renderer.cpp"/>
-        <ClCompile Include="Render\TextureCache.cpp"/>
-        <ClCompile Include="Resource\AudioManager.cpp"/>
-        <ClCompile Include="Resource\Foley.cpp"/>
-        <ClCompile Include="Resource\ReanimationLoader.cpp"/>
-        <ClCompile Include="Resource\ResourceManager.cpp"/>
-        <ClCompile Include="Resource\TranslationManager.cpp"/>
-        <ClCompile Include="Scene\BoardScene.cpp"/>
-        <ClCompile Include="Scene\LoadScene.cpp"/>
-        <ClCompile Include="Scene\Scene.cpp"/>
-        <ClCompile Include="Scene\SelectorScene.cpp"/>
-        <ClCompile Include="UI\Button.cpp"/>
-        <ClCompile Include="UI\ImageButton.cpp"/>
-        <ClCompile Include="UI\TextButton.cpp"/>
-        <ClCompile Include="UI\UIText.cpp"/>
-        <ClCompile Include="UI\Widget.cpp"/>
-        <ClCompile Include="Utils.cpp"/>
+        <ClCompile Include="Object\Clickable\ClickableObject.cpp" />
+        <ClCompile Include="Object\Clickable\SunObject.cpp" />
+        <ClCompile Include="Object\Fog.cpp" />
+        <ClCompile Include="Object\GameObject.cpp" />
+        <ClCompile Include="Object\Plant\BasePlant.cpp" />
+        <ClCompile Include="Object\Plant\SunFlower.cpp" />
+        <ClCompile Include="Render\D2DRenderBackend.cpp" />
+        <ClCompile Include="Render\Reanimator.cpp" />
+        <ClCompile Include="Render\Renderer.cpp" />
+        <ClCompile Include="Render\TextureCache.cpp" />
+        <ClCompile Include="Resource\AudioManager.cpp" />
+        <ClCompile Include="Resource\Foley.cpp" />
+        <ClCompile Include="Resource\ReanimationLoader.cpp" />
+        <ClCompile Include="Resource\ResourceManager.cpp" />
+        <ClCompile Include="Resource\TranslationManager.cpp" />
+        <ClCompile Include="Scene\BoardScene.cpp" />
+        <ClCompile Include="Scene\LoadScene.cpp" />
+        <ClCompile Include="Scene\Scene.cpp" />
+        <ClCompile Include="Scene\SelectorScene.cpp" />
+        <ClCompile Include="UI\Button.cpp" />
+        <ClCompile Include="UI\ImageButton.cpp" />
+        <ClCompile Include="UI\TextButton.cpp" />
+        <ClCompile Include="UI\UIText.cpp" />
+        <ClCompile Include="UI\Widget.cpp" />
+        <ClCompile Include="Utils.cpp" />
     </ItemGroup>
     <ItemGroup>
-        <ClInclude Include="Base\Color.hpp"/>
-        <ClInclude Include="Base\Discord.hpp"/>
-        <ClInclude Include="Base\Game.hpp"/>
-        <ClInclude Include="Base\Input.hpp"/>
-        <ClInclude Include="Base\Matrix.hpp"/>
-        <ClInclude Include="Base\Point2F.hpp"/>
-        <ClInclude Include="Base\Random.hpp"/>
-        <ClInclude Include="Base\Rect.hpp"/>
-        <ClInclude Include="Base\SaveManager.hpp"/>
-        <ClInclude Include="Base\Time.hpp"/>
-        <ClInclude Include="Base\Transform.hpp"/>
-        <ClInclude Include="Base\Tween.hpp"/>
-        <ClInclude Include="Collision\Collider.hpp"/>
-        <ClInclude Include="Collision\CollisionMatrix.hpp"/>
-        <ClInclude Include="Collision\CollisionSystem.hpp"/>
-        <ClInclude Include="Collision\QuadTree.hpp"/>
-        <ClInclude Include="Object\Bush.hpp"/>
-        <ClInclude Include="Object\Fog.hpp"/>
-        <ClInclude Include="Object\GameObject.hpp"/>
-        <ClInclude Include="Object\Plant\BasePlant.hpp"/>
-        <ClInclude Include="Object\Plant\SunFlower.hpp"/>
-        <ClInclude Include="Render\D2DRenderBackend.hpp"/>
-        <ClInclude Include="Render\IRenderBackend.hpp"/>
-        <ClInclude Include="Render\Layer.hpp"/>
-        <ClInclude Include="Render\Reanimator.hpp"/>
-        <ClInclude Include="Render\Renderer.hpp"/>
-        <ClInclude Include="Render\PixelData.hpp"/>
-        <ClInclude Include="Render\TextureCache.hpp"/>
-        <ClInclude Include="resource.h"/>
-        <ClInclude Include="Resource\AudioManager.hpp"/>
-        <ClInclude Include="Resource\Foley.hpp"/>
-        <ClInclude Include="Resource\ReanimationLoader.hpp"/>
-        <ClInclude Include="Resource\ResourceManager.hpp"/>
-        <ClInclude Include="Resource\TranslationManager.hpp"/>
-        <ClInclude Include="Scene\BoardScene.hpp"/>
-        <ClInclude Include="Scene\Scene.hpp"/>
-        <ClInclude Include="Scene\LoadScene.hpp"/>
-        <ClInclude Include="Scene\SelectorScene.hpp"/>
-        <ClInclude Include="targetver.h"/>
-        <ClInclude Include="UI\Button.hpp"/>
-        <ClInclude Include="UI\ImageButton.hpp"/>
-        <ClInclude Include="UI\TextButton.hpp"/>
-        <ClInclude Include="UI\UIText.hpp"/>
-        <ClInclude Include="UI\Widget.hpp"/>
-        <ClInclude Include="Utils.hpp"/>
-        <ClInclude Include="WeightedArray.hpp"/>
+        <ClInclude Include="Base\Color.hpp" />
+        <ClInclude Include="Base\Discord.hpp" />
+        <ClInclude Include="Base\Game.hpp" />
+        <ClInclude Include="Base\Input.hpp" />
+        <ClInclude Include="Base\Matrix.hpp" />
+        <ClInclude Include="Base\Point2F.hpp" />
+        <ClInclude Include="Base\Random.hpp" />
+        <ClInclude Include="Base\Rect.hpp" />
+        <ClInclude Include="Base\SaveManager.hpp" />
+        <ClInclude Include="Base\Time.hpp" />
+        <ClInclude Include="Base\Transform.hpp" />
+        <ClInclude Include="Base\Tween.hpp" />
+        <ClInclude Include="Collision\Collider.hpp" />
+        <ClInclude Include="Collision\CollisionMatrix.hpp" />
+        <ClInclude Include="Collision\CollisionSystem.hpp" />
+        <ClInclude Include="Collision\QuadTree.hpp" />
+        <ClInclude Include="Object\Bush.hpp" />
+        <ClInclude Include="Object\Clickable\ClickableObject.hpp" />
+        <ClInclude Include="Object\Clickable\SunObject.hpp" />
+        <ClInclude Include="Object\Fog.hpp" />
+        <ClInclude Include="Object\GameObject.hpp" />
+        <ClInclude Include="Object\Plant\BasePlant.hpp" />
+        <ClInclude Include="Object\Plant\SunFlower.hpp" />
+        <ClInclude Include="Render\D2DRenderBackend.hpp" />
+        <ClInclude Include="Render\IRenderBackend.hpp" />
+        <ClInclude Include="Render\Layer.hpp" />
+        <ClInclude Include="Render\Reanimator.hpp" />
+        <ClInclude Include="Render\Renderer.hpp" />
+        <ClInclude Include="Render\PixelData.hpp" />
+        <ClInclude Include="Render\TextureCache.hpp" />
+        <ClInclude Include="resource.h" />
+        <ClInclude Include="Resource\AudioManager.hpp" />
+        <ClInclude Include="Resource\Foley.hpp" />
+        <ClInclude Include="Resource\ReanimationLoader.hpp" />
+        <ClInclude Include="Resource\ResourceManager.hpp" />
+        <ClInclude Include="Resource\TranslationManager.hpp" />
+        <ClInclude Include="Scene\BoardScene.hpp" />
+        <ClInclude Include="Scene\Scene.hpp" />
+        <ClInclude Include="Scene\LoadScene.hpp" />
+        <ClInclude Include="Scene\SelectorScene.hpp" />
+        <ClInclude Include="targetver.h" />
+        <ClInclude Include="UI\Button.hpp" />
+        <ClInclude Include="UI\ImageButton.hpp" />
+        <ClInclude Include="UI\TextButton.hpp" />
+        <ClInclude Include="UI\UIText.hpp" />
+        <ClInclude Include="UI\Widget.hpp" />
+        <ClInclude Include="Utils.hpp" />
+        <ClInclude Include="WeightedArray.hpp" />
     </ItemGroup>
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
     <ImportGroup Label="ExtensionTargets">

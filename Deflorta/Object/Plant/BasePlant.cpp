@@ -21,7 +21,6 @@ void BasePlant::Update()
     if (sprite)
     {
         sprite->SetPosition(transform_.x, transform_.y);
-        sprite->OverrideScale(transform_.scaleX, transform_.scaleY);
         sprite->Update();
     }
 }

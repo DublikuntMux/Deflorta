@@ -9,6 +9,8 @@
 
 #include <algorithm>
 
+#include "../Object/Clickable/SunObject.hpp"
+
 BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 {
     const int rows = settings_.backgroundType == BackgroundType::Pool ||
@@ -140,6 +142,10 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
             PlantAt(row, col, testPlant);
         }
     }
+
+    auto testSun = std::make_shared<SunObject>();
+    testSun->SetTransform(Transform{.x = 200.0f, .y = 200.0f, .rotation = 0.0f, .scaleX = 1.0f, .scaleY = 1.0f});
+    AddGameObject(testSun);
 }
 
 void BoardScene::OnEnter()

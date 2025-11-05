@@ -11,8 +11,8 @@ enum class GameObjectTag : std::uint8_t
     Plant,
     Zombie,
     Projectile,
-    Sun,
     Ambient,
+    Sun,
     Coin
 };
 
