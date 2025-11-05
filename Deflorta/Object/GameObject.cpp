@@ -1,4 +1,6 @@
-﻿#include "GameObject.hpp"
+#include "GameObject.hpp"
+
+#include "../Render/Renderer.hpp"
 
 GameObject::GameObject(GameObjectTag tag) : tag_(tag)
 {
@@ -9,6 +11,10 @@ GameObject::GameObject(GameObjectTag tag) : tag_(tag)
         .scaleX = 1.0f,
         .scaleY = 1.0f
     };
+}
+
+void GameObject::Render()
+{
 }
 
 GameObjectTag GameObject::GetTag() const
@@ -44,4 +50,9 @@ bool GameObject::IsActive() const
 void GameObject::SetActive(bool active)
 {
     isActive_ = active;
+}
+
+void GameObject::SetCollider(std::unique_ptr<Collider> collider)
+{
+    collider_ = std::move(collider);
 }

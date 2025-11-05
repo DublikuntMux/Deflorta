@@ -45,8 +45,29 @@ struct Rect
     {
     }
 
-    float Width() const { return right - left; }
-    float Height() const { return bottom - top; }
+    static Rect FromXYWH(float x, float y, float width, float height)
+    {
+        return {x, y, x + width, y + height};
+    }
+
+    [[nodiscard]] float Width() const { return right - left; }
+    [[nodiscard]] float Height() const { return bottom - top; }
+    [[nodiscard]] float X() const { return left; }
+    [[nodiscard]] float Y() const { return top; }
+
+    [[nodiscard]] bool Contains(const glm::vec2& point) const
+    {
+        return point.x >= left && point.x <= right &&
+               point.y >= top && point.y <= bottom;
+    }
+
+    [[nodiscard]] bool Intersects(const Rect& other) const
+    {
+        return left < other.right &&
+               right > other.left &&
+               top < other.bottom &&
+               bottom > other.top;
+    }
 };
 
 using Point2F = glm::vec2;

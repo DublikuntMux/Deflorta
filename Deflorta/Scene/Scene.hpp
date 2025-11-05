@@ -1,7 +1,9 @@
-﻿#pragma once
+#pragma once
 
 #include <memory>
 #include <vector>
+
+#include "../Collision/CollisionSystem.hpp"
 
 class Widget;
 class GameObject;
@@ -9,6 +11,7 @@ class GameObject;
 class Scene
 {
 public:
+    Scene();
     virtual ~Scene() = default;
 
     virtual void OnEnter()
@@ -22,6 +25,8 @@ public:
     virtual void Update();
     virtual void Render();
 
+    [[nodiscard]] CollisionSystem* GetCollisionSystem() const { return collisionSystem_.get(); }
+
 protected:
     void AddWidget(Widget* widget);
     void RemoveWidget(Widget* widget);
@@ -34,4 +39,5 @@ protected:
 private:
     std::vector<Widget*> widgets_;
     std::vector<std::shared_ptr<GameObject>> gameObjects_;
+    std::unique_ptr<CollisionSystem> collisionSystem_;
 };

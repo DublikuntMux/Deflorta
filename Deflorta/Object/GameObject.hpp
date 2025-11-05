@@ -1,8 +1,9 @@
-﻿#pragma once
+#pragma once
 
-#include <string>
+#include <memory>
 
 #include "../Base/Transform.hpp"
+#include "../Collision/Collider.hpp"
 
 enum class GameObjectTag : std::uint8_t
 {
@@ -16,6 +17,8 @@ enum class GameObjectTag : std::uint8_t
     Coin
 };
 
+class Collider;
+
 class GameObject
 {
 public:
@@ -23,7 +26,11 @@ public:
     virtual ~GameObject() = default;
 
     virtual void Update() = 0;
-    virtual void Render() = 0;
+    virtual void Render();
+
+    virtual void OnCollisionEnter(GameObject* other) {}
+    virtual void OnCollisionStay(GameObject* other) {}
+    virtual void OnCollisionExit(GameObject* other) {}
 
     [[nodiscard]] GameObjectTag GetTag() const;
     void SetTag(GameObjectTag tag);
@@ -35,8 +42,24 @@ public:
     [[nodiscard]] bool IsActive() const;
     void SetActive(bool active);
 
+    [[nodiscard]] Collider* GetCollider() const { return collider_.get(); }
+    void SetCollider(std::unique_ptr<Collider> collider);
+    template<typename T, typename... Args>
+    T* AddCollider(Args&&... args);
+
 protected:
     Transform transform_;
     GameObjectTag tag_;
     bool isActive_ = true;
+    std::unique_ptr<Collider> collider_;
 };
+
+template<typename T, typename... Args>
+T* GameObject::AddCollider(Args&&... args)
+{
+    static_assert(std::is_base_of_v<Collider, T>, "T must derive from Collider");
+    auto collider = std::make_unique<T>(this, std::forward<Args>(args)...);
+    T* ptr = collider.get();
+    collider_ = std::move(collider);
+    return ptr;
+}

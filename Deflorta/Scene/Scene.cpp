@@ -1,9 +1,16 @@
-﻿#include "Scene.hpp"
+#include "Scene.hpp"
 
 #include <algorithm>
 
 #include "../Object/GameObject.hpp"
+#include "../Collision/CollisionSystem.hpp"
+#include "../Collision/QuadTree.hpp"
 #include "../UI/Widget.hpp"
+
+Scene::Scene()
+{
+    collisionSystem_ = std::make_unique<CollisionSystem>(Rect::FromXYWH(0, 0, 1280, 720));
+}
 
 void Scene::Update()
 {
@@ -13,6 +20,11 @@ void Scene::Update()
         {
             gameObject->Update();
         }
+    }
+
+    if (collisionSystem_)
+    {
+        collisionSystem_->Update(gameObjects_);
     }
 
     for (auto* widget : widgets_)
