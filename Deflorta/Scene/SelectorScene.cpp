@@ -1,7 +1,5 @@
 ﻿#include "SelectorScene.hpp"
 
-#include <stdexcept>
-
 #include "BoardScene.hpp"
 #include "../Base/Random.hpp"
 #include "../Render/Reanimator.hpp"
@@ -12,6 +10,8 @@
 #include "../Render/Layer.hpp"
 #include "../Resource/Foley.hpp"
 #include "../Resource/ResourceManager.hpp"
+
+#include <stdexcept>
 
 SelectorScene::SelectorScene()
 {

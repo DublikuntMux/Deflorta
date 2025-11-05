@@ -1,14 +1,16 @@
 ﻿#include "ResourceManager.hpp"
 
+#include "AudioManager.hpp"
+
+#include <pugixml.hpp>
+#include <png.h>
+#include <Windows.h>
+
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <ranges>
 #include <vector>
-
-#include <pugixml.hpp>
-#include <png.h>
-#include <Windows.h>
 
 IRenderBackend* ResourceManager::backend_ = nullptr;
 std::unordered_map<std::string, ResourceGroup> ResourceManager::groups_;

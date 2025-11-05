@@ -1,12 +1,11 @@
 #pragma once
 
+#include "IRenderBackend.hpp"
+#include "../Base/Transform.hpp"
+
 #include <memory>
 #include <vector>
 #include <string>
-
-#include "IRenderBackend.hpp"
-#include "RenderTypes.hpp"
-#include "../Base/Transform.hpp"
 
 struct ReanimatorTransform;
 

@@ -37,7 +37,7 @@ LoadScene::LoadScene()
             return {nullptr, Transform{.x = centerX, .y = centerY, .rotation = 0.0f, .scaleX = scale, .scaleY = scale}};
         const auto size = img->GetSize();
         Transform t{
-            .x = centerX - size.width / 2.0f, .y = centerY - size.height / 2.0f, .rotation = 0.0f, .scaleX = scale,
+            .x = centerX - size.x / 2.0f, .y = centerY - size.y / 2.0f, .rotation = 0.0f, .scaleX = scale,
             .scaleY = scale
         };
         return {img, t};

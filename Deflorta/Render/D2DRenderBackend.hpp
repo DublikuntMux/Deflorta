@@ -14,16 +14,16 @@
 class D2DTexture : public ITexture
 {
 public:
-    explicit D2DTexture(Microsoft::WRL::ComPtr<ID2D1Bitmap> bitmap)
+    explicit D2DTexture(const Microsoft::WRL::ComPtr<ID2D1Bitmap>& bitmap)
         : bitmap_(bitmap)
     {
     }
 
-    Size2F GetSize() const override
+    Point2F GetSize() const override
     {
-        if (!bitmap_) return Size2F(0, 0);
-        const auto size = bitmap_->GetSize();
-        return Size2F(size.width, size.height);
+        if (!bitmap_) return Point2F(0, 0);
+        const auto [width, height] = bitmap_->GetSize();
+        return Point2F(width, height);
     }
 
     void* GetNativeHandle() const override
@@ -40,7 +40,7 @@ private:
 class DWriteTextFormat : public ITextFormat
 {
 public:
-    explicit DWriteTextFormat(Microsoft::WRL::ComPtr<IDWriteTextFormat> format)
+    explicit DWriteTextFormat(const Microsoft::WRL::ComPtr<IDWriteTextFormat>& format)
         : format_(format)
     {
     }
@@ -62,7 +62,6 @@ public:
     D2DRenderBackend() = default;
     ~D2DRenderBackend() override;
 
-    // IRenderBackend implementation
     bool Initialize(void* windowHandle) override;
     void Shutdown() override;
 

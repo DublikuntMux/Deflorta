@@ -1,8 +1,8 @@
 #include "Collider.hpp"
 
-#include <algorithm>
-
 #include "../Object/GameObject.hpp"
+
+#include <algorithm>
 
 glm::vec2 Collider::GetWorldPosition() const
 {

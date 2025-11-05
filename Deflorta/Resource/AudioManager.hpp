@@ -1,5 +1,8 @@
 ﻿#pragma once
 
+#include <xaudio2.h>
+#include <wrl/client.h>
+
 #include <string>
 #include <mutex>
 #include <vector>
@@ -7,9 +10,6 @@
 #include <memory>
 #include <thread>
 #include <unordered_map>
-
-#include <xaudio2.h>
-#include <wrl/client.h>
 
 struct AudioData
 {

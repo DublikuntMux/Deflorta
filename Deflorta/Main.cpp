@@ -1,11 +1,11 @@
-﻿#include <iostream>
-
-#include "Base/Game.hpp"
+﻿#include "Base/Game.hpp"
 #include "Base/Input.hpp"
 #include "resource.h"
 #include "Render/Renderer.hpp"
 #include "Scene/LoadScene.hpp"
 #include "UI/Button.hpp"
+
+#include <iostream>
 
 constexpr wchar_t WINDOW_CLASS_NAME[] = L"Deflorta";
 constexpr wchar_t WINDOW_TITLE[] = L"Deflorta";

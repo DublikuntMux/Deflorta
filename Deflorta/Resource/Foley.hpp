@@ -1,12 +1,12 @@
 ﻿#pragma once
 
+#include <xaudio2.h>
+
 #include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <mutex>
-
-#include <xaudio2.h>
 
 enum class FoleyFlags: std::uint8_t
 {

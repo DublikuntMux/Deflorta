@@ -4,7 +4,7 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
-ImageButton::ImageButton(std::shared_ptr<ITexture> normalImage, std::shared_ptr<ITexture> hoverImage,
+ImageButton::ImageButton(const std::shared_ptr<ITexture>& normalImage, const std::shared_ptr<ITexture>& hoverImage,
                          float x, float y, float width, float height)
     : normalImage_(normalImage), hoverImage_(hoverImage)
 {

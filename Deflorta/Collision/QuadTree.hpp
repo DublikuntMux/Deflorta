@@ -3,7 +3,7 @@
 #include <vector>
 #include <memory>
 
-#include "../Render/RenderTypes.hpp"
+#include "../Base/Rect.hpp"
 
 class GameObject;
 class Collider;

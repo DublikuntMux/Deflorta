@@ -1,11 +1,11 @@
 ﻿#include "AudioManager.hpp"
 
+#include <vorbis/vorbisfile.h>
+
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <thread>
-
-#include <vorbis/vorbisfile.h>
 
 Microsoft::WRL::ComPtr<IXAudio2> AudioManager::xaudio_;
 IXAudio2MasteringVoice* AudioManager::masterVoice_ = nullptr;

@@ -1,10 +1,10 @@
 ﻿#pragma once
 
+#include "Widget.hpp"
+#include "../Base/Point2F.hpp"
+
 #include <functional>
 #include <vector>
-
-#include "Widget.hpp"
-#include "../Render/RenderTypes.hpp"
 
 class Button : public Widget
 {

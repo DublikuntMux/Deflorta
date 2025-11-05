@@ -1,13 +1,12 @@
 ﻿#pragma once
 
+#include "../Render/IRenderBackend.hpp"
+#include "../Render/PixelData.hpp"
+
 #include <string>
 #include <unordered_map>
 #include <mutex>
 #include <memory>
-
-#include "AudioManager.hpp"
-#include "../Render/IRenderBackend.hpp"
-#include "../Render/RenderTypes.hpp"
 
 struct ResourceEntry
 {

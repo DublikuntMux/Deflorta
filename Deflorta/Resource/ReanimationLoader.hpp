@@ -1,10 +1,10 @@
 ﻿#pragma once
 
+#include <pugixml.hpp>
+
 #include <string>
 #include <vector>
 #include <optional>
-
-#include <pugixml.hpp>
 #include <unordered_map>
 
 constexpr float REANIM_MISSING = -10000.0f;

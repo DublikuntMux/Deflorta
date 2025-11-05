@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include <string>
-#include <utility>
-
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Object/Bush.hpp"
 #include "../Object/Fog.hpp"
 #include "../Object/Plant/BasePlant.hpp"
+
+#include <string>
+#include <utility>
 
 enum class BackgroundType: std::uint8_t
 {

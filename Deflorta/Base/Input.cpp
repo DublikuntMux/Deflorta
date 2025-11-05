@@ -1,7 +1,8 @@
 ﻿#include "Input.hpp"
 
-#include <ranges>
 #include <Windowsx.h>
+
+#include <ranges>
 
 std::unordered_map<WPARAM, bool> Input::keyStates_;
 

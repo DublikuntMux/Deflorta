@@ -1,13 +1,13 @@
 ﻿#include "BoardScene.hpp"
 
-#include <algorithm>
-
 #include "../Utils.hpp"
 #include "../Base/Discord.hpp"
 #include "../Object/Plant/SunFlower.hpp"
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
+
+#include <algorithm>
 
 BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 {

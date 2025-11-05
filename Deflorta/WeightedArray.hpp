@@ -1,12 +1,11 @@
 ﻿#pragma once
 
-#include <iostream>
+#include "Base/Random.hpp"
+
 #include <vector>
 #include <algorithm>
 #include <numeric>
 #include <stdexcept>
-
-#include "Base/Random.hpp"
 
 template <typename T>
 class WeightedArray

@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstdint>
-#include <array>
-
 #include "../Object/GameObject.hpp"
+
+#include <array>
 
 class CollisionMatrix
 {

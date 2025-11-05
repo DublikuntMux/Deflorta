@@ -5,7 +5,6 @@
 
 namespace
 {
-    // Efficient point-in-polygon test using ray casting algorithm
     bool PointInPolygon(float x, float y, const std::vector<Point2F>& poly)
     {
         const size_t n = poly.size();

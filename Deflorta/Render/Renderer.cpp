@@ -1,12 +1,12 @@
 #include "Renderer.hpp"
 
-#include <algorithm>
-#include <format>
-#include <numbers>
-
 #include "D2DRenderBackend.hpp"
 #include "../Base/Time.hpp"
 #include "../Resource/ReanimationLoader.hpp"
+
+#include <algorithm>
+#include <format>
+#include <numbers>
 
 std::unique_ptr<IRenderBackend> Renderer::backend_;
 bool Renderer::showFPS_ = false;
@@ -225,10 +225,10 @@ void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Tran
 
     const auto size = texture->GetSize();
 
-    const Matrix mat1 = MatrixHelper::Translation(-size.width / 2.0f, -size.height / 2.0f);
+    const Matrix mat1 = MatrixHelper::Translation(-size.x / 2.0f, -size.y / 2.0f);
     const Matrix mat2 = MatrixHelper::Scale(transform.scaleX, transform.scaleY);
     const Matrix mat3 = MatrixHelper::Rotation(transform.rotation);
-    const Matrix mat4 = MatrixHelper::Translation(transform.x + size.width / 2.0f, transform.y + size.height / 2.0f);
+    const Matrix mat4 = MatrixHelper::Translation(transform.x + size.x / 2.0f, transform.y + size.y / 2.0f);
 
     const Matrix mat = mat4 * mat3 * mat2 * mat1;
 

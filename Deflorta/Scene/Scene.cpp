@@ -1,11 +1,11 @@
 #include "Scene.hpp"
 
-#include <algorithm>
-
 #include "../Object/GameObject.hpp"
 #include "../Collision/CollisionSystem.hpp"
 #include "../Collision/QuadTree.hpp"
 #include "../UI/Widget.hpp"
+
+#include <algorithm>
 
 Scene::Scene()
 {

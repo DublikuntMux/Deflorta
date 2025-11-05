@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-#include <memory>
-#include <vector>
-
 #include "GameObject.hpp"
 #include "../Base/Transform.hpp"
 #include "../Base/Tween.hpp"
 #include "../Render/IRenderBackend.hpp"
+
+#include <memory>
+#include <vector>
 
 struct FogPiece
 {

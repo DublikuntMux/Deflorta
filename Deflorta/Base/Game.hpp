@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include <memory>
+#include "../Scene/Scene.hpp"
 
 #include <Windows.h>
 
-#include "../Scene/Scene.hpp"
+#include <memory>
 
 class Game final
 {

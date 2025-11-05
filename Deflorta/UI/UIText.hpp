@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include <string>
-
 #include "Widget.hpp"
-#include "../Render/RenderTypes.hpp"
+#include "../Base/Color.hpp"
+
+#include <string>
 
 class UIText : public Widget
 {

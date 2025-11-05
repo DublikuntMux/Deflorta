@@ -1,9 +1,9 @@
 ﻿#include "Discord.hpp"
 
+#include "Time.hpp"
+
 #include <ctime>
 #include <iostream>
-
-#include "Time.hpp"
 
 namespace
 {

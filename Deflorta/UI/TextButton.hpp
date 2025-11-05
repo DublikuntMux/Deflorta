@@ -1,8 +1,9 @@
 ﻿#pragma once
 
-#include <string>
-
 #include "Button.hpp"
+#include "../Base/Color.hpp"
+
+#include <string>
 
 class TextButton : public Button
 {

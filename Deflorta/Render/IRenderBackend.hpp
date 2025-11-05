@@ -1,15 +1,19 @@
 #pragma once
 
+#include "PixelData.hpp"
+#include "../Base/Color.hpp"
+#include "../Base/Matrix.hpp"
+#include "../Base/Point2F.hpp"
+#include "../Base/Rect.hpp"
+
 #include <memory>
 #include <string>
-
-#include "RenderTypes.hpp"
 
 class ITexture
 {
 public:
     virtual ~ITexture() = default;
-    virtual Size2F GetSize() const = 0;
+    virtual Point2F GetSize() const = 0;
     virtual void* GetNativeHandle() const = 0;
 };
 

@@ -1,10 +1,8 @@
 ﻿#include "ReanimationLoader.hpp"
 
-#include <pugixml.hpp>
+#include "ResourceManager.hpp"
 
 #include <iostream>
-
-#include "ResourceManager.hpp"
 
 std::unordered_map<std::string, ReanimatorDefinition> ReanimationLoader::loadedReanimations_;
 

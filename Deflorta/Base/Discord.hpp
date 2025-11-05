@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include <string>
-
 #include <discord_rpc.h>
+
+#include <string>
 
 class Discord final
 {

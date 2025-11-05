@@ -1,12 +1,12 @@
 ﻿#pragma once
 
-#include <string>
-#include <vector>
-#include <optional>
-
 #include "Layer.hpp"
 #include "../Resource/ReanimationLoader.hpp"
 #include "../Base/Transform.hpp"
+
+#include <string>
+#include <vector>
+#include <optional>
 
 enum class ReanimLoopType: std::uint8_t
 {

@@ -1,11 +1,11 @@
 #pragma once
 
+#include "IRenderBackend.hpp"
+
 #include <string>
 #include <unordered_map>
 #include <memory>
 #include <mutex>
-
-#include "IRenderBackend.hpp"
 
 class TextureCache
 {

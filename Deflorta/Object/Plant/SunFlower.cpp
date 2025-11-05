@@ -1,8 +1,8 @@
 ﻿#include "SunFlower.hpp"
 
-#include <stdexcept>
-
 #include "../../Render/Layer.hpp"
+
+#include <stdexcept>
 
 SunFlower::SunFlower() : BasePlant(PlantType::SunFlower, PlantPos::Base)
 {

@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include <unordered_map>
-
 #include <Windows.h>
+
+#include <unordered_map>
 
 class Input
 {

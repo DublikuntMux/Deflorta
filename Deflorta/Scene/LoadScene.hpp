@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include <memory>
-
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
 #include "../Base/Tween.hpp"
 #include "../Render/IRenderBackend.hpp"
+
+#include <memory>
 
 class LoadScene final : public Scene
 {

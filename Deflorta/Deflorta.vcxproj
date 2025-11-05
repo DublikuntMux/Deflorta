@@ -82,10 +82,13 @@
         <Image Include="Deflorta.ico"/>
     </ItemGroup>
     <ItemGroup>
+        <ClCompile Include="Base\Color.cpp"/>
         <ClCompile Include="Base\Discord.cpp"/>
         <ClCompile Include="Base\Game.cpp"/>
         <ClCompile Include="Base\Input.cpp"/>
+        <ClCompile Include="Base\Matrix.cpp"/>
         <ClCompile Include="Base\Random.cpp"/>
+        <ClCompile Include="Base\Rect.cpp"/>
         <ClCompile Include="Base\SaveManager.cpp"/>
         <ClCompile Include="Base\Time.cpp"/>
         <ClCompile Include="Base\Tween.cpp"/>
@@ -424,10 +427,14 @@
         <ClCompile Include="Utils.cpp"/>
     </ItemGroup>
     <ItemGroup>
+        <ClInclude Include="Base\Color.hpp"/>
         <ClInclude Include="Base\Discord.hpp"/>
         <ClInclude Include="Base\Game.hpp"/>
         <ClInclude Include="Base\Input.hpp"/>
+        <ClInclude Include="Base\Matrix.hpp"/>
+        <ClInclude Include="Base\Point2F.hpp"/>
         <ClInclude Include="Base\Random.hpp"/>
+        <ClInclude Include="Base\Rect.hpp"/>
         <ClInclude Include="Base\SaveManager.hpp"/>
         <ClInclude Include="Base\Time.hpp"/>
         <ClInclude Include="Base\Transform.hpp"/>
@@ -446,7 +453,7 @@
         <ClInclude Include="Render\Layer.hpp"/>
         <ClInclude Include="Render\Reanimator.hpp"/>
         <ClInclude Include="Render\Renderer.hpp"/>
-        <ClInclude Include="Render\RenderTypes.hpp"/>
+        <ClInclude Include="Render\PixelData.hpp"/>
         <ClInclude Include="Render\TextureCache.hpp"/>
         <ClInclude Include="resource.h"/>
         <ClInclude Include="Resource\AudioManager.hpp"/>

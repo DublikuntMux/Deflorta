@@ -1,15 +1,15 @@
 ﻿#include "Foley.hpp"
 
+#include "ResourceManager.hpp"
+#include "AudioManager.hpp"
+#include "../Base/Random.hpp"
+
+#include <pugixml.hpp>
+
 #include <cmath>
 #include <algorithm>
 #include <iostream>
 #include <sstream>
-
-#include <pugixml.hpp>
-
-#include "ResourceManager.hpp"
-#include "AudioManager.hpp"
-#include "../Base/Random.hpp"
 
 std::unordered_map<std::string, FoleyParams> Foley::foleyMap_;
 std::unordered_map<std::string, IXAudio2SourceVoice*> Foley::activeVoices_;

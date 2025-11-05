@@ -1,11 +1,12 @@
 #pragma once
 
+#include "QuadTree.hpp"
+#include "CollisionMatrix.hpp"
+#include "../Base/Color.hpp"
+
 #include <vector>
 #include <memory>
 #include <unordered_set>
-
-#include "QuadTree.hpp"
-#include "CollisionMatrix.hpp"
 
 class GameObject;
 

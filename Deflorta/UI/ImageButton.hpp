@@ -1,16 +1,16 @@
 ﻿#pragma once
 
-#include <memory>
-
 #include "Button.hpp"
 #include "../Render/IRenderBackend.hpp"
+
+#include <memory>
 
 class ImageButton : public Button
 {
 public:
     ImageButton(
-        std::shared_ptr<ITexture> normalImage,
-        std::shared_ptr<ITexture> hoverImage,
+        const std::shared_ptr<ITexture>& normalImage,
+        const std::shared_ptr<ITexture>& hoverImage,
         float x = 0.0f,
         float y = 0.0f,
         float width = 0.0f,

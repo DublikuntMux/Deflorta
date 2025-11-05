@@ -1,9 +1,9 @@
 #pragma once
 
+#include "../Collision/CollisionSystem.hpp"
+
 #include <memory>
 #include <vector>
-
-#include "../Collision/CollisionSystem.hpp"
 
 class Widget;
 class GameObject;

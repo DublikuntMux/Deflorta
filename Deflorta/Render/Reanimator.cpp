@@ -1,12 +1,12 @@
 ﻿#include "Reanimator.hpp"
 
-#include <cmath>
-#include <algorithm>
-#include <utility>
-
 #include "../Resource/ResourceManager.hpp"
 #include "Renderer.hpp"
 #include "../Base/Time.hpp"
+
+#include <cmath>
+#include <algorithm>
+#include <utility>
 
 Reanimator::Reanimator(const ReanimatorDefinition* def)
 {

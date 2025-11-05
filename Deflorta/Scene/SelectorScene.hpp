@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include <cstdint>
-#include <memory>
-
 #include "Scene.hpp"
 #include "../Render/Reanimator.hpp"
 #include "../UI/ImageButton.hpp"
+
+#include <cstdint>
+#include <memory>
 
 enum class SelectorState: std::uint8_t
 {
