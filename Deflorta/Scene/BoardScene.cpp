@@ -1,4 +1,4 @@
-﻿#include "BoardScene.hpp"
+#include "BoardScene.hpp"
 
 #include "../Utils.hpp"
 #include "../Base/Discord.hpp"
@@ -6,10 +6,9 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
+#include "../Object/Clickable/SunObject.hpp"
 
 #include <algorithm>
-
-#include "../Object/Clickable/SunObject.hpp"
 
 BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 {
@@ -195,9 +194,9 @@ glm::vec2 BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
     return {x, y};
 }
 
-glm::ivec2 BoardScene::PositionToGrid(float x, float y, BackgroundType bgType)
+glm::ivec2 BoardScene::PositionToGrid(const glm::vec2& position, BackgroundType bgType)
 {
-    const float colF = (x - kPlantBaseX) / kPlantCellWidth;
+    const float colF = (position.x - kPlantBaseX) / kPlantCellWidth;
     int col = static_cast<int>(std::round(colF));
     col = std::clamp(col, 0, 8);
 
@@ -207,16 +206,16 @@ glm::ivec2 BoardScene::PositionToGrid(float x, float y, BackgroundType bgType)
     {
         if (col >= 5)
         {
-            rowF = (y - kPlantBaseYRoofFlat) / kPlantCellHeightRoof;
+            rowF = (position.y - kPlantBaseYRoofFlat) / kPlantCellHeightRoof;
         }
         else
         {
-            rowF = (y - kPlantBaseYRoof + static_cast<float>(col) * 20.0f) / kPlantCellHeightRoof;
+            rowF = (position.y - kPlantBaseYRoof + static_cast<float>(col) * 20.0f) / kPlantCellHeightRoof;
         }
     }
     else
     {
-        rowF = (y - kPlantBaseY) / kPlantCellHeight;
+        rowF = (position.y - kPlantBaseY) / kPlantCellHeight;
     }
 
     int row = static_cast<int>(std::round(rowF));

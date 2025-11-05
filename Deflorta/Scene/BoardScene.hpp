@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Scene.hpp"
 #include "../Base/Transform.hpp"
@@ -7,7 +7,6 @@
 #include "../Object/Plant/BasePlant.hpp"
 
 #include <string>
-#include <utility>
 
 enum class BackgroundType: std::uint8_t
 {
@@ -47,7 +46,7 @@ public:
     void Render() override;
 
     static glm::vec2 GridToPosition(int row, int column, BackgroundType bgType);
-    static glm::ivec2 PositionToGrid(float x, float y, BackgroundType bgType);
+    static glm::ivec2 PositionToGrid(const glm::vec2& position, BackgroundType bgType);
 
 private:
     BoardSettings settings_;

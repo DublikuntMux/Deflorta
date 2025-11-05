@@ -32,7 +32,7 @@ void ClickableObject::Update()
 void ClickableObject::HandleMouseInput()
 {
     const auto mousePos = Input::GetMousePosition();
-    const bool mouseOverNow = ContainsPoint(mousePos.x, mousePos.y);
+    const bool mouseOverNow = ContainsPoint(mousePos);
 
     if (mouseOverNow && !wasMouseOver_)
     {
@@ -85,11 +85,6 @@ void ClickableObject::HandleMouseInput()
     wasMouseOver_ = isMouseOver_;
 }
 
-bool ClickableObject::ContainsPoint(float x, float y) const
-{
-    return ContainsPoint(glm::vec2(x, y));
-}
-
 bool ClickableObject::ContainsPoint(const glm::vec2& point) const
 {
     if (!collider_ || !collider_->IsEnabled())
@@ -103,8 +98,8 @@ bool ClickableObject::ContainsPoint(const glm::vec2& point) const
         const glm::vec2 min = boxCollider->GetMin();
         const glm::vec2 max = boxCollider->GetMax();
 
-        return point.x >= min.x && point.x <= max.x &&
-            point.y >= min.y && point.y <= max.y;
+        return glm::all(glm::greaterThanEqual(point, min)) &&
+            glm::all(glm::lessThanEqual(point, max));
     }
 
     if (collider_->GetType() == ColliderType::Circle)

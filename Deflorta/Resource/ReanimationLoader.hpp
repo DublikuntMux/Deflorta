@@ -1,5 +1,6 @@
-﻿#pragma once
+#pragma once
 
+#include <glm/vec2.hpp>
 #include <pugixml.hpp>
 
 #include <string>
@@ -11,12 +12,9 @@ constexpr float REANIM_MISSING = -10000.0f;
 
 struct ReanimatorTransform
 {
-    float transX = REANIM_MISSING;
-    float transY = REANIM_MISSING;
-    float skewX = REANIM_MISSING;
-    float skewY = REANIM_MISSING;
-    float scaleX = REANIM_MISSING;
-    float scaleY = REANIM_MISSING;
+    glm::vec2 translation = {REANIM_MISSING, REANIM_MISSING};
+    glm::vec2 skew = {REANIM_MISSING, REANIM_MISSING};
+    glm::vec2 scale = {REANIM_MISSING, REANIM_MISSING};
     float frame = REANIM_MISSING;
     float alpha = REANIM_MISSING;
 

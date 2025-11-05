@@ -355,7 +355,7 @@ void D2DRenderBackend::Unlock()
     mutex_.unlock();
 }
 
-D2D1_MATRIX_3X2_F D2DRenderBackend::ConvertMatrix(const glm::mat3& mat) const
+D2D1_MATRIX_3X2_F D2DRenderBackend::ConvertMatrix(const glm::mat3& mat)
 {
     return D2D1::Matrix3x2F(
         mat[0][0], mat[0][1],
@@ -363,12 +363,12 @@ D2D1_MATRIX_3X2_F D2DRenderBackend::ConvertMatrix(const glm::mat3& mat) const
         mat[2][0], mat[2][1]);
 }
 
-D2D1_COLOR_F D2DRenderBackend::ConvertColor(const Color& color) const
+D2D1_COLOR_F D2DRenderBackend::ConvertColor(const Color& color)
 {
-    return D2D1::ColorF(color.r, color.g, color.b, color.a);
+    return D2D1::ColorF(color.value.r, color.value.g, color.value.b, color.value.a);
 }
 
-D2D1_RECT_F D2DRenderBackend::ConvertRect(const Rect& rect) const
+D2D1_RECT_F D2DRenderBackend::ConvertRect(const Rect& rect)
 {
-    return D2D1::RectF(rect.left, rect.top, rect.right, rect.bottom);
+    return D2D1::RectF(rect.min.x, rect.min.y, rect.max.x, rect.max.y);
 }

@@ -1,6 +1,10 @@
 #include "Color.hpp"
 
-Color::Color(float red, float green, float blue, float alpha) : r(red), g(green), b(blue), a(alpha)
+Color::Color(float red, float green, float blue, float alpha) : value(red, green, blue, alpha)
+{
+}
+
+Color::Color(const glm::vec4& color) : value(color)
 {
 }
 

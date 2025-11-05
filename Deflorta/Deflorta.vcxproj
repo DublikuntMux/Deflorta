@@ -50,6 +50,7 @@
             <PreprocessorDefinitions>_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp23</LanguageStandard>
+            <MultiProcessorCompilation>true</MultiProcessorCompilation>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
@@ -66,10 +67,11 @@
             <PreprocessorDefinitions>NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
             <ConformanceMode>true</ConformanceMode>
             <LanguageStandard>stdcpp23</LanguageStandard>
+            <MultiProcessorCompilation>true</MultiProcessorCompilation>
         </ClCompile>
         <Link>
             <SubSystem>Windows</SubSystem>
-            <GenerateDebugInformation>true</GenerateDebugInformation>
+            <GenerateDebugInformation>false</GenerateDebugInformation>
             <OptimizeReferences>true</OptimizeReferences>
             <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);d2d1.lib;d3d11.lib;dxgi.lib;dwrite.lib;xaudio2.lib</AdditionalDependencies>
             <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
@@ -187,8 +189,6 @@
     </Target>
     <PropertyGroup Label="Vcpkg">
         <VcpkgEnableManifest>true</VcpkgEnableManifest>
-    </PropertyGroup>
-    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-        <CopyCppRuntimeToOutputDir>true</CopyCppRuntimeToOutputDir>
+        <VcpkgUseStatic>true</VcpkgUseStatic>
     </PropertyGroup>
 </Project>

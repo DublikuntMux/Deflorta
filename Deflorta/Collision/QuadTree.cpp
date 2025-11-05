@@ -28,20 +28,23 @@ void QuadTree::Clear()
 
 void QuadTree::Split()
 {
-    const float subWidth = bounds_.Width() / 2.0f;
-    const float subHeight = bounds_.Height() / 2.0f;
-    const float x = bounds_.X();
-    const float y = bounds_.Y();
+    const glm::vec2 size = bounds_.Size();
+    const glm::vec2 halfSize = size * 0.5f;
+    const glm::vec2 min = bounds_.min;
 
     nodes_.reserve(4);
-    nodes_.push_back(std::make_unique<QuadTree>(level_ + 1, Rect::FromXYWH(x + subWidth, y, subWidth, subHeight),
-                                                maxObjects_, maxLevels_));
-    nodes_.push_back(std::make_unique<QuadTree>(level_ + 1, Rect::FromXYWH(x, y, subWidth, subHeight), maxObjects_,
-                                                maxLevels_));
-    nodes_.push_back(std::make_unique<QuadTree>(level_ + 1, Rect::FromXYWH(x, y + subHeight, subWidth, subHeight),
-                                                maxObjects_, maxLevels_));
     nodes_.push_back(std::make_unique<QuadTree>(
-        level_ + 1, Rect::FromXYWH(x + subWidth, y + subHeight, subWidth, subHeight), maxObjects_, maxLevels_));
+        level_ + 1, Rect::FromXYWH(min.x + halfSize.x, min.y, halfSize.x, halfSize.y),
+        maxObjects_, maxLevels_));
+    nodes_.push_back(std::make_unique<QuadTree>(level_ + 1, Rect::FromXYWH(min.x, min.y, halfSize.x, halfSize.y),
+                                                maxObjects_,
+                                                maxLevels_));
+    nodes_.push_back(std::make_unique<QuadTree>(
+        level_ + 1, Rect::FromXYWH(min.x, min.y + halfSize.y, halfSize.x, halfSize.y),
+        maxObjects_, maxLevels_));
+    nodes_.push_back(std::make_unique<QuadTree>(
+        level_ + 1, Rect::FromXYWH(min.x + halfSize.x, min.y + halfSize.y, halfSize.x, halfSize.y), maxObjects_,
+        maxLevels_));
 }
 
 int QuadTree::GetIndex(GameObject* object) const
@@ -50,34 +53,33 @@ int QuadTree::GetIndex(GameObject* object) const
 
     const Rect objectBounds = GetObjectBounds(object);
 
-    const float verticalMidpoint = bounds_.X() + bounds_.Width() / 2.0f;
-    const float horizontalMidpoint = bounds_.Y() + bounds_.Height() / 2.0f;
+    const glm::vec2 midpoint = bounds_.Center();
 
-    const bool topQuadrant = objectBounds.Y() < horizontalMidpoint &&
-        objectBounds.bottom < horizontalMidpoint;
-    const bool bottomQuadrant = objectBounds.Y() > horizontalMidpoint;
+    const bool inLeftQuadrant = objectBounds.max.x <= midpoint.x;
+    const bool inRightQuadrant = objectBounds.min.x >= midpoint.x;
+    const bool inTopQuadrant = objectBounds.max.y <= midpoint.y;
+    const bool inBottomQuadrant = objectBounds.min.y >= midpoint.y;
 
-    if (objectBounds.X() < verticalMidpoint &&
-        objectBounds.right < verticalMidpoint)
+    if (inRightQuadrant)
     {
-        if (topQuadrant)
-        {
-            return 1;
-        }
-        if (bottomQuadrant)
-        {
-            return 2;
-        }
-    }
-    else if (objectBounds.X() > verticalMidpoint)
-    {
-        if (topQuadrant)
+        if (inTopQuadrant)
         {
             return 0;
         }
-        if (bottomQuadrant)
+        if (inBottomQuadrant)
         {
             return 3;
+        }
+    }
+    else if (inLeftQuadrant)
+    {
+        if (inTopQuadrant)
+        {
+            return 1;
+        }
+        if (inBottomQuadrant)
+        {
+            return 2;
         }
     }
 

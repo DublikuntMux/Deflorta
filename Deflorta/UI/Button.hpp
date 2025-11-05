@@ -2,9 +2,10 @@
 
 #include "Widget.hpp"
 
+#include <glm/glm.hpp>
+
 #include <functional>
 #include <vector>
-#include <glm/glm.hpp>
 
 class Button : public Widget
 {

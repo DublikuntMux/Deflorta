@@ -103,9 +103,10 @@ public:
 
 private:
     void RecreateTargetBitmap();
-    D2D1_MATRIX_3X2_F ConvertMatrix(const glm::mat3& mat) const;
-    D2D1_COLOR_F ConvertColor(const Color& color) const;
-    D2D1_RECT_F ConvertRect(const Rect& rect) const;
+
+    static D2D1_MATRIX_3X2_F ConvertMatrix(const glm::mat3& mat);
+    static D2D1_COLOR_F ConvertColor(const Color& color);
+    static D2D1_RECT_F ConvertRect(const Rect& rect);
 
     void* hwnd_ = nullptr;
     std::recursive_mutex mutex_;

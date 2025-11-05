@@ -1,24 +1,35 @@
 #include "Rect.hpp"
 
-Rect::Rect(float l, float t, float r, float b) : left(l), top(t), right(r), bottom(b)
+#include <glm/geometric.hpp>
+
+Rect::Rect(float l, float t, float r, float b) : min(l, t), max(r, b)
+{
+}
+
+Rect::Rect(const glm::vec2& minPoint, const glm::vec2& maxPoint) : min(minPoint), max(maxPoint)
 {
 }
 
 Rect Rect::FromXYWH(float x, float y, float width, float height)
 {
-    return {x, y, x + width, y + height};
+    return {glm::vec2(x, y), glm::vec2(x + width, y + height)};
+}
+
+Rect Rect::FromMinMax(const glm::vec2& minPoint, const glm::vec2& maxPoint)
+{
+    return {minPoint, maxPoint};
 }
 
 bool Rect::Contains(const glm::vec2& point) const
 {
-    return point.x >= left && point.x <= right &&
-        point.y >= top && point.y <= bottom;
+    return glm::all(glm::greaterThanEqual(point, min)) &&
+        glm::all(glm::lessThanEqual(point, max));
 }
 
 bool Rect::Intersects(const Rect& other) const
 {
-    return left < other.right &&
-        right > other.left &&
-        top < other.bottom &&
-        bottom > other.top;
+    return min.x < other.max.x &&
+        max.x > other.min.x &&
+        min.y < other.max.y &&
+        max.y > other.min.y;
 }

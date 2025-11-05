@@ -29,8 +29,7 @@ struct TrackInstance
 {
     int renderGroup = static_cast<int>(RenderLayer::Default);
     float shakeOverride = 0.0f;
-    float shakeX = 0.0f;
-    float shakeY = 0.0f;
+    glm::vec2 shake = {0.0f, 0.0f};
     std::optional<std::string> imageOverride;
     bool visible = true;
 };

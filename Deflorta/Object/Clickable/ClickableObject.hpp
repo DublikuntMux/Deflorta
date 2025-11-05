@@ -36,7 +36,6 @@ public:
     [[nodiscard]] bool IsClickable() const { return isClickable_; }
 
 protected:
-    [[nodiscard]] inline bool ContainsPoint(float x, float y) const;
     [[nodiscard]] bool ContainsPoint(const glm::vec2& point) const;
 
 private:

@@ -1,4 +1,4 @@
-﻿#include "Reanimator.hpp"
+#include "Reanimator.hpp"
 
 #include "../Resource/ResourceManager.hpp"
 #include "Renderer.hpp"
@@ -197,10 +197,9 @@ void Reanimator::Update()
         {
             if (t.shakeOverride != 0.0f)
             {
-                t.shakeX = t.shakeOverride * 0.5f;
-                t.shakeY = -t.shakeOverride * 0.5f;
+                t.shake = {t.shakeOverride * 0.5f, -t.shakeOverride * 0.5f};
             }
-            else { t.shakeX = t.shakeY = 0.0f; }
+            else { t.shake = {0.0f, 0.0f}; }
         }
         return;
     }
@@ -279,10 +278,9 @@ void Reanimator::Update()
     {
         if (t.shakeOverride != 0.0f)
         {
-            t.shakeX = t.shakeOverride * 0.5f;
-            t.shakeY = -t.shakeOverride * 0.5f;
+            t.shake = {t.shakeOverride * 0.5f, -t.shakeOverride * 0.5f};
         }
-        else { t.shakeX = t.shakeY = 0.0f; }
+        else { t.shake = {0.0f, 0.0f}; }
     }
 }
 
@@ -314,10 +312,8 @@ void Reanimator::Draw() const
             {
                 if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    cur.transX += overlay_.position.x + tracks_[ti].shakeX;
-                    cur.transY += overlay_.position.y + tracks_[ti].shakeY;
-                    cur.scaleX *= overlay_.scale.x;
-                    cur.scaleY *= overlay_.scale.y;
+                    cur.translation += overlay_.position + tracks_[ti].shake;
+                    cur.scale *= overlay_.scale;
 
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
@@ -326,10 +322,9 @@ void Reanimator::Draw() const
             {
                 const std::wstring text(cur.text.begin(), cur.text.end());
                 const std::wstring font = ResourceManager::GetFont(cur.font);
-                const float x = overlay_.position.x + cur.transX + tracks_[ti].shakeX;
-                const float y = overlay_.position.y + cur.transY + tracks_[ti].shakeY;
-                const float size = 16.0f * overlay_.scale.y * cur.scaleY;
-                const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
+                const glm::vec2 textPos = overlay_.position + cur.translation + tracks_[ti].shake;
+                const float size = 16.0f * overlay_.scale.y * cur.scale.y;
+                const auto rect = Rect(textPos.x - 200.0f, textPos.y - size, textPos.x + 200.0f, textPos.y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
                 Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
@@ -368,10 +363,8 @@ void Reanimator::Draw() const
             {
                 if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    cur.transX += overlay_.position.x + tracks_[ti].shakeX;
-                    cur.transY += overlay_.position.y + tracks_[ti].shakeY;
-                    cur.scaleX *= overlay_.scale.x;
-                    cur.scaleY *= overlay_.scale.y;
+                    cur.translation += overlay_.position + tracks_[ti].shake;
+                    cur.scale *= overlay_.scale;
 
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
@@ -380,10 +373,9 @@ void Reanimator::Draw() const
             {
                 const std::wstring text(cur.text.begin(), cur.text.end());
                 const std::wstring font = ResourceManager::GetFont(cur.font);
-                const float x = overlay_.position.x + cur.transX + tracks_[ti].shakeX;
-                const float y = overlay_.position.y + cur.transY + tracks_[ti].shakeY;
-                const float size = 16.0f * overlay_.scale.y * cur.scaleY;
-                const auto rect = Rect(x - 200.0f, y - size, x + 200.0f, y + size);
+                const glm::vec2 textPos = overlay_.position + cur.translation + tracks_[ti].shake;
+                const float size = 16.0f * overlay_.scale.y * cur.scale.y;
+                const auto rect = Rect(textPos.x - 200.0f, textPos.y - size, textPos.x + 200.0f, textPos.y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
                 Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
@@ -446,12 +438,12 @@ ReanimatorTransform Reanimator::LerpTransform(const ReanimatorTransform& a,
 
     ReanimatorTransform r = a;
 
-    r.transX = lerp(a.transX, b.transX);
-    r.transY = lerp(a.transY, b.transY);
-    r.skewX = lerp(a.skewX, b.skewX);
-    r.skewY = lerp(a.skewY, b.skewY);
-    r.scaleX = lerp(a.scaleX, b.scaleX);
-    r.scaleY = lerp(a.scaleY, b.scaleY);
+    r.translation.x = lerp(a.translation.x, b.translation.x);
+    r.translation.y = lerp(a.translation.y, b.translation.y);
+    r.skew.x = lerp(a.skew.x, b.skew.x);
+    r.skew.y = lerp(a.skew.y, b.skew.y);
+    r.scale.x = lerp(a.scale.x, b.scale.x);
+    r.scale.y = lerp(a.scale.y, b.scale.y);
     r.frame = lerp(a.frame, b.frame);
     r.alpha = lerp(a.alpha, b.alpha);
 

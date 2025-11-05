@@ -245,18 +245,18 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
 {
     if (!texture) return;
 
-    const float kx = transform.skewX * std::numbers::pi_v<float> / 180.0f;
-    const float ky = transform.skewY * std::numbers::pi_v<float> / 180.0f;
+    const float kx = transform.skew.x * std::numbers::pi_v<float> / 180.0f;
+    const float ky = transform.skew.y * std::numbers::pi_v<float> / 180.0f;
 
-    const float a = std::cos(kx) * transform.scaleX;
-    const float b = std::sin(kx) * transform.scaleX;
-    const float c = -std::sin(ky) * transform.scaleY;
-    const float d = std::cos(ky) * transform.scaleY;
+    const float a = std::cos(kx) * transform.scale.x;
+    const float b = std::sin(kx) * transform.scale.x;
+    const float c = -std::sin(ky) * transform.scale.y;
+    const float d = std::cos(ky) * transform.scale.y;
 
     const glm::mat3 mat = MatrixHelper::CreateMatrix(
         a, b,
         c, d,
-        transform.transX, transform.transY);
+        transform.translation.x, transform.translation.y);
 
     DrawItem di;
     di.z = z;

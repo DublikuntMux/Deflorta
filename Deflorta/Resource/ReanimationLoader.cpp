@@ -1,4 +1,4 @@
-﻿#include "ReanimationLoader.hpp"
+#include "ReanimationLoader.hpp"
 
 #include "ResourceManager.hpp"
 
@@ -77,12 +77,12 @@ ReanimatorTransform ReanimationLoader::ParseTransform(const pugi::xml_node& node
             out = n.text().as_string();
     };
 
-    read_float("x", t.transX);
-    read_float("y", t.transY);
-    read_float("kx", t.skewX);
-    read_float("ky", t.skewY);
-    read_float("sx", t.scaleX);
-    read_float("sy", t.scaleY);
+    read_float("x", t.translation.x);
+    read_float("y", t.translation.y);
+    read_float("kx", t.skew.x);
+    read_float("ky", t.skew.y);
+    read_float("sx", t.scale.x);
+    read_float("sy", t.scale.y);
     read_float("f", t.frame);
     read_float("a", t.alpha);
     read_string("i", t.image);
@@ -96,42 +96,39 @@ void ReanimationLoader::FillMissingData(ReanimatorTrack& track)
 {
     if (track.transforms.empty()) return;
 
-    float prevX = 0, prevY = 0;
-    float prevKx = 0, prevKy = 0;
-    float prevSx = 1, prevSy = 1;
+    glm::vec2 prevTranslation = {0.0f, 0.0f};
+    glm::vec2 prevSkew = {0.0f, 0.0f};
+    glm::vec2 prevScale = {1.0f, 1.0f};
     float prevF = 0, prevA = 1;
     std::string prevImg, prevFont, prevText;
 
-    for (auto& [transX, transY, skewX, skewY, scaleX, scaleY, frame, alpha, image, font, text] : track.transforms)
+    for (auto& t : track.transforms)
     {
-        auto fill = [&](float& field, float prev, float defVal)
+        auto fill = [](float& field, float prev, float defVal)
         {
             if (field == defVal) field = prev;
         };
 
-        fill(transX, prevX, REANIM_MISSING);
-        fill(transY, prevY, REANIM_MISSING);
-        fill(skewX, prevKx, REANIM_MISSING);
-        fill(skewY, prevKy, REANIM_MISSING);
-        fill(scaleX, prevSx, REANIM_MISSING);
-        fill(scaleY, prevSy, REANIM_MISSING);
-        fill(frame, prevF, REANIM_MISSING);
-        fill(alpha, prevA, REANIM_MISSING);
+        fill(t.translation.x, prevTranslation.x, REANIM_MISSING);
+        fill(t.translation.y, prevTranslation.y, REANIM_MISSING);
+        fill(t.skew.x, prevSkew.x, REANIM_MISSING);
+        fill(t.skew.y, prevSkew.y, REANIM_MISSING);
+        fill(t.scale.x, prevScale.x, REANIM_MISSING);
+        fill(t.scale.y, prevScale.y, REANIM_MISSING);
+        fill(t.frame, prevF, REANIM_MISSING);
+        fill(t.alpha, prevA, REANIM_MISSING);
 
-        if (image.empty()) image = prevImg;
-        if (font.empty()) font = prevFont;
-        if (text.empty()) text = prevText;
+        if (t.image.empty()) t.image = prevImg;
+        if (t.font.empty()) t.font = prevFont;
+        if (t.text.empty()) t.text = prevText;
 
-        prevX = transX;
-        prevY = transY;
-        prevKx = skewX;
-        prevKy = skewY;
-        prevSx = scaleX;
-        prevSy = scaleY;
-        prevF = frame;
-        prevA = alpha;
-        prevImg = image;
-        prevFont = font;
-        prevText = text;
+        prevTranslation = t.translation;
+        prevSkew = t.skew;
+        prevScale = t.scale;
+        prevF = t.frame;
+        prevA = t.alpha;
+        prevImg = t.image;
+        prevFont = t.font;
+        prevText = t.text;
     }
 }

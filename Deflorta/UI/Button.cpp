@@ -1,53 +1,37 @@
-﻿#include "Button.hpp"
+#include "Button.hpp"
 
 #include "../Base/Input.hpp"
 #include "../Render/Renderer.hpp"
 
 namespace
 {
-    bool PointInPolygon(float x, float y, const std::vector<glm::vec2>& poly)
+    bool PointInPolygon(const glm::vec2& point, const std::vector<glm::vec2>& poly)
     {
         const size_t n = poly.size();
         if (n < 3) return false;
 
-        bool inside = false;
-        float p1x = poly[0].x;
-        float p1y = poly[0].y;
+        bool allPositive = true;
+        bool allNegative = true;
 
-        for (size_t i = 1; i <= n; ++i)
+        for (size_t i = 0; i < n; ++i)
         {
-            const float p2x = poly[i % n].x;
-            const float p2y = poly[i % n].y;
+            const glm::vec2 edge = poly[(i + 1) % n] - poly[i];
+            const glm::vec2 toPoint = point - poly[i];
+            const float cross = glm::cross(glm::vec3(edge, 0.0f), glm::vec3(toPoint, 0.0f)).z;
 
-            if (y > std::min(p1y, p2y))
-            {
-                if (y <= std::max(p1y, p2y))
-                {
-                    if (x <= std::max(p1x, p2x))
-                    {
-                        float xinters;
-                        if (p1y != p2y)
-                        {
-                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x;
-                        }
-                        else
-                        {
-                            xinters = p1x;
-                        }
+            if (cross < 0) allPositive = false;
+            if (cross > 0) allNegative = false;
 
-                        if (p1x == p2x || x <= xinters)
-                        {
-                            inside = !inside;
-                        }
-                    }
-                }
-            }
-
-            p1x = p2x;
-            p1y = p2y;
+            if (!allPositive && !allNegative) return false;
         }
 
-        return inside;
+        return true;
+    }
+
+    bool PointInRect(const glm::vec2& point, const glm::vec2& rectPos, const glm::vec2& rectSize)
+    {
+        return glm::all(glm::greaterThanEqual(point, rectPos)) &&
+            glm::all(glm::lessThanEqual(point, rectPos + rectSize));
     }
 }
 
@@ -65,14 +49,13 @@ void Button::Update()
         worldPolygon.reserve(polygon_.size());
         for (const auto& point : polygon_)
         {
-            worldPolygon.emplace_back(point.x + position_.x, point.y + position_.y);
+            worldPolygon.emplace_back(point + position_);
         }
-        mouseOver = PointInPolygon(mousePos.x, mousePos.y, worldPolygon);
+        mouseOver = PointInPolygon(mousePos, worldPolygon);
     }
     else
     {
-        mouseOver = mousePos.x >= position_.x && mousePos.x <= position_.x + dimensions_.x &&
-            mousePos.y >= position_.y && mousePos.y <= position_.y + dimensions_.y;
+        mouseOver = PointInRect(mousePos, position_, dimensions_);
     }
 
     if (mouseOver)
