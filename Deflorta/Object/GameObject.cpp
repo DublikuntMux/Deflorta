@@ -2,6 +2,7 @@
 
 #include "../Render/Renderer.hpp"
 
+
 GameObject::GameObject(GameObjectTag tag) : tag_(tag)
 {
     transform_ = Transform{
@@ -50,7 +51,26 @@ void GameObject::SetActive(bool active)
     isActive_ = active;
 }
 
+bool GameObject::IsVisible() const
+{
+    return isVisible_;
+}
+
+void GameObject::SetVisible(bool visible)
+{
+    isVisible_ = visible;
+}
+
 void GameObject::SetCollider(std::unique_ptr<Collider> collider)
 {
     collider_ = std::move(collider);
+}
+
+void GameObject::QueueFree()
+{
+    if (!isQueuedForDeletion_ && scene_)
+    {
+        isQueuedForDeletion_ = true;
+        SetActive(false);
+    }
 }

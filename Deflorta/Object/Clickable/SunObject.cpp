@@ -34,3 +34,8 @@ void SunObject::Update()
         sprite->Update();
     }
 }
+
+void SunObject::OnMouseClick()
+{
+    QueueFree();
+}

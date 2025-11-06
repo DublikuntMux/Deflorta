@@ -20,7 +20,7 @@ void ClickableObject::Update()
         {
             isMouseOver_ = false;
             wasMouseOver_ = false;
-            isMouseDown_ = false;
+            wasPressed_ = false;
             OnMouseExit();
         }
         return;
@@ -36,53 +36,48 @@ void ClickableObject::HandleMouseInput()
 
     if (mouseOverNow && !wasMouseOver_)
     {
-        isMouseOver_ = true;
         OnMouseEnter();
     }
     else if (!mouseOverNow && wasMouseOver_)
     {
-        isMouseOver_ = false;
         OnMouseExit();
+    }
 
-        if (isMouseDown_)
+    if (mouseOverNow)
+    {
+        const bool leftMouseDown = Input::IsMouseDown(VK_LBUTTON);
+
+        if (leftMouseDown)
         {
-            isMouseDown_ = false;
+            if (!wasPressed_)
+            {
+                OnMouseDown();
+            }
         }
+        else
+        {
+            if (wasPressed_)
+            {
+                OnMouseUp();
+                wasClicked_ = true;
+                OnMouseClick();
+            }
+        }
+
+        wasPressed_ = leftMouseDown;
     }
     else
     {
-        isMouseOver_ = mouseOverNow;
+        wasPressed_ = false;
     }
+
+    isMouseOver_ = mouseOverNow;
+    wasMouseOver_ = mouseOverNow;
 
     if (isMouseOver_)
     {
-        const bool leftMouseDown = Input::IsMouseDown(VK_LBUTTON);
-        const bool leftMousePressed = Input::IsMousePressed(VK_LBUTTON);
-
-        if (leftMousePressed && !isMouseDown_)
-        {
-            isMouseDown_ = true;
-            OnMouseDown();
-        }
-
-        if (!leftMouseDown && isMouseDown_)
-        {
-            isMouseDown_ = false;
-            OnMouseUp();
-
-            wasClicked_ = true;
-            OnMouseClick();
-        }
+        Input::SetCursorType(IDC_HAND);
     }
-    else
-    {
-        if (isMouseDown_)
-        {
-            isMouseDown_ = false;
-        }
-    }
-
-    wasMouseOver_ = isMouseOver_;
 }
 
 bool ClickableObject::ContainsPoint(const glm::vec2& point) const

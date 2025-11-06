@@ -41,7 +41,7 @@ protected:
 private:
     bool isMouseOver_ = false;
     bool wasMouseOver_ = false;
-    bool isMouseDown_ = false;
+    bool wasPressed_ = false;
     bool wasClicked_ = false;
     bool isClickable_ = true;
 

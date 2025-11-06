@@ -34,13 +34,16 @@ void Scene::Update()
             widget->Update();
         }
     }
+
+    std::erase_if(gameObjects_,
+                  [](const std::shared_ptr<GameObject>& obj) { return obj && obj->isQueuedForDeletion_; });
 }
 
 void Scene::Render()
 {
     for (const auto& gameObject : gameObjects_)
     {
-        if (gameObject && gameObject->IsActive())
+        if (gameObject && gameObject->IsVisible())
         {
             gameObject->Render();
         }
@@ -54,7 +57,6 @@ void Scene::Render()
         }
     }
 
-    // Debug render collision system
     if (collisionSystem_)
     {
         collisionSystem_->DebugRender();
@@ -87,6 +89,7 @@ void Scene::AddGameObject(const std::shared_ptr<GameObject>& gameObject)
 {
     if (gameObject)
     {
+        gameObject->scene_ = this;
         gameObjects_.push_back(gameObject);
     }
 }

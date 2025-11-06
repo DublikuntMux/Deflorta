@@ -39,5 +39,6 @@ protected:
 private:
     std::vector<Widget*> widgets_;
     std::vector<std::shared_ptr<GameObject>> gameObjects_;
+    std::vector<std::shared_ptr<GameObject>> deletePool_;
     std::unique_ptr<CollisionSystem> collisionSystem_;
 };

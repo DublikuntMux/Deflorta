@@ -18,6 +18,7 @@ enum class GameObjectTag : std::uint8_t
 };
 
 class Collider;
+class Scene;
 
 class GameObject
 {
@@ -50,16 +51,29 @@ public:
     [[nodiscard]] bool IsActive() const;
     void SetActive(bool active);
 
+    [[nodiscard]] bool IsVisible() const;
+    void SetVisible(bool visible);
+
     [[nodiscard]] Collider* GetCollider() const { return collider_.get(); }
     void SetCollider(std::unique_ptr<Collider> collider);
     template <typename T, typename... Args>
     T* AddCollider(Args&&... args);
 
+    void QueueFree();
+
+    [[nodiscard]] Scene* GetScene() const { return scene_; }
+
 protected:
     Transform transform_;
     GameObjectTag tag_;
     bool isActive_ = true;
+    bool isVisible_ = true;
+    bool isQueuedForDeletion_ = false;
     std::unique_ptr<Collider> collider_;
+    Scene* scene_ = nullptr;
+
+private:
+    friend class Scene;
 };
 
 template <typename T, typename... Args>
