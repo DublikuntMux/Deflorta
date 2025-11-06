@@ -7,8 +7,12 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
+#include <memory>
 
 constexpr float REANIM_MISSING = -10000.0f;
+
+class ITexture;
+struct AtlasRegion;
 
 struct ReanimatorTransform
 {
@@ -33,6 +37,10 @@ struct ReanimatorDefinition
 {
     std::vector<ReanimatorTrack> tracks;
     float fps = 12.0f;
+
+    std::shared_ptr<ITexture> atlasTexture;
+    std::unordered_map<std::string, AtlasRegion> atlasRegions;
+    bool useAtlas = false;
 };
 
 class ReanimationLoader

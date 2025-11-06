@@ -83,6 +83,12 @@ public:
         const glm::mat3& transform,
         float opacity = 1.0f) override;
 
+    void DrawTextureRect(
+        ITexture* texture,
+        const glm::mat3& transform,
+        const Rect& sourceRect,
+        float opacity = 1.0f) override;
+
     void DrawTexts(
         const std::wstring& text,
         const Rect& layoutRect,

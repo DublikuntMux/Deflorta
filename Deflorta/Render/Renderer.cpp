@@ -22,6 +22,10 @@ DrawItem::DrawItem(const DrawItem& other)
     {
         new(&data.image) ImageData(other.data.image);
     }
+    else if (drawType == DrawType::ImageAtlas)
+    {
+        new(&data.imageAtlas) ImageAtlasData(other.data.imageAtlas);
+    }
     else if (drawType == DrawType::Text)
     {
         new(&data.text) TextData(other.data.text);
@@ -40,6 +44,10 @@ DrawItem::DrawItem(DrawItem&& other) noexcept
     if (drawType == DrawType::Image)
     {
         new(&data.image) ImageData(std::move(other.data.image));
+    }
+    else if (drawType == DrawType::ImageAtlas)
+    {
+        new(&data.imageAtlas) ImageAtlasData(std::move(other.data.imageAtlas));
     }
     else if (drawType == DrawType::Text)
     {
@@ -61,6 +69,10 @@ DrawItem& DrawItem::operator=(const DrawItem& other)
     if (drawType == DrawType::Image)
     {
         new(&data.image) ImageData(other.data.image);
+    }
+    else if (drawType == DrawType::ImageAtlas)
+    {
+        new(&data.imageAtlas) ImageAtlasData(other.data.imageAtlas);
     }
     else if (drawType == DrawType::Text)
     {
@@ -84,6 +96,10 @@ DrawItem& DrawItem::operator=(DrawItem&& other) noexcept
     {
         new(&data.image) ImageData(std::move(other.data.image));
     }
+    else if (drawType == DrawType::ImageAtlas)
+    {
+        new(&data.imageAtlas) ImageAtlasData(std::move(other.data.imageAtlas));
+    }
     else if (drawType == DrawType::Text)
     {
         new(&data.text) TextData(std::move(other.data.text));
@@ -104,6 +120,10 @@ void DrawItem::DestroyActive()
     else if (drawType == DrawType::Rectangle)
     {
         data.rectangle.~RectangleData();
+    }
+    else if (drawType == DrawType::ImageAtlas)
+    {
+        data.imageAtlas.~ImageAtlasData();
     }
     else
     {
@@ -195,6 +215,20 @@ void Renderer::FlushDrawQueue()
                     di.data.image.opacity);
             }
             break;
+        case DrawType::ImageAtlas:
+            if (di.data.imageAtlas.texture)
+            {
+                const auto& region = di.data.imageAtlas.region;
+                const Rect sourceRect(region.x, region.y,
+                                      region.x + region.width,
+                                      region.y + region.height);
+                backend_->DrawTextureRect(
+                    di.data.imageAtlas.texture.get(),
+                    di.data.imageAtlas.transform,
+                    sourceRect,
+                    di.data.imageAtlas.opacity);
+            }
+            break;
         case DrawType::Text:
             if (di.data.text.textFormat)
             {
@@ -264,6 +298,35 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
     di.data.image.~ImageData();
     new(&di.data.image) DrawItem::ImageData(texture, mat, 1.0f);
     di.drawType = DrawType::Image;
+    drawQueue_.push_back(std::move(di));
+}
+
+void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
+                                  const ReanimatorTransform& transform,
+                                  const AtlasRegion& region,
+                                  int z)
+{
+    if (!atlasTexture) return;
+
+    const float kx = transform.skew.x * std::numbers::pi_v<float> / 180.0f;
+    const float ky = transform.skew.y * std::numbers::pi_v<float> / 180.0f;
+
+    const float a = std::cos(kx) * transform.scale.x;
+    const float b = std::sin(kx) * transform.scale.x;
+    const float c = -std::sin(ky) * transform.scale.y;
+    const float d = std::cos(ky) * transform.scale.y;
+
+    const glm::mat3 mat = MatrixHelper::CreateMatrix(
+        a, b,
+        c, d,
+        transform.translation.x, transform.translation.y);
+
+    DrawItem di;
+    di.z = z;
+    di.seq = submitSeq_++;
+    di.data.image.~ImageData();
+    new(&di.data.imageAtlas) DrawItem::ImageAtlasData(atlasTexture, mat, region, 1.0f);
+    di.drawType = DrawType::ImageAtlas;
     drawQueue_.push_back(std::move(di));
 }
 

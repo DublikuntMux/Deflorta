@@ -268,6 +268,33 @@ void D2DRenderBackend::DrawTexture(
     d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
+void D2DRenderBackend::DrawTextureRect(
+    ITexture* texture,
+    const glm::mat3& transform,
+    const Rect& sourceRect,
+    float opacity)
+{
+    std::lock_guard lock(mutex_);
+
+    if (!texture) return;
+
+    const auto d2dTexture = dynamic_cast<D2DTexture*>(texture);
+    ID2D1Bitmap* bitmap = d2dTexture->GetBitmap();
+    if (!bitmap) return;
+
+    const float destWidth = sourceRect.Width();
+    const float destHeight = sourceRect.Height();
+
+    d2dContext_->SetTransform(ConvertMatrix(transform));
+    d2dContext_->DrawBitmap(
+        bitmap,
+        D2D1::RectF(0, 0, destWidth, destHeight),
+        opacity,
+        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+        D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()));
+    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+}
+
 void D2DRenderBackend::DrawTexts(
     const std::wstring& text,
     const Rect& layoutRect,

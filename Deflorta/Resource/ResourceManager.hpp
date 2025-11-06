@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "../Render/IRenderBackend.hpp"
 #include "../Render/PixelData.hpp"
@@ -50,6 +50,9 @@ public:
 
     static void PreloadAudio(const std::string& id);
     static bool PreloadReanimImage(const std::string& id);
+
+    static bool LoadReanimImageData(const std::string& id, PixelData& outData);
+    static std::shared_ptr<ITexture> CreateTextureFromPixelData(const PixelData& data);
 
 private:
     static bool LoadPngFile(const std::string& filePath, PixelData& outData);

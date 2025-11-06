@@ -1,8 +1,11 @@
 #include "ReanimationLoader.hpp"
 
 #include "ResourceManager.hpp"
+#include "../Render/AtlasBuilder.hpp"
 
 #include <iostream>
+#include <filesystem>
+#include <set>
 
 std::unordered_map<std::string, ReanimatorDefinition> ReanimationLoader::loadedReanimations_;
 
@@ -47,13 +50,46 @@ std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::
         def.tracks.push_back(std::move(track));
     }
 
+    std::set<std::string> uniqueImages;
     for (auto& [name, transforms] : def.tracks)
     {
         for (auto& tr : transforms)
         {
             if (!tr.image.empty())
             {
-                ResourceManager::PreloadReanimImage(tr.image);
+                uniqueImages.insert(tr.image);
+            }
+        }
+    }
+
+    if (!uniqueImages.empty())
+    {
+        AtlasBuilder builder;
+        bool hasImages = false;
+
+        for (const auto& imageId : uniqueImages)
+        {
+            PixelData imageData;
+            if (ResourceManager::LoadReanimImageData(imageId, imageData))
+            {
+                builder.AddImage(imageId, imageData);
+                hasImages = true;
+            }
+            else
+            {
+                std::cerr << "ReanimationLoader: Failed to load image data for '"
+                    << imageId << "' in reanim '" << path << "'\n";
+            }
+        }
+
+        if (hasImages)
+        {
+            TextureAtlas atlas;
+            if (builder.Build(atlas))
+            {
+                def.atlasTexture = ResourceManager::CreateTextureFromPixelData(atlas.atlasData);
+                def.atlasRegions = std::move(atlas.regions);
+                def.useAtlas = def.atlasTexture != nullptr;
             }
         }
     }

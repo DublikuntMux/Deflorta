@@ -614,3 +614,35 @@ bool ResourceManager::CreateSlicedImages(const std::string& baseId, const PixelD
 
     return true;
 }
+
+bool ResourceManager::LoadReanimImageData(const std::string& id, PixelData& outData)
+{
+    {
+        std::lock_guard lock(groupsMutex_);
+        for (auto& group : groups_ | std::views::values)
+        {
+            if (auto it = group.images.find(id); it != group.images.end())
+            {
+                const std::string fullPath = (std::filesystem::path(resourceBasePath_) / it->second.path).string() +
+                    ".png";
+                return LoadPngFile(fullPath, outData);
+            }
+        }
+    }
+
+    const std::string fileNameNoExt = TokenToReanimFileName(id);
+    const std::string reanimPath = (std::filesystem::path("reanim") / fileNameNoExt).string();
+    const std::string fullPath = (std::filesystem::path(resourceBasePath_) / reanimPath).string() + ".png";
+
+    return LoadPngFile(fullPath, outData);
+}
+
+std::shared_ptr<ITexture> ResourceManager::CreateTextureFromPixelData(const PixelData& data)
+{
+    std::shared_ptr<ITexture> texture;
+    if (CreateTexture(data, &texture))
+    {
+        return texture;
+    }
+    return nullptr;
+}

@@ -310,11 +310,19 @@ void Reanimator::Draw() const
 
             if (!cur.image.empty() && cur.frame >= 0.0f)
             {
-                if (auto bmp = ResourceManager::GetImage(cur.image))
-                {
-                    cur.translation += overlay_.position + tracks_[ti].shake;
-                    cur.scale *= overlay_.scale;
+                cur.translation += overlay_.position + tracks_[ti].shake;
+                cur.scale *= overlay_.scale;
 
+                if (def_->useAtlas && def_->atlasTexture)
+                {
+                    auto it = def_->atlasRegions.find(cur.image);
+                    if (it != def_->atlasRegions.end())
+                    {
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z);
+                    }
+                }
+                else if (auto bmp = ResourceManager::GetImage(cur.image))
+                {
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
             }
@@ -361,11 +369,19 @@ void Reanimator::Draw() const
 
             if (!cur.image.empty() && cur.frame >= 0.0f)
             {
-                if (auto bmp = ResourceManager::GetImage(cur.image))
-                {
-                    cur.translation += overlay_.position + tracks_[ti].shake;
-                    cur.scale *= overlay_.scale;
+                cur.translation += overlay_.position + tracks_[ti].shake;
+                cur.scale *= overlay_.scale;
 
+                if (def_->useAtlas && def_->atlasTexture)
+                {
+                    auto it = def_->atlasRegions.find(cur.image);
+                    if (it != def_->atlasRegions.end())
+                    {
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z);
+                    }
+                }
+                else if (auto bmp = ResourceManager::GetImage(cur.image))
+                {
                     Renderer::EnqueueReanim(bmp, cur, z);
                 }
             }

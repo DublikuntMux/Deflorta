@@ -14,7 +14,7 @@ Fog::Fog(int rowCount, int maxColumns)
 
 void Fog::Update()
 {
-    for (auto& piece : fogPieces_)
+    for (const auto& piece : fogPieces_)
     {
         if (piece.tween && piece.tween->IsActive())
         {

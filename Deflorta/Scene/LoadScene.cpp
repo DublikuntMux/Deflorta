@@ -44,12 +44,12 @@ LoadScene::LoadScene()
 
     std::tie(screen_, screenTransform_) = loadCentered("IMAGE_TITLESCREEN", 1280.0f / 2.0f, 720.0f / 2.0f);
     std::tie(pvzLogo_, pvzTransform_) = loadCentered("IMAGE_PVZ_LOGO", 1280.0f / 2.0f, 100.0f);
-    auto logoPair = loadCentered("IMAGE_POPCAP_LOGO", 1280.0f / 2.0f, 720.0f / 2.0f);
+    const auto logoPair = loadCentered("IMAGE_POPCAP_LOGO", 1280.0f / 2.0f, 720.0f / 2.0f);
     logo_ = logoPair.first;
     logoTransform_ = logoPair.second;
     logoTransform_.scale = {0.5f, 0.5f};
 
-    auto rollPair = loadCentered("IMAGE_REANIM_SODROLLCAP", 1280.0f / 2.0f, 720.0f / 2.0f + 200.0f);
+    const auto rollPair = loadCentered("IMAGE_REANIM_SODROLLCAP", 1280.0f / 2.0f, 720.0f / 2.0f + 200.0f);
     rollCap_ = rollPair.first;
     rollCapTransform_ = rollPair.second;
 

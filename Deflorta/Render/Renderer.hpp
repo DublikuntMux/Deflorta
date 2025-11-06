@@ -1,6 +1,7 @@
 #pragma once
 
 #include "IRenderBackend.hpp"
+#include "AtlasBuilder.hpp"
 #include "../Base/Transform.hpp"
 
 #include <memory>
@@ -12,6 +13,7 @@ struct ReanimatorTransform;
 enum class DrawType : std::uint8_t
 {
     Image,
+    ImageAtlas,
     Text,
     Rectangle
 };
@@ -27,6 +29,20 @@ struct DrawItem
 
         ImageData(std::shared_ptr<ITexture> tex, const glm::mat3& m, float o)
             : texture(std::move(tex)), transform(m), opacity(o)
+        {
+        }
+    };
+
+    struct ImageAtlasData
+    {
+        std::shared_ptr<ITexture> texture;
+        glm::mat3 transform{};
+        AtlasRegion region;
+        float opacity = 1.0f;
+        ImageAtlasData() = default;
+
+        ImageAtlasData(std::shared_ptr<ITexture> tex, const glm::mat3& m, const AtlasRegion& r, float o)
+            : texture(std::move(tex)), transform(m), region(r), opacity(o)
         {
         }
     };
@@ -62,6 +78,7 @@ struct DrawItem
     union ItemData
     {
         ImageData image;
+        ImageAtlasData imageAtlas;
         TextData text;
         RectangleData rectangle;
 
@@ -102,6 +119,10 @@ public:
     static void EnqueueImage(const std::shared_ptr<ITexture>& texture, const Transform& transform,
                              float opacity = 1.0f, int z = 0);
     static void EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z);
+    static void EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
+                                   const ReanimatorTransform& transform,
+                                   const AtlasRegion& region,
+                                   int z);
     static void EnqueueTextW(const std::wstring& text,
                              const Rect& layoutRect,
                              const std::wstring& fontFamily,
