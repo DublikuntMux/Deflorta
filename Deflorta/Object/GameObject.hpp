@@ -4,6 +4,7 @@
 #include "../Collision/Collider.hpp"
 
 #include <memory>
+#include <iostream>
 
 enum class GameObjectTag : std::uint8_t
 {
@@ -20,11 +21,13 @@ enum class GameObjectTag : std::uint8_t
 class Collider;
 class Scene;
 
-class GameObject
+class GameObject: public std::enable_shared_from_this<GameObject>
 {
 public:
-    explicit GameObject(GameObjectTag tag = GameObjectTag::None);
     virtual ~GameObject() = default;
+
+    template <typename T, typename... Args>
+    static std::shared_ptr<T> Create(Args&&... args);
 
     virtual void Update() = 0;
     virtual void Render();
@@ -46,7 +49,7 @@ public:
 
     [[nodiscard]] Transform& GetTransform();
     [[nodiscard]] const Transform& GetTransform() const;
-    void SetTransform(const Transform& transform);
+    void SetTransform(Transform transform);
 
     [[nodiscard]] bool IsActive() const;
     void SetActive(bool active);
@@ -64,6 +67,8 @@ public:
     [[nodiscard]] Scene* GetScene() const { return scene_; }
 
 protected:
+    explicit GameObject(GameObjectTag tag = GameObjectTag::None);
+
     Transform transform_;
     GameObjectTag tag_;
     bool isActive_ = true;
@@ -84,4 +89,15 @@ T* GameObject::AddCollider(Args&&... args)
     T* ptr = collider.get();
     collider_ = std::move(collider);
     return ptr;
+}
+
+template <typename T, typename... Args>
+std::shared_ptr<T> GameObject::Create(Args&&... args)
+{
+    static_assert(std::is_base_of_v<GameObject, T>, "T must derive from GameObject");
+    struct EnableMakeShared : T
+    {
+        explicit EnableMakeShared(Args&&... args) : T(std::forward<Args>(args)...) {}
+    };
+    return std::make_shared<EnableMakeShared>(std::forward<Args>(args)...);
 }

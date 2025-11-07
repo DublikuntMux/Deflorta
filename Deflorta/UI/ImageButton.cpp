@@ -1,13 +1,13 @@
-﻿#include "ImageButton.hpp"
+#include "ImageButton.hpp"
 
 #include "../Base/Transform.hpp"
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 
-ImageButton::ImageButton(const std::shared_ptr<ITexture>& normalImage, const std::shared_ptr<ITexture>& hoverImage,
+ImageButton::ImageButton(std::shared_ptr<ITexture> normalImage, std::shared_ptr<ITexture> hoverImage,
                          glm::vec2 position,
                          glm::vec2 dimensions)
-    : normalImage_(normalImage), hoverImage_(hoverImage)
+    : normalImage_(std::move(normalImage)), hoverImage_(std::move(hoverImage))
 {
     position_ = position;
     dimensions_ = dimensions;
@@ -33,9 +33,9 @@ std::shared_ptr<ITexture> ImageButton::GetNormalImage() const
     return normalImage_;
 }
 
-void ImageButton::SetNormalImage(const std::shared_ptr<ITexture>& normal_image)
+void ImageButton::SetNormalImage(std::shared_ptr<ITexture> normal_image)
 {
-    normalImage_ = normal_image;
+    normalImage_ = std::move(normal_image);
 }
 
 std::shared_ptr<ITexture> ImageButton::GetHoverImage() const
@@ -43,7 +43,7 @@ std::shared_ptr<ITexture> ImageButton::GetHoverImage() const
     return hoverImage_;
 }
 
-void ImageButton::SetHoverImage(const std::shared_ptr<ITexture>& hover_image)
+void ImageButton::SetHoverImage(std::shared_ptr<ITexture> hover_image)
 {
-    hoverImage_ = hover_image;
+    hoverImage_ = std::move(hover_image);
 }

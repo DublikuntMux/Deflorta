@@ -1,4 +1,4 @@
-﻿#include "Discord.hpp"
+#include "Discord.hpp"
 
 #include "Time.hpp"
 
@@ -43,10 +43,10 @@ void Discord::Update()
     Discord_RunCallbacks();
 }
 
-void Discord::SetPresence(const std::string& state, const std::string& details, bool resetTime)
+void Discord::SetPresence(std::string state, std::string details, bool resetTime)
 {
-    state_ = state;
-    details_ = details;
+    state_ = std::move(state);
+    details_ = std::move(details);
     if (resetTime)
     {
         startTimestamp_ = time(nullptr);

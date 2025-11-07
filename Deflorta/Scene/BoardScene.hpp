@@ -67,5 +67,5 @@ private:
     std::vector<std::shared_ptr<BasePlant>> plants_;
 
     bool CanPlantAt(int row, int column, PlantPos pos) const;
-    bool PlantAt(int row, int column, const std::shared_ptr<BasePlant>& plant);
+    bool PlantAt(int row, int column, std::shared_ptr<BasePlant> plant);
 };

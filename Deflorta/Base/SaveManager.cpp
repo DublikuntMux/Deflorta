@@ -1,4 +1,4 @@
-﻿#include "SaveManager.hpp"
+#include "SaveManager.hpp"
 
 #include <pugixml.hpp>
 #include <Windows.h>
@@ -175,11 +175,11 @@ void SaveManager::SetBool(const std::string& key, bool value)
     data_[key] = value;
 }
 
-void SaveManager::SetString(const std::string& key, const std::string& value)
+void SaveManager::SetString(const std::string& key, std::string value)
 {
     if (!initialized_)
         return;
-    data_[key] = value;
+    data_[key] = std::move(value);
 }
 
 int SaveManager::GetInt(const std::string& key, int default_value)

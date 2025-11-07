@@ -115,11 +115,11 @@ int Reanimator::FindTrackIndexByName(const std::string& trackName) const
     return -1;
 }
 
-void Reanimator::OverrideLayerImage(const std::string& trackName, const std::string& image)
+void Reanimator::OverrideLayerImage(std::string trackName, std::string image)
 {
     const int idx = FindTrackIndexByName(trackName);
     if (idx < 0 || std::cmp_greater_equal(idx, tracks_.size())) return;
-    tracks_[static_cast<size_t>(idx)].imageOverride = image;
+    tracks_[static_cast<size_t>(idx)].imageOverride = std::move(image);
 }
 
 void Reanimator::ClearLayerImageOverride(const std::string& trackName)

@@ -1,4 +1,4 @@
-﻿#include "Foley.hpp"
+#include "Foley.hpp"
 
 #include "ResourceManager.hpp"
 #include "AudioManager.hpp"
@@ -191,9 +191,8 @@ void Foley::LoadFromFile(const std::string& path)
 
         for (auto sfxNode : soundNode.children("sfx"))
         {
-            const std::string sfxId = sfxNode.text().as_string();
-            if (!sfxId.empty())
-                params.sfxId.push_back(sfxId);
+            if (std::string sfxId = sfxNode.text().as_string(); !sfxId.empty())
+                params.sfxId.push_back(std::move(sfxId));
         }
 
         if (params.sfxId.empty())

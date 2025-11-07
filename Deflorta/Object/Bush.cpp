@@ -33,7 +33,7 @@ Bush::Bush(int rowCount, bool isNightMode)
         bushAnim->SetPosition(positions[i]);
         bushAnim->PlayLayer("anim_rustle", ReanimLoopType::PlayOnceAndHold);
         bushAnim->SetAllLayersZ(static_cast<int>(RenderLayer::Foreground));
-        bushAnimations_.push_back(bushAnim);
+        bushAnimations_.push_back(std::move(bushAnim));
     }
 }
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <string>
 #include <unordered_map>
@@ -18,7 +18,7 @@ public:
     static void SetInt(const std::string& key, int value);
     static void SetFloat(const std::string& key, float value);
     static void SetBool(const std::string& key, bool value);
-    static void SetString(const std::string& key, const std::string& value);
+    static void SetString(const std::string& key, std::string value);
 
     static int GetInt(const std::string& key, int default_value = 0);
     static float GetFloat(const std::string& key, float default_value = 0.0f);

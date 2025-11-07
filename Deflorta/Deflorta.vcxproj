@@ -93,6 +93,7 @@
         <ClCompile Include="Base\Rect.cpp"/>
         <ClCompile Include="Base\SaveManager.cpp"/>
         <ClCompile Include="Base\Time.cpp"/>
+        <ClCompile Include="Base\Timer.cpp" />
         <ClCompile Include="Base\Tween.cpp"/>
         <ClCompile Include="Collision\Collider.cpp"/>
         <ClCompile Include="Collision\CollisionMatrix.cpp"/>
@@ -106,7 +107,7 @@
         <ClCompile Include="Object\GameObject.cpp"/>
         <ClCompile Include="Object\Plant\BasePlant.cpp"/>
         <ClCompile Include="Object\Plant\SunFlower.cpp"/>
-        <ClCompile Include="Render\AtlasBuilder.cpp" />
+        <ClCompile Include="Render\AtlasBuilder.cpp"/>
         <ClCompile Include="Render\D2DRenderBackend.cpp"/>
         <ClCompile Include="Render\Reanimator.cpp"/>
         <ClCompile Include="Render\Renderer.cpp"/>
@@ -137,6 +138,7 @@
         <ClInclude Include="Base\Rect.hpp"/>
         <ClInclude Include="Base\SaveManager.hpp"/>
         <ClInclude Include="Base\Time.hpp"/>
+        <ClInclude Include="Base\Timer.hpp" />
         <ClInclude Include="Base\Transform.hpp"/>
         <ClInclude Include="Base\Tween.hpp"/>
         <ClInclude Include="Collision\Collider.hpp"/>
@@ -150,7 +152,7 @@
         <ClInclude Include="Object\GameObject.hpp"/>
         <ClInclude Include="Object\Plant\BasePlant.hpp"/>
         <ClInclude Include="Object\Plant\SunFlower.hpp"/>
-        <ClInclude Include="Render\AtlasBuilder.hpp" />
+        <ClInclude Include="Render\AtlasBuilder.hpp"/>
         <ClInclude Include="Render\D2DRenderBackend.hpp"/>
         <ClInclude Include="Render\IRenderBackend.hpp"/>
         <ClInclude Include="Render\Layer.hpp"/>
@@ -192,5 +194,6 @@
     <PropertyGroup Label="Vcpkg">
         <VcpkgEnableManifest>true</VcpkgEnableManifest>
         <VcpkgUseStatic>true</VcpkgUseStatic>
+        <VcpkgTriplet>x64-windows-static</VcpkgTriplet>
     </PropertyGroup>
 </Project>

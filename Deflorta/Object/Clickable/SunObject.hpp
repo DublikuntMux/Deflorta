@@ -3,7 +3,7 @@
 #include "ClickableObject.hpp"
 #include "../../Render/Reanimator.hpp"
 
-class SunObject final : public ClickableObject
+class SunObject : public ClickableObject
 {
 public:
     SunObject();

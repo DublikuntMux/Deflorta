@@ -1,4 +1,4 @@
-﻿#include "ResourceManager.hpp"
+#include "ResourceManager.hpp"
 
 #include "AudioManager.hpp"
 
@@ -533,7 +533,7 @@ std::string ResourceManager::TokenToReanimFileName(const std::string& id)
         {
             if (!cur.empty())
             {
-                parts.push_back(cur);
+                parts.push_back(std::move(cur));
                 cur.clear();
             }
         }
@@ -542,7 +542,7 @@ std::string ResourceManager::TokenToReanimFileName(const std::string& id)
             cur.push_back(c);
         }
     }
-    if (!cur.empty()) parts.push_back(cur);
+    if (!cur.empty()) parts.push_back(std::move(cur));
 
     std::string result;
     for (size_t i = 0; i < parts.size(); ++i)

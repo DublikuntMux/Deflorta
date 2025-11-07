@@ -113,8 +113,8 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 
     if (!hasPole)
     {
-        bush_ = std::make_shared<Bush>(rows, bushesNight);
-        AddGameObject(bush_);
+        bush_ = GameObject::Create<Bush>(rows, bushesNight);
+        AddGameObject(std::move(bush_));
     }
 
     backgroundTransform_ = Transform{
@@ -125,8 +125,8 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 
     if (settings_.hasFog)
     {
-        fog_ = std::make_unique<Fog>(rows, settings_.fogColumns);
-        AddGameObject(fog_);
+        fog_ = GameObject::Create<Fog>(rows, settings_.fogColumns);
+        AddGameObject(std::move(fog_));
     }
 
     plants_.reserve(Utils::NextPowerOf2(rows * 9));
@@ -135,14 +135,14 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     {
         for (int col = 0; col < 9; ++col)
         {
-            auto testPlant = std::make_shared<SunFlower>();
-            PlantAt(row, col, testPlant);
+            auto testPlant = GameObject::Create<SunFlower>();
+            PlantAt(row, col, std::move(testPlant));
         }
     }
 
-    auto testSun = std::make_shared<SunObject>();
+    auto testSun = GameObject::Create<SunObject>();
     testSun->SetTransform(Transform{.position = {200.0f, 200.0f}, .scale = {1.0f, 1.0f}, .rotation = 0.0f});
-    AddGameObject(testSun);
+    AddGameObject(std::move(testSun));
 }
 
 void BoardScene::OnEnter()
@@ -243,7 +243,7 @@ bool BoardScene::CanPlantAt(int row, int column, PlantPos pos) const
     });
 }
 
-bool BoardScene::PlantAt(int row, int column, const std::shared_ptr<BasePlant>& plant)
+bool BoardScene::PlantAt(int row, int column, std::shared_ptr<BasePlant> plant)
 {
     if (!plant)
         return false;
@@ -252,8 +252,8 @@ bool BoardScene::PlantAt(int row, int column, const std::shared_ptr<BasePlant>& 
         return false;
 
     plant->SetGridPosition(row, column, settings_.backgroundType);
-    plants_.emplace_back(plant);
-    AddGameObject(plant);
+    plants_.push_back(plant);
+    AddGameObject(std::move(plant));
 
     return true;
 }

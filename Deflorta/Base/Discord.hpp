@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <discord_rpc.h>
 
@@ -10,7 +10,7 @@ public:
     static void Initialize();
     static void Shutdown();
     static void Update();
-    static void SetPresence(const std::string& state, const std::string& details = "", bool resetTime = false);
+    static void SetPresence(std::string state, std::string details = "", bool resetTime = false);
 
 private:
     static void ClearPresence();

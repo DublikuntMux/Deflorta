@@ -4,6 +4,7 @@
 #include "../Collision/CollisionSystem.hpp"
 #include "../Collision/QuadTree.hpp"
 #include "../UI/Widget.hpp"
+#include "../Base/Timer.hpp"
 
 #include <algorithm>
 
@@ -26,6 +27,14 @@ void Scene::Update()
     {
         collisionSystem_->Update(gameObjects_);
     }
+    for (const auto& timer : timers_)
+    {
+        if (timer)
+        {
+            timer->Update();
+        }
+    }
+
 
     for (auto* widget : widgets_)
     {
@@ -35,8 +44,11 @@ void Scene::Update()
         }
     }
 
-    std::erase_if(gameObjects_,
-                  [](const std::shared_ptr<GameObject>& obj) { return obj && obj->isQueuedForDeletion_; });
+    for (const auto& gameObject : deletePool_)
+    {
+        std::erase(gameObjects_, gameObject);
+    }
+    deletePool_.clear();
 }
 
 void Scene::Render()
@@ -63,6 +75,11 @@ void Scene::Render()
     }
 }
 
+void Scene::QueueFree(std::shared_ptr<GameObject> gameObject)
+{
+    deletePool_.emplace_back(std::move(gameObject));
+}
+
 void Scene::AddWidget(Widget* widget)
 {
     if (widget)
@@ -85,12 +102,12 @@ void Scene::ClearWidgets()
     widgets_.clear();
 }
 
-void Scene::AddGameObject(const std::shared_ptr<GameObject>& gameObject)
+void Scene::AddGameObject(std::shared_ptr<GameObject> gameObject)
 {
     if (gameObject)
     {
         gameObject->scene_ = this;
-        gameObjects_.push_back(gameObject);
+        gameObjects_.push_back(std::move(gameObject));
     }
 }
 
@@ -107,3 +124,27 @@ void Scene::ClearGameObjects()
 {
     gameObjects_.clear();
 }
+
+void Scene::AddTimer(std::shared_ptr<Timer> timer)
+{
+    if (timer)
+    {
+        timer->SetScene(this);
+        timers_.push_back(std::move(timer));
+    }
+}
+
+void Scene::RemoveTimer(const std::shared_ptr<Timer>& timer)
+{
+    const auto it = std::ranges::find(timers_, timer);
+    if (it != timers_.end())
+    {
+        timers_.erase(it);
+    }
+}
+
+void Scene::ClearTimers()
+{
+    timers_.clear();
+}
+

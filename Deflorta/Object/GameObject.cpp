@@ -1,6 +1,7 @@
 #include "GameObject.hpp"
 
 #include "../Render/Renderer.hpp"
+#include "../Scene/Scene.hpp"
 
 
 GameObject::GameObject(GameObjectTag tag) : tag_(tag)
@@ -36,9 +37,9 @@ const Transform& GameObject::GetTransform() const
     return transform_;
 }
 
-void GameObject::SetTransform(const Transform& transform)
+void GameObject::SetTransform(Transform transform)
 {
-    transform_ = transform;
+    transform_ = std::move(transform);
 }
 
 bool GameObject::IsActive() const
@@ -72,5 +73,6 @@ void GameObject::QueueFree()
     {
         isQueuedForDeletion_ = true;
         SetActive(false);
+        scene_->QueueFree(shared_from_this());
     }
 }

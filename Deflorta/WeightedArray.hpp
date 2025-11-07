@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Base/Random.hpp"
 
@@ -17,10 +17,10 @@ public:
         double weight;
     };
 
-    void add(const T& value, double weight)
+    void add(T value, double weight)
     {
         if (weight <= 0.0) return;
-        entries_.push_back({value, weight});
+        entries_.push_back({std::move(value), weight});
         needsUpdate_ = true;
     }
 

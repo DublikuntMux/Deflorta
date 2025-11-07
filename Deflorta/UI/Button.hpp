@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Widget.hpp"
 
@@ -21,13 +21,13 @@ public:
     void Update() override;
 
     [[nodiscard]] State GetButtonState() const;
-    void AddClickCallback(const std::function<void()>& callback);
-    void AddHoverCallback(const std::function<void()>& callback);
+    void AddClickCallback(std::function<void()> callback);
+    void AddHoverCallback(std::function<void()> callback);
 
     void SetRect(float width, float height);
     void ClearRect();
 
-    void SetPolygon(const std::vector<glm::vec2>& polygon);
+    void SetPolygon(std::vector<glm::vec2> polygon);
     void ClearPolygon();
     [[nodiscard]] bool HasPolygon() const;
 

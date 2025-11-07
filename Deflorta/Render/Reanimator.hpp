@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "Layer.hpp"
 #include "../Resource/ReanimationLoader.hpp"
@@ -52,7 +52,7 @@ public:
 
     void SetPosition(glm::vec2 pos);
     void OverrideScale(glm::vec2 scale);
-    void OverrideLayerImage(const std::string& trackName, const std::string& image);
+    void OverrideLayerImage(std::string trackName, std::string image);
     void ClearLayerImageOverride(const std::string& trackName);
     void SetLayerVisible(const std::string& trackName, bool visible);
     void SetLayerZ(const std::string& trackName, int z);

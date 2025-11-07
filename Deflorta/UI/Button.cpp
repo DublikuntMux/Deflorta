@@ -98,19 +98,19 @@ Button::State Button::GetButtonState() const
     return state_;
 }
 
-void Button::AddClickCallback(const std::function<void()>& callback)
+void Button::AddClickCallback(std::function<void()> callback)
 {
-    clickCallback_.push_back(callback);
+    clickCallback_.push_back(std::move(callback));
 }
 
-void Button::AddHoverCallback(const std::function<void()>& callback)
+void Button::AddHoverCallback(std::function<void()> callback)
 {
-    hoverCallback_.push_back(callback);
+    hoverCallback_.push_back(std::move(callback));
 }
 
-void Button::SetPolygon(const std::vector<glm::vec2>& polygon)
+void Button::SetPolygon(std::vector<glm::vec2> polygon)
 {
-    polygon_ = polygon;
+    polygon_ = std::move(polygon);
 }
 
 void Button::ClearPolygon()
