@@ -2,6 +2,7 @@
 
 #include "ResourceManager.hpp"
 #include "../Render/AtlasBuilder.hpp"
+#include "../Utils.hpp"
 
 #include <iostream>
 #include <filesystem>
@@ -14,14 +15,23 @@ std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::
     if (path.empty())
         return std::nullopt;
 
-    if (const auto it = loadedReanimations_.find(path); it != loadedReanimations_.end())
+    std::filesystem::path filePath(path);
+    if (!filePath.is_absolute())
+    {
+        const std::string exeDir = Utils::GetExecutableDir();
+        filePath = std::filesystem::path(exeDir) / path;
+    }
+
+    const std::string resolvedPath = filePath.string();
+
+    if (const auto it = loadedReanimations_.find(resolvedPath); it != loadedReanimations_.end())
         return &it->second;
 
     pugi::xml_document doc;
-    const pugi::xml_parse_result result = doc.load_file(path.c_str());
+    const pugi::xml_parse_result result = doc.load_file(resolvedPath.c_str());
     if (!result)
     {
-        std::cerr << "ReanimationLoader: Failed to load XML " << path
+        std::cerr << "ReanimationLoader: Failed to load XML " << resolvedPath
             << " (" << result.description() << ")\n";
         return std::nullopt;
     }
@@ -78,7 +88,7 @@ std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::
             else
             {
                 std::cerr << "ReanimationLoader: Failed to load image data for '"
-                    << imageId << "' in reanim '" << path << "'\n";
+                    << imageId << "' in reanim '" << resolvedPath << "'\n";
             }
         }
 
@@ -94,7 +104,7 @@ std::optional<ReanimatorDefinition*> ReanimationLoader::LoadFromFile(const std::
         }
     }
 
-    auto [it, inserted] = loadedReanimations_.emplace(path, std::move(def));
+    auto [it, inserted] = loadedReanimations_.emplace(resolvedPath, std::move(def));
     return &it->second;
 }
 

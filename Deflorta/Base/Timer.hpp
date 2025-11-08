@@ -41,10 +41,10 @@ public:
 private:
     Scene* scene_ = nullptr;
     std::function<void()> timeoutCallback_;
-    
+
     float waitTime_ = 1.0f;
     float timeLeft_ = 0.0f;
-    
+
     bool autostart_ = false;
     bool oneShot_ = false;
     bool paused_ = false;

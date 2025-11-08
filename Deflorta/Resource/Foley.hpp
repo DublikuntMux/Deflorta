@@ -68,7 +68,7 @@ struct FoleyParams
 class Foley
 {
 public:
-    static void LoadFromFile(const std::string& path);
+    static void LoadManifest();
 
     static void Play(const std::string& name);
     static void Stop(const std::string& name);

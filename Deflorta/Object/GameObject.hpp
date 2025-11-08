@@ -21,7 +21,7 @@ enum class GameObjectTag : std::uint8_t
 class Collider;
 class Scene;
 
-class GameObject: public std::enable_shared_from_this<GameObject>
+class GameObject : public std::enable_shared_from_this<GameObject>
 {
 public:
     virtual ~GameObject() = default;
@@ -97,7 +97,9 @@ std::shared_ptr<T> GameObject::Create(Args&&... args)
     static_assert(std::is_base_of_v<GameObject, T>, "T must derive from GameObject");
     struct EnableMakeShared : T
     {
-        explicit EnableMakeShared(Args&&... args) : T(std::forward<Args>(args)...) {}
+        explicit EnableMakeShared(Args&&... args) : T(std::forward<Args>(args)...)
+        {
+        }
     };
     return std::make_shared<EnableMakeShared>(std::forward<Args>(args)...);
 }

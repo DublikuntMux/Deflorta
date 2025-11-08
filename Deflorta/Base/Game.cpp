@@ -27,10 +27,10 @@ void Game::Initialize(HWND hwnd)
 
     ResourceManager::SetRenderBackend(Renderer::GetRenderBackend());
 
-    if (!ResourceManager::LoadManifest("resources/resources.xml"))
+    if (!ResourceManager::LoadManifest())
         running_ = false;
 
-    Foley::LoadFromFile("resources/foley.xml");
+    Foley::LoadManifest();
 
     Discord::Initialize();
 }

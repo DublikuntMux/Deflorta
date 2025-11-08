@@ -42,7 +42,7 @@ class ResourceManager final
 public:
     static void SetRenderBackend(IRenderBackend* backend);
 
-    static bool LoadManifest(const std::string& manifestPath);
+    static bool LoadManifest();
     static bool LoadGroup(const std::string& groupName);
 
     static std::shared_ptr<ITexture> GetImage(const std::string& id);

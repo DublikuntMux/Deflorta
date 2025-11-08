@@ -1,10 +1,10 @@
 #include "ResourceManager.hpp"
 
 #include "AudioManager.hpp"
+#include "../Utils.hpp"
 
 #include <pugixml.hpp>
 #include <png.h>
-#include <Windows.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -235,8 +235,10 @@ bool ResourceManager::CreateTexture(const PixelData& data, std::shared_ptr<IText
     return *outTexture != nullptr;
 }
 
-bool ResourceManager::LoadManifest(const std::string& manifestPath)
+bool ResourceManager::LoadManifest()
 {
+    const std::string exeDir = Utils::GetExecutableDir();
+    std::string manifestPath = (std::filesystem::path(exeDir) / "resources" / "resources.xml").string();
     pugi::xml_document doc;
     if (!doc.load_file(manifestPath.c_str()))
     {

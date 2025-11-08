@@ -147,4 +147,3 @@ void Scene::ClearTimers()
 {
     timers_.clear();
 }
-

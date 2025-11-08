@@ -3,6 +3,7 @@
 #include "ResourceManager.hpp"
 #include "AudioManager.hpp"
 #include "../Base/Random.hpp"
+#include "../Utils.hpp"
 
 #include <pugixml.hpp>
 
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 
 std::unordered_map<std::string, FoleyParams> Foley::foleyMap_;
 std::unordered_map<std::string, IXAudio2SourceVoice*> Foley::activeVoices_;
@@ -146,13 +148,16 @@ FoleyFlags Foley::ParseFlags(const std::string& flagsStr)
     return result;
 }
 
-void Foley::LoadFromFile(const std::string& path)
+void Foley::LoadManifest()
 {
+    const std::string exeDir = Utils::GetExecutableDir();
+    std::string path = (std::filesystem::path(exeDir) / "resources" / "foley.xml").string();
+
     pugi::xml_document doc;
     const pugi::xml_parse_result result = doc.load_file(path.c_str());
     if (!result)
     {
-        std::cerr << "Foley::LoadFromFile - Error: Failed to load XML file '" << path
+        std::cerr << "Foley::LoadManifest - Error: Failed to load XML file '" << path
             << "' - " << result.description() << " at offset " << result.offset << "\n";
         return;
     }
@@ -160,7 +165,7 @@ void Foley::LoadFromFile(const std::string& path)
     const pugi::xml_node root = doc.child("foley");
     if (!root)
     {
-        std::cerr << "Foley::LoadFromFile - Error: Missing <foley> root element in '" << path << "'\n";
+        std::cerr << "Foley::LoadManifest - Error: Missing <foley> root element in '" << path << "'\n";
         return;
     }
 
@@ -173,7 +178,7 @@ void Foley::LoadFromFile(const std::string& path)
         const std::string name = soundNode.attribute("name").as_string();
         if (name.empty())
         {
-            std::cerr << "Foley::LoadFromFile - Warning: Found <sound> element without 'name' attribute, skipping\n";
+            std::cerr << "Foley::LoadManifest - Warning: Found <sound> element without 'name' attribute, skipping\n";
             continue;
         }
 
@@ -197,7 +202,7 @@ void Foley::LoadFromFile(const std::string& path)
 
         if (params.sfxId.empty())
         {
-            std::cerr << "Foley::LoadFromFile - Warning: Sound '" << name << "' has no <sfx> entries, skipping\n";
+            std::cerr << "Foley::LoadManifest - Warning: Sound '" << name << "' has no <sfx> entries, skipping\n";
             continue;
         }
 

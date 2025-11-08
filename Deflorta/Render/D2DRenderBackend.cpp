@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 
-#include <stdexcept>
+#include <iostream>
 
 D2DRenderBackend::~D2DRenderBackend()
 {
@@ -12,27 +12,49 @@ D2DRenderBackend::~D2DRenderBackend()
 bool D2DRenderBackend::Initialize(void* windowHandle)
 {
     hwnd_ = windowHandle;
+    std::cerr << "D2DRenderBackend::Initialize starting\n";
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     D2D1_FACTORY_OPTIONS factoryOptions;
 #ifdef _DEBUG
     factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
+#else
+    factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_NONE;
 #endif
 
     HRESULT hr = D2D1CreateFactory(
         D2D1_FACTORY_TYPE_MULTI_THREADED,
         factoryOptions,
         d2dFactory_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: D2D1CreateFactory failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
+    std::cerr << "D2D factory created\n";
 
     hr = DWriteCreateFactory(
         DWRITE_FACTORY_TYPE_SHARED,
         __uuidof(IDWriteFactory),
         reinterpret_cast<IUnknown**>(dwFactory_.ReleaseAndGetAddressOf()));
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: DWriteCreateFactory failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
+    std::cerr << "DWrite factory created\n";
 
-    return CreateDeviceResources(windowHandle);
+    const bool result = CreateDeviceResources(windowHandle);
+    if (result)
+    {
+        std::cerr << "D2D device and context created successfully\n";
+    }
+    else
+    {
+        std::cerr << "ERROR: Failed to create D2D device resources\n";
+    }
+    return result;
 }
 
 void D2DRenderBackend::Shutdown()
@@ -54,19 +76,31 @@ bool D2DRenderBackend::CreateDeviceResources(void* windowHandle)
     creationFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-    constexpr D3D_FEATURE_LEVEL fl = D3D_FEATURE_LEVEL_11_0;
+    D3D_FEATURE_LEVEL featureLevels[] = {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+    };
+    D3D_FEATURE_LEVEL achievedFeatureLevel;
+
     HRESULT hr = D3D11CreateDevice(
         nullptr,
         D3D_DRIVER_TYPE_HARDWARE,
         nullptr,
         creationFlags,
-        &fl,
-        1,
+        featureLevels,
+        ARRAYSIZE(featureLevels),
         D3D11_SDK_VERSION,
         d3dDevice_.ReleaseAndGetAddressOf(),
-        nullptr,
+        &achievedFeatureLevel,
         d3dContext_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: D3D11CreateDevice failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
+
+    std::cerr << "D3D11 device created successfully with feature level " << std::hex << achievedFeatureLevel << std::dec
+        << "\n";
 
     Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
     d3dDevice_.As(&dxgiDevice);
@@ -78,12 +112,20 @@ bool D2DRenderBackend::CreateDeviceResources(void* windowHandle)
     adapter->GetParent(IID_PPV_ARGS(&dxgiFactory));
 
     hr = d2dFactory_->CreateDevice(dxgiDevice.Get(), d2dDevice_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: CreateDevice failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
 
     hr = d2dDevice_->CreateDeviceContext(
         D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
         d2dContext_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: CreateDeviceContext failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
 
     d2dContext_->SetUnitMode(D2D1_UNIT_MODE_PIXELS);
 
@@ -103,7 +145,11 @@ bool D2DRenderBackend::CreateDeviceResources(void* windowHandle)
         nullptr,
         nullptr,
         swapChain_.ReleaseAndGetAddressOf());
-    if (FAILED(hr)) return false;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: CreateSwapChainForHwnd failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return false;
+    }
 
     RecreateTargetBitmap();
 
@@ -196,8 +242,18 @@ std::shared_ptr<ITexture> D2DRenderBackend::CreateTexture(const PixelData& data)
 {
     std::lock_guard lock(mutex_);
 
-    if (!d2dContext_ || data.pixels.empty() || data.width == 0 || data.height == 0)
+    if (!d2dContext_)
+    {
+        std::cerr << "Error: D2D context is null in CreateTexture\n";
         return nullptr;
+    }
+
+    if (data.pixels.empty() || data.width == 0 || data.height == 0)
+    {
+        std::cerr << "Error: Invalid pixel data in CreateTexture (width=" << data.width << ", height=" << data.height <<
+            ", pixels=" << data.pixels.size() << ")\n";
+        return nullptr;
+    }
 
     const D2D1_BITMAP_PROPERTIES props = D2D1::BitmapProperties(
         D2D1::PixelFormat(DXGI_FORMAT_R8G8B8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED));
@@ -210,7 +266,11 @@ std::shared_ptr<ITexture> D2DRenderBackend::CreateTexture(const PixelData& data)
         &props,
         bitmap.GetAddressOf());
 
-    if (FAILED(hr)) return nullptr;
+    if (FAILED(hr))
+    {
+        std::cerr << "Error: CreateBitmap failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
+        return nullptr;
+    }
 
     return std::make_shared<D2DTexture>(bitmap);
 }
