@@ -2,8 +2,8 @@
 
 #include "../../Scene/BoardScene.hpp"
 
-BasePlant::BasePlant(PlantType type, PlantPos pos)
-    : GameObject(GameObjectTag::Plant), plantType(type), plantPos(pos)
+BasePlant::BasePlant(PlantType type, PlantLayer layer)
+    : GameObject(GameObjectTag::Plant), plantType(type), plantLayer(layer)
 {
     auto collider = std::make_unique<BoxCollider>(this, 65.0f, 75.0f);
     collider->SetOffset({42.0f, 45.0f});
@@ -30,9 +30,9 @@ PlantType BasePlant::GetPlantType() const
     return plantType;
 }
 
-PlantPos BasePlant::GetPlantPos() const
+PlantLayer BasePlant::GetPlantLayer() const
 {
-    return plantPos;
+    return plantLayer;
 }
 
 void BasePlant::SetGridPosition(int row, int column, BackgroundType bgType)

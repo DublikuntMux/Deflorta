@@ -351,7 +351,8 @@ void Reanimator::Draw() const
                 const auto rect = Rect(textPos.x - 200.0f, textPos.y - size, textPos.x + 200.0f, textPos.y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
-                Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
+                Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z,
+                                       Justification::Left);
             }
             else if (name == "fullscreen")
             {
@@ -411,7 +412,8 @@ void Reanimator::Draw() const
                 const auto rect = Rect(textPos.x - 200.0f, textPos.y - size, textPos.x + 200.0f, textPos.y + size);
                 const auto color = Color(1.f, 1.f, 1.f, std::clamp(cur.alpha, 0.0f, 1.0f));
 
-                Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z);
+                Renderer::EnqueueTextW(text, rect, font.empty() ? L"Consolas" : font, size, color, z,
+                                       Justification::Left);
             }
             else if (name == "fullscreen")
             {

@@ -19,7 +19,8 @@ void UIText::Render()
     if (visible_)
     {
         const auto rect = Rect(position_.x, position_.y, position_.x + dimensions_.x, position_.y + dimensions_.y);
-        Renderer::EnqueueTextW(text_, rect, font_, fontSize_, color_, static_cast<int>(RenderLayer::UI));
+        Renderer::EnqueueTextW(text_, rect, font_, fontSize_, color_, static_cast<int>(RenderLayer::UI),
+                               Justification::Center);
     }
 }
 

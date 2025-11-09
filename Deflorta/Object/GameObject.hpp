@@ -30,7 +30,7 @@ public:
     static std::shared_ptr<T> Create(Args&&... args);
 
     virtual void Update() = 0;
-    virtual void Render();
+    virtual void Render() = 0;
 
     virtual void OnCollisionEnter(GameObject* other)
     {

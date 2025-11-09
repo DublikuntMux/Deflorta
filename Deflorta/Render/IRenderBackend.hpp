@@ -8,6 +8,16 @@
 #include <memory>
 #include <string>
 
+enum class Justification : std::uint8_t
+{
+    Left,
+    Right,
+    Center,
+    LeftVerticalMiddle,
+    RightVerticalMiddle,
+    CenterVerticalMiddle
+};
+
 class ITexture
 {
 public:
@@ -61,7 +71,7 @@ public:
         const Rect& layoutRect,
         ITextFormat* textFormat,
         const Color& color,
-        float opacity) = 0;
+        Justification justification) = 0;
 
     virtual void DrawRectangle(
         const Rect& rect,

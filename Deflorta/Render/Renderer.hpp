@@ -51,10 +51,12 @@ struct DrawItem
         std::shared_ptr<ITextFormat> textFormat;
         Rect rect{};
         Color color{};
+        Justification justification = Justification::Left;
         TextData() = default;
 
-        TextData(std::wstring tx, std::shared_ptr<ITextFormat> fmt, const Rect& r, const Color& c)
-            : text(std::move(tx)), textFormat(std::move(fmt)), rect(r), color(c)
+        TextData(std::wstring tx, std::shared_ptr<ITextFormat> fmt, const Rect& r, const Color& c,
+                 Justification j = Justification::Left)
+            : text(std::move(tx)), textFormat(std::move(fmt)), rect(r), color(c), justification(j)
         {
         }
     };
@@ -129,7 +131,8 @@ public:
                              const std::wstring& fontFamily,
                              float fontSize,
                              const Color& color,
-                             int z);
+                             int z,
+                             Justification justification);
     static void EnqueueRectangle(const Rect& rect,
                                  const Color& color,
                                  float strokeWidth,

@@ -49,8 +49,6 @@ SunObject::SunObject(int value) : ClickableObject(GameObjectTag::Sun), value_(va
 
 void SunObject::Render()
 {
-    ClickableObject::Render();
-
     if (sprite_)
         sprite_->Draw();
 }
@@ -149,7 +147,7 @@ void SunObject::OnMouseClick()
     props.push_back(
         {
             .start = transform_.position.y,
-            .end = 0.0f,
+            .end = 50.0f,
             .setter = [this](float value)
             {
                 transform_.position.y = value;
@@ -158,7 +156,7 @@ void SunObject::OnMouseClick()
         });
     props.push_back({
         .start = transform_.position.x,
-        .end = 0.0f,
+        .end = 52.0f,
         .setter = [this](float value)
         {
             transform_.position.x = value;

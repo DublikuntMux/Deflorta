@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include "../Object/SeedBank.hpp"
+
 enum class BackgroundType: std::uint8_t
 {
     Day,
@@ -63,9 +65,10 @@ private:
 
     std::shared_ptr<Bush> bush_;
     std::shared_ptr<Fog> fog_;
+    std::shared_ptr<SeedBank> seedBank_;
 
     std::vector<std::shared_ptr<BasePlant>> plants_;
 
-    bool CanPlantAt(int row, int column, PlantPos pos) const;
+    bool CanPlantAt(int row, int column, PlantLayer layer) const;
     bool PlantAt(int row, int column, std::shared_ptr<BasePlant> plant);
 };

@@ -107,6 +107,7 @@
         <ClCompile Include="Object\GameObject.cpp"/>
         <ClCompile Include="Object\Plant\BasePlant.cpp"/>
         <ClCompile Include="Object\Plant\SunFlower.cpp"/>
+        <ClCompile Include="Object\SeedBank.cpp"/>
         <ClCompile Include="Render\AtlasBuilder.cpp"/>
         <ClCompile Include="Render\D2DRenderBackend.cpp"/>
         <ClCompile Include="Render\Reanimator.cpp"/>
@@ -152,6 +153,7 @@
         <ClInclude Include="Object\GameObject.hpp"/>
         <ClInclude Include="Object\Plant\BasePlant.hpp"/>
         <ClInclude Include="Object\Plant\SunFlower.hpp"/>
+        <ClInclude Include="Object\SeedBank.hpp"/>
         <ClInclude Include="Render\AtlasBuilder.hpp"/>
         <ClInclude Include="Render\D2DRenderBackend.hpp"/>
         <ClInclude Include="Render\IRenderBackend.hpp"/>

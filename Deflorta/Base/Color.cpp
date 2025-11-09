@@ -8,27 +8,8 @@ Color::Color(const glm::vec4& color) : value(color)
 {
 }
 
-Color Color::White()
-{
-    return {1.0f, 1.0f, 1.0f, 1.0f};
-}
-
-Color Color::Black()
-{
-    return {0.0f, 0.0f, 0.0f, 1.0f};
-}
-
-Color Color::Red()
-{
-    return {1.0f, 0.0f, 0.0f, 1.0f};
-}
-
-Color Color::Green()
-{
-    return {0.0f, 1.0f, 0.0f, 1.0f};
-}
-
-Color Color::Blue()
-{
-    return {0.0f, 0.0f, 1.0f, 1.0f};
-}
+const Color Color::White = Color(1.0f, 1.0f, 1.0f, 1.0f);
+const Color Color::Black = Color(0.0f, 0.0f, 0.0f, 1.0f);
+const Color Color::Red = Color(1.0f, 0.0f, 0.0f, 1.0f);
+const Color Color::Green = Color(0.0f, 1.0f, 0.0f, 1.0f);
+const Color Color::Blue = Color(0.0f, 0.0f, 1.0f, 1.0f);

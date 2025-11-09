@@ -157,7 +157,7 @@ void Renderer::BeginFrame()
     submitSeq_ = 0;
 
     backend_->BeginFrame();
-    backend_->Clear(Color::Black());
+    backend_->Clear(Color::Black);
 }
 
 void Renderer::Render()
@@ -186,13 +186,13 @@ void Renderer::DrawFPS()
 {
     if (!showFPS_) return;
 
-    const std::wstring text = std::format(L"FPS: {:.1f}", Time::GetFps());
+    const std::wstring text = std::format(L"{:.2f}", Time::GetFps());
     const Rect layoutRect(8.0f, 4.0f, 300.0f, 40.0f);
 
-    const auto textFormat = backend_->CreateTextFormat(L"Consolas", 16.0f);
+    const auto textFormat = backend_->CreateTextFormat(L"Consolas", 20.0f);
     if (textFormat)
     {
-        backend_->DrawTexts(text, layoutRect, textFormat.get(), Color::White(), 1.0f);
+        backend_->DrawTexts(text, layoutRect, textFormat.get(), Color::White, Justification::Left);
     }
 }
 
@@ -241,7 +241,7 @@ void Renderer::FlushDrawQueue()
                     di.data.text.rect,
                     di.data.text.textFormat.get(),
                     di.data.text.color,
-                    di.opacity);
+                    di.data.text.justification);
             }
             break;
         case DrawType::Rectangle:
@@ -344,7 +344,8 @@ void Renderer::EnqueueTextW(const std::wstring& text,
                             const std::wstring& fontFamily,
                             float fontSize,
                             const Color& color,
-                            int z)
+                            int z,
+                            Justification justification)
 {
     if (text.empty() || !backend_) return;
 
@@ -355,7 +356,7 @@ void Renderer::EnqueueTextW(const std::wstring& text,
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.text) DrawItem::TextData(text, textFormat, layoutRect, color);
+    new(&di.data.text) DrawItem::TextData(text, textFormat, layoutRect, color, justification);
     di.drawType = DrawType::Text;
     drawQueue_.push_back(std::move(di));
 }

@@ -13,7 +13,7 @@ enum class PlantType: std::uint8_t
     SunFlower
 };
 
-enum class PlantPos: std::uint8_t
+enum class PlantLayer: std::uint8_t
 {
     Top,
     Base,
@@ -24,13 +24,13 @@ enum class PlantPos: std::uint8_t
 class BasePlant : public GameObject
 {
 public:
-    BasePlant(PlantType type, PlantPos pos);
+    BasePlant(PlantType type, PlantLayer layer);
 
     void Update() override;
     void Render() override;
 
     [[nodiscard]] PlantType GetPlantType() const;
-    [[nodiscard]] PlantPos GetPlantPos() const;
+    [[nodiscard]] PlantLayer GetPlantLayer() const;
 
     void SetGridPosition(int row, int column, BackgroundType bgType);
     [[nodiscard]] int GetGridRow() const;
@@ -40,7 +40,7 @@ protected:
     std::unique_ptr<Reanimator> sprite;
 
     PlantType plantType;
-    PlantPos plantPos;
+    PlantLayer plantLayer;
 
     int gridRow = -1;
     int gridColumn = -1;

@@ -6,7 +6,6 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
-#include "../Object/Clickable/SunObject.hpp"
 
 #include <algorithm>
 
@@ -114,7 +113,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     if (!hasPole)
     {
         bush_ = GameObject::Create<Bush>(rows, bushesNight);
-        AddGameObject(std::move(bush_));
+        AddGameObject(bush_);
     }
 
     backgroundTransform_ = Transform{
@@ -126,8 +125,11 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     if (settings_.hasFog)
     {
         fog_ = GameObject::Create<Fog>(rows, settings_.fogColumns);
-        AddGameObject(std::move(fog_));
+        AddGameObject(fog_);
     }
+
+    seedBank_ = GameObject::Create<SeedBank>();
+    AddGameObject(seedBank_);
 
     plants_.reserve(Utils::NextPowerOf2(rows * 9));
 
@@ -220,7 +222,7 @@ glm::ivec2 BoardScene::PositionToGrid(const glm::vec2& position, BackgroundType 
     return {row, col};
 }
 
-bool BoardScene::CanPlantAt(int row, int column, PlantPos pos) const
+bool BoardScene::CanPlantAt(int row, int column, PlantLayer layer) const
 {
     const int maxRows = settings_.backgroundType == BackgroundType::Pool ||
                         settings_.backgroundType == BackgroundType::PoolNight
@@ -235,7 +237,7 @@ bool BoardScene::CanPlantAt(int row, int column, PlantPos pos) const
     {
         return !(plant->GetGridRow() == row &&
             plant->GetGridColumn() == column &&
-            plant->GetPlantPos() == pos);
+            plant->GetPlantLayer() == layer);
     });
 }
 
@@ -244,7 +246,7 @@ bool BoardScene::PlantAt(int row, int column, std::shared_ptr<BasePlant> plant)
     if (!plant)
         return false;
 
-    if (!CanPlantAt(row, column, plant->GetPlantPos()))
+    if (!CanPlantAt(row, column, plant->GetPlantLayer()))
         return false;
 
     plant->SetGridPosition(row, column, settings_.backgroundType);

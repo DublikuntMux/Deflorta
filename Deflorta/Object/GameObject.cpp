@@ -13,10 +13,6 @@ GameObject::GameObject(GameObjectTag tag) : tag_(tag)
     };
 }
 
-void GameObject::Render()
-{
-}
-
 GameObjectTag GameObject::GetTag() const
 {
     return tag_;

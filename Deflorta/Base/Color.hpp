@@ -20,9 +20,9 @@ struct Color
     void SetB(float b) { value.b = b; }
     void SetA(float a) { value.a = a; }
 
-    static Color White();
-    static Color Black();
-    static Color Red();
-    static Color Green();
-    static Color Blue();
+    static const Color White;
+    static const Color Black;
+    static const Color Red;
+    static const Color Green;
+    static const Color Blue;
 };

@@ -8,7 +8,7 @@
 #include "../../Scene/Scene.hpp"
 #include "../Clickable/SunObject.hpp"
 
-SunFlower::SunFlower() : BasePlant(PlantType::SunFlower, PlantPos::Base)
+SunFlower::SunFlower() : BasePlant(PlantType::SunFlower, PlantLayer::Base)
 {
     const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/SunFlower.xml");
     if (!reanim.has_value())

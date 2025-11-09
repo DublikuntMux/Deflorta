@@ -348,7 +348,8 @@ void D2DRenderBackend::DrawTexts(
     const std::wstring& text,
     const Rect& layoutRect,
     ITextFormat* textFormat,
-    const Color& color, float opacity)
+    const Color& color,
+    Justification justification)
 {
     std::lock_guard lock(mutex_);
 
@@ -364,8 +365,39 @@ void D2DRenderBackend::DrawTexts(
 
     const auto dwFormat = dynamic_cast<DWriteTextFormat*>(textFormat);
 
+    switch (justification)
+    {
+    case Justification::Right:
+    case Justification::RightVerticalMiddle:
+        dwFormat->GetFormat()->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
+        break;
+    case Justification::Center:
+    case Justification::CenterVerticalMiddle:
+        dwFormat->GetFormat()->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        break;
+    case Justification::Left:
+    case Justification::LeftVerticalMiddle:
+    default:
+        dwFormat->GetFormat()->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
+        break;
+    }
+
+    switch (justification)
+    {
+    case Justification::LeftVerticalMiddle:
+    case Justification::RightVerticalMiddle:
+    case Justification::CenterVerticalMiddle:
+        dwFormat->GetFormat()->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+        break;
+    case Justification::Left:
+    case Justification::Right:
+    case Justification::Center:
+    default:
+        dwFormat->GetFormat()->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
+        break;
+    }
+
     brush_->SetColor(ConvertColor(color));
-    brush_->SetOpacity(opacity);
 
     d2dContext_->DrawTextW(
         text.c_str(),

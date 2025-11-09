@@ -93,7 +93,8 @@ public:
         const std::wstring& text,
         const Rect& layoutRect,
         ITextFormat* textFormat,
-        const Color& color, float opacity) override;
+        const Color& color,
+        Justification justificat) override;
 
     void DrawRectangle(
         const Rect& rect,
