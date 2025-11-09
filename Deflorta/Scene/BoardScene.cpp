@@ -139,10 +139,6 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
             PlantAt(row, col, std::move(testPlant));
         }
     }
-
-    auto testSun = GameObject::Create<SunObject>();
-    testSun->SetTransform(Transform{.position = {200.0f, 200.0f}, .scale = {1.0f, 1.0f}, .rotation = 0.0f});
-    AddGameObject(std::move(testSun));
 }
 
 void BoardScene::OnEnter()

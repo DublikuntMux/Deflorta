@@ -151,6 +151,21 @@ void Reanimator::SetAllLayersZ(int z)
     }
 }
 
+void Reanimator::SetLayerOpacity(const std::string& trackName, float opacity)
+{
+    const int idx = FindTrackIndexByName(trackName);
+    if (idx < 0 || std::cmp_greater_equal(idx, tracks_.size())) return;
+    tracks_[static_cast<size_t>(idx)].opacity = opacity;
+}
+
+void Reanimator::SetAllLayersOpacity(float opacity)
+{
+    for (auto& track : tracks_)
+    {
+        track.opacity = opacity;
+    }
+}
+
 std::pair<int, int> Reanimator::GetFramesForLayer(const std::string& trackName) const
 {
     int start = 0;
@@ -312,18 +327,19 @@ void Reanimator::Draw() const
             {
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
+                auto opacity = tracks_[ti].opacity;
 
                 if (def_->useAtlas && def_->atlasTexture)
                 {
                     auto it = def_->atlasRegions.find(cur.image);
                     if (it != def_->atlasRegions.end())
                     {
-                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z);
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity);
                     }
                 }
                 else if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    Renderer::EnqueueReanim(bmp, cur, z);
+                    Renderer::EnqueueReanim(bmp, cur, z, opacity);
                 }
             }
             else if (!cur.text.empty() && !cur.font.empty())
@@ -371,18 +387,19 @@ void Reanimator::Draw() const
             {
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
+                auto opacity = tracks_[ti].opacity;
 
                 if (def_->useAtlas && def_->atlasTexture)
                 {
                     auto it = def_->atlasRegions.find(cur.image);
                     if (it != def_->atlasRegions.end())
                     {
-                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z);
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity);
                     }
                 }
                 else if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    Renderer::EnqueueReanim(bmp, cur, z);
+                    Renderer::EnqueueReanim(bmp, cur, z, opacity);
                 }
             }
             else if (!cur.text.empty() && !cur.font.empty())

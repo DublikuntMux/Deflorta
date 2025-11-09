@@ -83,15 +83,23 @@ SelectorScene::SelectorScene()
                                            });
                                            b->AddHoverCallback(onHover);
                                            b->AddClickCallback(onPressGrave);
-                                           b->AddClickCallback([]
+                                           b->AddClickCallback([this]
                                            {
-                                               const auto settings = BoardSettings{
-                                                   .levelName = "1-1",
-                                                   .backgroundType = BackgroundType::Day,
-                                                   .hasFog = false,
-                                                   .fogColumns = 0,
-                                               };
-                                               Game::SetScene<BoardScene>(settings);
+                                               if (!startPressed_)
+                                               {
+                                                   startPressed_ = true;
+                                                   std::thread loadThread([]
+                                                   {
+                                                       const auto settings = BoardSettings{
+                                                           .levelName = "1-1",
+                                                           .backgroundType = BackgroundType::Day,
+                                                           .hasFog = false,
+                                                           .fogColumns = 0,
+                                                       };
+                                                       Game::SetScene<BoardScene>(settings);
+                                                   });
+                                                   loadThread.detach();
+                                               }
                                            });
                                        });
         AddWidget(startButton_.get());

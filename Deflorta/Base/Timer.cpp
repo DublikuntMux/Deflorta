@@ -2,14 +2,9 @@
 
 #include "Time.hpp"
 
-Timer::Timer(Scene* scene)
-    : scene_(scene)
-{
-}
-
 void Timer::Update()
 {
-    if (!hasStarted_ && autostart_)
+    if (!hasStarted_)
     {
         hasStarted_ = true;
         Start();
@@ -24,7 +19,10 @@ void Timer::Update()
     if (timeLeft_ <= 0.0f)
     {
         timeLeft_ = 0.0f;
-        EmitTimeout();
+        if (timeoutCallback_)
+        {
+            timeoutCallback_();
+        }
         if (oneShot_)
         {
             running_ = false;
@@ -61,12 +59,4 @@ bool Timer::IsStopped() const
 void Timer::SetWaitTime(float waitTime)
 {
     waitTime_ = waitTime > 0.0f ? waitTime : 0.0f;
-}
-
-void Timer::EmitTimeout() const
-{
-    if (timeoutCallback_)
-    {
-        timeoutCallback_();
-    }
 }

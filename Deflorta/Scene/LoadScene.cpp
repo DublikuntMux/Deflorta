@@ -126,7 +126,7 @@ void LoadScene::Render()
 {
     Scene::Render();
 
-    Renderer::EnqueueImage(screen_, screenTransform_, 1, static_cast<int>(RenderLayer::Foreground));
+    Renderer::EnqueueImage(screen_, screenTransform_, 1.0f, static_cast<int>(RenderLayer::Foreground));
     Renderer::EnqueueImage(logo_, logoTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));
     Renderer::EnqueueImage(pvzLogo_, pvzTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));
     Renderer::EnqueueImage(rollCap_, rollCapTransform_, logoOpacity_, static_cast<int>(RenderLayer::UI));

@@ -38,4 +38,6 @@ private:
     std::unique_ptr<ImageButton> optionsButton_;
     std::unique_ptr<ImageButton> helpButton_;
     std::unique_ptr<ImageButton> quitButton_;
+
+    bool startPressed_ = false;
 };

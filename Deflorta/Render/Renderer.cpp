@@ -15,6 +15,7 @@ size_t Renderer::submitSeq_ = 0;
 
 DrawItem::DrawItem(const DrawItem& other)
 {
+    opacity = other.opacity;
     z = other.z;
     seq = other.seq;
     drawType = other.drawType;
@@ -38,6 +39,7 @@ DrawItem::DrawItem(const DrawItem& other)
 
 DrawItem::DrawItem(DrawItem&& other) noexcept
 {
+    opacity = other.opacity;
     z = other.z;
     seq = other.seq;
     drawType = other.drawType;
@@ -63,6 +65,7 @@ DrawItem& DrawItem::operator=(const DrawItem& other)
 {
     if (this == &other) return *this;
     DestroyActive();
+    opacity = other.opacity;
     z = other.z;
     seq = other.seq;
     drawType = other.drawType;
@@ -89,6 +92,7 @@ DrawItem& DrawItem::operator=(DrawItem&& other) noexcept
 {
     if (this == &other) return *this;
     DestroyActive();
+    opacity = other.opacity;
     z = other.z;
     seq = other.seq;
     drawType = other.drawType;
@@ -188,7 +192,7 @@ void Renderer::DrawFPS()
     const auto textFormat = backend_->CreateTextFormat(L"Consolas", 16.0f);
     if (textFormat)
     {
-        backend_->DrawTexts(text, layoutRect, textFormat.get(), Color::White());
+        backend_->DrawTexts(text, layoutRect, textFormat.get(), Color::White(), 1.0f);
     }
 }
 
@@ -212,7 +216,7 @@ void Renderer::FlushDrawQueue()
                 backend_->DrawTexture(
                     di.data.image.texture.get(),
                     di.data.image.transform,
-                    di.data.image.opacity);
+                    di.opacity);
             }
             break;
         case DrawType::ImageAtlas:
@@ -226,7 +230,7 @@ void Renderer::FlushDrawQueue()
                     di.data.imageAtlas.texture.get(),
                     di.data.imageAtlas.transform,
                     sourceRect,
-                    di.data.imageAtlas.opacity);
+                    di.opacity);
             }
             break;
         case DrawType::Text:
@@ -236,7 +240,8 @@ void Renderer::FlushDrawQueue()
                     di.data.text.text,
                     di.data.text.rect,
                     di.data.text.textFormat.get(),
-                    di.data.text.color);
+                    di.data.text.color,
+                    di.opacity);
             }
             break;
         case DrawType::Rectangle:
@@ -267,15 +272,17 @@ void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Tran
     const glm::mat3 mat = mat4 * mat3 * mat2 * mat1;
 
     DrawItem di;
+    di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.image) DrawItem::ImageData(texture, mat, opacity);
+    new(&di.data.image) DrawItem::ImageData(texture, mat);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
 
-void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z)
+void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z,
+                             float opacity)
 {
     if (!texture) return;
 
@@ -293,10 +300,11 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
         transform.translation.x, transform.translation.y);
 
     DrawItem di;
+    di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.image) DrawItem::ImageData(texture, mat, 1.0f);
+    new(&di.data.image) DrawItem::ImageData(texture, mat);
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
@@ -304,7 +312,7 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
 void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
                                   const ReanimatorTransform& transform,
                                   const AtlasRegion& region,
-                                  int z)
+                                  int z, float opacity)
 {
     if (!atlasTexture) return;
 
@@ -322,10 +330,11 @@ void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
         transform.translation.x, transform.translation.y);
 
     DrawItem di;
+    di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
-    new(&di.data.imageAtlas) DrawItem::ImageAtlasData(atlasTexture, mat, region, 1.0f);
+    new(&di.data.imageAtlas) DrawItem::ImageAtlasData(atlasTexture, mat, region);
     di.drawType = DrawType::ImageAtlas;
     drawQueue_.push_back(std::move(di));
 }

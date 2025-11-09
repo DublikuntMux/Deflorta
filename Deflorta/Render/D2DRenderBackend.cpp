@@ -12,7 +12,6 @@ D2DRenderBackend::~D2DRenderBackend()
 bool D2DRenderBackend::Initialize(void* windowHandle)
 {
     hwnd_ = windowHandle;
-    std::cerr << "D2DRenderBackend::Initialize starting\n";
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -32,7 +31,6 @@ bool D2DRenderBackend::Initialize(void* windowHandle)
         std::cerr << "Error: D2D1CreateFactory failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
         return false;
     }
-    std::cerr << "D2D factory created\n";
 
     hr = DWriteCreateFactory(
         DWRITE_FACTORY_TYPE_SHARED,
@@ -43,14 +41,9 @@ bool D2DRenderBackend::Initialize(void* windowHandle)
         std::cerr << "Error: DWriteCreateFactory failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
         return false;
     }
-    std::cerr << "DWrite factory created\n";
 
     const bool result = CreateDeviceResources(windowHandle);
-    if (result)
-    {
-        std::cerr << "D2D device and context created successfully\n";
-    }
-    else
+    if (!result)
     {
         std::cerr << "ERROR: Failed to create D2D device resources\n";
     }
@@ -80,7 +73,6 @@ bool D2DRenderBackend::CreateDeviceResources(void* windowHandle)
         D3D_FEATURE_LEVEL_11_1,
         D3D_FEATURE_LEVEL_11_0,
     };
-    D3D_FEATURE_LEVEL achievedFeatureLevel;
 
     HRESULT hr = D3D11CreateDevice(
         nullptr,
@@ -91,16 +83,13 @@ bool D2DRenderBackend::CreateDeviceResources(void* windowHandle)
         ARRAYSIZE(featureLevels),
         D3D11_SDK_VERSION,
         d3dDevice_.ReleaseAndGetAddressOf(),
-        &achievedFeatureLevel,
+        nullptr,
         d3dContext_.ReleaseAndGetAddressOf());
     if (FAILED(hr))
     {
         std::cerr << "Error: D3D11CreateDevice failed with HRESULT 0x" << std::hex << hr << std::dec << "\n";
         return false;
     }
-
-    std::cerr << "D3D11 device created successfully with feature level " << std::hex << achievedFeatureLevel << std::dec
-        << "\n";
 
     Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
     d3dDevice_.As(&dxgiDevice);
@@ -359,7 +348,7 @@ void D2DRenderBackend::DrawTexts(
     const std::wstring& text,
     const Rect& layoutRect,
     ITextFormat* textFormat,
-    const Color& color)
+    const Color& color, float opacity)
 {
     std::lock_guard lock(mutex_);
 
@@ -376,6 +365,7 @@ void D2DRenderBackend::DrawTexts(
     const auto dwFormat = dynamic_cast<DWriteTextFormat*>(textFormat);
 
     brush_->SetColor(ConvertColor(color));
+    brush_->SetOpacity(opacity);
 
     d2dContext_->DrawTextW(
         text.c_str(),

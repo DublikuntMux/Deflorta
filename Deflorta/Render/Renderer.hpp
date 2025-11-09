@@ -24,11 +24,10 @@ struct DrawItem
     {
         std::shared_ptr<ITexture> texture;
         glm::mat3 transform{};
-        float opacity = 1.0f;
         ImageData() = default;
 
-        ImageData(std::shared_ptr<ITexture> tex, const glm::mat3& m, float o)
-            : texture(std::move(tex)), transform(m), opacity(o)
+        ImageData(std::shared_ptr<ITexture> tex, const glm::mat3& m)
+            : texture(std::move(tex)), transform(m)
         {
         }
     };
@@ -38,11 +37,10 @@ struct DrawItem
         std::shared_ptr<ITexture> texture;
         glm::mat3 transform{};
         AtlasRegion region;
-        float opacity = 1.0f;
         ImageAtlasData() = default;
 
-        ImageAtlasData(std::shared_ptr<ITexture> tex, const glm::mat3& m, const AtlasRegion& r, float o)
-            : texture(std::move(tex)), transform(m), region(r), opacity(o)
+        ImageAtlasData(std::shared_ptr<ITexture> tex, const glm::mat3& m, const AtlasRegion& r)
+            : texture(std::move(tex)), transform(m), region(r)
         {
         }
     };
@@ -89,6 +87,7 @@ struct DrawItem
         }
     };
 
+    float opacity = 1.0f;
     int z = 0;
     size_t seq = 0;
     DrawType drawType = DrawType::Image;
@@ -116,13 +115,15 @@ public:
     static void Cleanup();
     static void ToggleFPS();
 
-    static void EnqueueImage(const std::shared_ptr<ITexture>& texture, const Transform& transform,
-                             float opacity = 1.0f, int z = 0);
-    static void EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z);
+    static void EnqueueImage(const std::shared_ptr<ITexture>& texture, const Transform& transform, float opacity,
+                             int z);
+    static void EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z,
+                              float opacity);
     static void EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
                                    const ReanimatorTransform& transform,
                                    const AtlasRegion& region,
-                                   int z);
+                                   int z,
+                                   float opacity);
     static void EnqueueTextW(const std::wstring& text,
                              const Rect& layoutRect,
                              const std::wstring& fontFamily,
@@ -131,9 +132,9 @@ public:
                              int z);
     static void EnqueueRectangle(const Rect& rect,
                                  const Color& color,
-                                 float strokeWidth = 1.0f,
-                                 bool filled = false,
-                                 int z = 0);
+                                 float strokeWidth,
+                                 bool filled,
+                                 int z);
 
     static IRenderBackend* GetRenderBackend();
 

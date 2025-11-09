@@ -29,23 +29,19 @@ public:
     [[nodiscard]] CollisionSystem* GetCollisionSystem() const { return collisionSystem_.get(); }
 
     void QueueFree(std::shared_ptr<GameObject> gameObject);
+    void AddGameObject(std::shared_ptr<GameObject> gameObject);
 
-protected:
     void AddWidget(Widget* widget);
     void RemoveWidget(Widget* widget);
-    void ClearWidgets();
 
-    void AddGameObject(std::shared_ptr<GameObject> gameObject);
-    void RemoveGameObject(const std::shared_ptr<GameObject>& gameObject);
+protected:
+    void ClearWidgets();
     void ClearGameObjects();
-    void AddTimer(std::shared_ptr<Timer> timer);
-    void RemoveTimer(const std::shared_ptr<Timer>& timer);
-    void ClearTimers();
 
 private:
     std::vector<Widget*> widgets_;
     std::vector<std::shared_ptr<GameObject>> gameObjects_;
     std::vector<std::shared_ptr<GameObject>> deletePool_;
-    std::vector<std::shared_ptr<Timer>> timers_;
+    std::vector<std::shared_ptr<GameObject>> addPool_;
     std::unique_ptr<CollisionSystem> collisionSystem_;
 };

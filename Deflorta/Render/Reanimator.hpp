@@ -32,6 +32,7 @@ struct TrackInstance
     glm::vec2 shake = {0.0f, 0.0f};
     std::optional<std::string> imageOverride;
     bool visible = true;
+    float opacity = 1.0f;
 };
 
 class Reanimator final
@@ -54,9 +55,14 @@ public:
     void OverrideScale(glm::vec2 scale);
     void OverrideLayerImage(std::string trackName, std::string image);
     void ClearLayerImageOverride(const std::string& trackName);
+
     void SetLayerVisible(const std::string& trackName, bool visible);
+
     void SetLayerZ(const std::string& trackName, int z);
     void SetAllLayersZ(int z);
+
+    void SetLayerOpacity(const std::string& trackName, float opacity);
+    void SetAllLayersOpacity(float opacity);
 
     [[nodiscard]] bool IsDead() const { return dead_; }
     [[nodiscard]] bool IsFinished() const;

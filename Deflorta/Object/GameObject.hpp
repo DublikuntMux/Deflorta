@@ -70,10 +70,10 @@ protected:
     explicit GameObject(GameObjectTag tag = GameObjectTag::None);
 
     Transform transform_;
-    GameObjectTag tag_;
     bool isActive_ = true;
     bool isVisible_ = true;
     bool isQueuedForDeletion_ = false;
+    GameObjectTag tag_;
     std::unique_ptr<Collider> collider_;
     Scene* scene_ = nullptr;
 

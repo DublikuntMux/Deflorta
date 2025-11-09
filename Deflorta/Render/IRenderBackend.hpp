@@ -48,24 +48,25 @@ public:
     virtual void DrawTexture(
         ITexture* texture,
         const glm::mat3& transform,
-        float opacity = 1.0f) = 0;
+        float opacity) = 0;
 
     virtual void DrawTextureRect(
         ITexture* texture,
         const glm::mat3& transform,
         const Rect& sourceRect,
-        float opacity = 1.0f) = 0;
+        float opacity) = 0;
 
     virtual void DrawTexts(
         const std::wstring& text,
         const Rect& layoutRect,
         ITextFormat* textFormat,
-        const Color& color) = 0;
+        const Color& color,
+        float opacity) = 0;
 
     virtual void DrawRectangle(
         const Rect& rect,
         const Color& color,
-        float strokeWidth = 1.0f,
+        float strokeWidth,
         bool filled = false) = 0;
 
     virtual void SetTransform(const glm::mat3& transform) = 0;

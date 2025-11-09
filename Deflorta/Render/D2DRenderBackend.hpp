@@ -81,24 +81,24 @@ public:
     void DrawTexture(
         ITexture* texture,
         const glm::mat3& transform,
-        float opacity = 1.0f) override;
+        float opacity) override;
 
     void DrawTextureRect(
         ITexture* texture,
         const glm::mat3& transform,
         const Rect& sourceRect,
-        float opacity = 1.0f) override;
+        float opacity) override;
 
     void DrawTexts(
         const std::wstring& text,
         const Rect& layoutRect,
         ITextFormat* textFormat,
-        const Color& color) override;
+        const Color& color, float opacity) override;
 
     void DrawRectangle(
         const Rect& rect,
         const Color& color,
-        float strokeWidth = 1.0f,
+        float strokeWidth,
         bool filled = false) override;
 
     void SetTransform(const glm::mat3& transform) override;
