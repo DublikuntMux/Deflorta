@@ -222,6 +222,11 @@ glm::ivec2 BoardScene::PositionToGrid(const glm::vec2& position, BackgroundType 
     return {row, col};
 }
 
+std::shared_ptr<SeedBank> BoardScene::GetSeedBank() const
+{
+    return seedBank_;
+}
+
 bool BoardScene::CanPlantAt(int row, int column, PlantLayer layer) const
 {
     const int maxRows = settings_.backgroundType == BackgroundType::Pool ||

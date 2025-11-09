@@ -50,6 +50,8 @@ public:
     static glm::vec2 GridToPosition(int row, int column, BackgroundType bgType);
     static glm::ivec2 PositionToGrid(const glm::vec2& position, BackgroundType bgType);
 
+    [[nodiscard]] std::shared_ptr<SeedBank> GetSeedBank() const;
+
 private:
     BoardSettings settings_;
 

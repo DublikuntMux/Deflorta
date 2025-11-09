@@ -1,8 +1,14 @@
 #include "SunObject.hpp"
 
+#include "../../Scene/BoardScene.hpp"
+#include "../SeedBank.hpp"
+#include "../../Base/Random.hpp"
+#include "../../Base/Time.hpp"
+
 #include <stdexcept>
 
-SunObject::SunObject(int value) : ClickableObject(GameObjectTag::Sun), value_(value)
+SunObject::SunObject(glm::vec2 position, int value, SpawnAnimation spawnAnimation) : ClickableObject(
+    position, GameObjectTag::Sun), value_(value)
 {
     const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/Sun.xml");
     if (!reanim.has_value())
@@ -32,19 +38,7 @@ SunObject::SunObject(int value) : ClickableObject(GameObjectTag::Sun), value_(va
     blinkTimer_->SetOneShot(true);
     blinkTimer_->Start(16.0f);
 
-    std::vector<TweenProperty> props;
-    props.push_back({
-        .start = 0.0f,
-        .end = 1.0f,
-        .setter = [this](float value)
-        {
-            if (sprite_)
-                sprite_->SetAllLayersOpacity(value);
-        },
-        .mode = TweenMode::EaseOut
-    });
-    spawnTween_ = std::make_unique<Tween>(props, 0.5f);
-    spawnTween_->Start();
+    InitializeSpawnAnimation(spawnAnimation);
 }
 
 void SunObject::Render()
@@ -72,6 +66,15 @@ void SunObject::Update()
         if (!spawnTween_->IsActive())
         {
             spawnTween_.reset();
+        }
+    }
+
+    if (spawnMoveTween_)
+    {
+        spawnMoveTween_->Update();
+        if (!spawnMoveTween_->IsActive())
+        {
+            spawnMoveTween_.reset();
         }
     }
 
@@ -126,6 +129,13 @@ void SunObject::Update()
         {
             moveTween_.reset();
             StartDisappearing();
+            if (const auto scene = dynamic_cast<BoardScene*>(GetScene()))
+            {
+                if (const auto seedBank = scene->GetSeedBank())
+                {
+                    seedBank->IncrementSunValue(value_);
+                }
+            }
         }
     }
 
@@ -143,6 +153,7 @@ void SunObject::OnMouseClick()
 {
     collider_.reset();
     disappearTimer_->SetPaused(true);
+
     std::vector<TweenProperty> props;
     props.push_back(
         {
@@ -208,4 +219,91 @@ void SunObject::StartDisappearing()
 
     disappearTween_ = std::make_unique<Tween>(props, 0.5f);
     disappearTween_->Start();
+}
+
+void SunObject::InitializeSpawnAnimation(SpawnAnimation spawnAnimation)
+{
+    switch (spawnAnimation)
+    {
+    case SpawnAnimation::None:
+        {
+            std::vector<TweenProperty> props;
+            props.push_back({
+                .start = 0.0f,
+                .end = 1.0f,
+                .setter = [this](float value)
+                {
+                    if (sprite_)
+                        sprite_->SetAllLayersOpacity(value);
+                },
+                .mode = TweenMode::EaseOut
+            });
+            spawnTween_ = std::make_unique<Tween>(props, 0.5f);
+            spawnTween_->Start();
+            break;
+        }
+    case SpawnAnimation::DropDown:
+        {
+            sprite_->SetAllLayersOpacity(1.0f);
+
+            constexpr float startY = -50.0f;
+            const float endY = Random::UniformFloat(200.0f, 660.0f);
+
+            std::vector<TweenProperty> props;
+            props.push_back({
+                .start = startY,
+                .end = endY,
+                .setter = [this](float value)
+                {
+                    transform_.position.y = value;
+                },
+                .mode = TweenMode::Linear
+            });
+
+            spawnMoveTween_ = std::make_unique<Tween>(props, 4.0f);
+            spawnMoveTween_->Start();
+            break;
+        }
+    case SpawnAnimation::Produce:
+
+        float down = Random::UniformFloat(20.0f, 80.0f);
+        down = transform_.position.y + down;
+
+        float side = Random::UniformFloat(-70.0f, 70.0f);
+        side = transform_.position.x + side;
+
+        std::vector<TweenProperty> props;
+        props.push_back({
+            .start = transform_.position.y,
+            .end = down,
+            .setter = [this](float value)
+            {
+                transform_.position.y = value;
+            },
+            .mode = TweenMode::EaseIn
+        });
+        props.push_back({
+            .start = transform_.position.x,
+            .end = side,
+            .setter = [this](float value)
+            {
+                transform_.position.x = value;
+            },
+            .mode = TweenMode::EaseOut
+        });
+        props.push_back({
+            .start = 0.2f,
+            .end = 1.0f,
+            .setter = [this](float value)
+            {
+                if (sprite_)
+                    sprite_->SetAllLayersOpacity(value);
+            },
+            .mode = TweenMode::EaseOut
+        });
+
+        spawnMoveTween_ = std::make_unique<Tween>(props, 1.0f);
+        spawnMoveTween_->Start();
+        break;
+    }
 }

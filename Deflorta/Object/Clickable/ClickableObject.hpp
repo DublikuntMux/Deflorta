@@ -5,7 +5,7 @@
 class ClickableObject : public GameObject
 {
 public:
-    explicit ClickableObject(GameObjectTag tag = GameObjectTag::None);
+    explicit ClickableObject(glm::vec2 position, GameObjectTag tag = GameObjectTag::None);
 
     void Update() override;
 

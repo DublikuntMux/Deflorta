@@ -5,9 +5,10 @@
 
 #include <glm/glm.hpp>
 
-ClickableObject::ClickableObject(GameObjectTag tag)
+ClickableObject::ClickableObject(glm::vec2 position, GameObjectTag tag)
     : GameObject(tag)
 {
+    SetTransform(Transform{.position = position, .scale = {1.0f, 1.0f}, .rotation = 0.0f});
 }
 
 void ClickableObject::Update()

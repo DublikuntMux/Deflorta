@@ -148,6 +148,7 @@
         <ClInclude Include="Collision\QuadTree.hpp"/>
         <ClInclude Include="Object\Bush.hpp"/>
         <ClInclude Include="Object\Clickable\ClickableObject.hpp"/>
+        <ClInclude Include="Object\Clickable\SpawnAnimation.hpp"/>
         <ClInclude Include="Object\Clickable\SunObject.hpp"/>
         <ClInclude Include="Object\Fog.hpp"/>
         <ClInclude Include="Object\GameObject.hpp"/>
