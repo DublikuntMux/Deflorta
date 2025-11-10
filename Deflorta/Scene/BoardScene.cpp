@@ -6,6 +6,9 @@
 #include "../Render/Layer.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/ResourceManager.hpp"
+#include "../Base/Random.hpp"
+#include "../Object/Clickable/SpawnAnimation.hpp"
+#include "../Object/Clickable/SunObject.hpp"
 
 #include <algorithm>
 
@@ -141,6 +144,18 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
             PlantAt(row, col, std::move(testPlant));
         }
     }
+
+    if (settings_.backgroundType != BackgroundType::Night &&
+        settings_.backgroundType != BackgroundType::PoolNight &&
+        settings_.backgroundType != BackgroundType::RoofNight)
+    {
+        skySunTimer_ = std::make_unique<Timer>();
+        skySunTimer_->SetTimeoutCallback([this]
+        {
+            SpawnSkySun();
+        });
+        skySunTimer_->Start(10.0f);
+    }
 }
 
 void BoardScene::OnEnter()
@@ -152,6 +167,9 @@ void BoardScene::OnEnter()
 void BoardScene::Update()
 {
     Scene::Update();
+
+    if (skySunTimer_)
+        skySunTimer_->Update();
 }
 
 void BoardScene::Render()
@@ -259,4 +277,12 @@ bool BoardScene::PlantAt(int row, int column, std::shared_ptr<BasePlant> plant)
     AddGameObject(std::move(plant));
 
     return true;
+}
+
+void BoardScene::SpawnSkySun()
+{
+    skySunTimer_->SetWaitTime(Random::UniformFloat(8.0f, 12.0f));
+    auto position = glm::vec2(Random::UniformFloat(250.0f, 1050.0f), -50.0f);
+    auto sun = GameObject::Create<SunObject>(position, 50, SpawnAnimation::DropDown);
+    AddGameObject(std::move(sun));
 }

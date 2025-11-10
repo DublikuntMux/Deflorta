@@ -27,16 +27,16 @@ namespace Utils
     std::string GetExecutableDir()
     {
         char exePath[MAX_PATH];
-        DWORD len = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
+        const DWORD len = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
         if (len == 0)
-            return std::string("./");
+            return {"./"};
         try
         {
             return std::filesystem::path(std::string(exePath, len)).parent_path().string();
         }
         catch (...)
         {
-            return std::string("./");
+            return {"./"};
         }
     }
 }

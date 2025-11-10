@@ -11,7 +11,7 @@ SeedBank::SeedBank()
     seedBankTexture_ = ResourceManager::GetImage("IMAGE_SEEDBANK");
     seedBankTransform_ = Transform{.position = {50.0f, 15.0f}, .scale = {1.2f, 1.2f}, .rotation = 0.0f};
 
-    sunValueRect_ = Rect::FromXYWH(27.0f, 80.0f, 50.0f, 30.0f);
+    sunValueRect_ = Rect::FromXYWH(22.0f, 80.0f, 60.0f, 30.0f);
 }
 
 void SeedBank::Update()

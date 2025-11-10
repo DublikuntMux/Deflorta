@@ -247,7 +247,7 @@ void SunObject::InitializeSpawnAnimation(SpawnAnimation spawnAnimation)
             sprite_->SetAllLayersOpacity(1.0f);
 
             constexpr float startY = -50.0f;
-            const float endY = Random::UniformFloat(200.0f, 660.0f);
+            const float endY = Random::UniformFloat(200.0f, 640.0f);
 
             std::vector<TweenProperty> props;
             props.push_back({

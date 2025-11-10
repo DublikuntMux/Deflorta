@@ -5,10 +5,10 @@
 #include "../Object/Bush.hpp"
 #include "../Object/Fog.hpp"
 #include "../Object/Plant/BasePlant.hpp"
+#include "../Object/SeedBank.hpp"
+#include "../Base/Timer.hpp""
 
 #include <string>
-
-#include "../Object/SeedBank.hpp"
 
 enum class BackgroundType: std::uint8_t
 {
@@ -71,6 +71,10 @@ private:
 
     std::vector<std::shared_ptr<BasePlant>> plants_;
 
+    std::unique_ptr<Timer> skySunTimer_;
+
     bool CanPlantAt(int row, int column, PlantLayer layer) const;
     bool PlantAt(int row, int column, std::shared_ptr<BasePlant> plant);
+
+    void SpawnSkySun();
 };
