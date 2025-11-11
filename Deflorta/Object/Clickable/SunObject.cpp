@@ -204,6 +204,7 @@ void SunObject::StartBlinking()
 
 void SunObject::StartDisappearing()
 {
+    spawnMoveTween_.reset();
     blinkTween_.reset();
     std::vector<TweenProperty> props;
     props.push_back({

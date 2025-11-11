@@ -97,7 +97,7 @@ struct DrawItem
     DrawType drawType = DrawType::Image;
     ItemData data;
 
-    DrawItem() { new(&data.image) ImageData(); }
+    DrawItem() noexcept { new(&data.image) ImageData(); }
     ~DrawItem() { DestroyActive(); }
 
     DrawItem(const DrawItem& other);

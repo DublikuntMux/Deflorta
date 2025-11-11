@@ -152,8 +152,8 @@ void Renderer::BeginFrame()
     if (!backend_) return;
 
     drawQueue_.clear();
-    if (drawQueue_.capacity() < 2048)
-        drawQueue_.reserve(2048);
+    if (drawQueue_.capacity() < 4096)
+        drawQueue_.reserve(4096);
     submitSeq_ = 0;
 
     backend_->BeginFrame();
@@ -205,6 +205,7 @@ void Renderer::FlushDrawQueue()
         if (a.z != b.z) return a.z < b.z;
         return a.seq < b.seq;
     });
+    backend_->Lock();
 
     for (const auto& di : drawQueue_)
     {
@@ -256,6 +257,8 @@ void Renderer::FlushDrawQueue()
         }
     }
 
+    backend_->Unlock();
+
     drawQueue_.clear();
 }
 
@@ -277,9 +280,8 @@ void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Tran
     di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
-    di.data.image.~ImageData();
-    new(&di.data.image) DrawItem::ImageData(texture, mat);
     di.drawType = DrawType::Image;
+    new(&di.data.image) DrawItem::ImageData(texture, mat);
     drawQueue_.push_back(std::move(di));
 }
 
@@ -305,10 +307,9 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
     di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
-    di.data.image.~ImageData();
+    di.drawType = DrawType::Image;
     new(&di.data.image) DrawItem::ImageData(texture, mat);
     di.data.image.tint = tint;
-    di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
 
@@ -336,10 +337,9 @@ void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
     di.opacity = opacity;
     di.z = z;
     di.seq = submitSeq_++;
-    di.data.image.~ImageData();
+    di.drawType = DrawType::ImageAtlas;
     new(&di.data.imageAtlas) DrawItem::ImageAtlasData(atlasTexture, mat, region);
     di.data.imageAtlas.tint = tint;
-    di.drawType = DrawType::ImageAtlas;
     drawQueue_.push_back(std::move(di));
 }
 
@@ -359,9 +359,8 @@ void Renderer::EnqueueTextW(const std::wstring& text,
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    di.data.image.~ImageData();
-    new(&di.data.text) DrawItem::TextData(text, textFormat, layoutRect, color, justification);
     di.drawType = DrawType::Text;
+    new(&di.data.text) DrawItem::TextData(text, textFormat, layoutRect, color, justification);
     drawQueue_.push_back(std::move(di));
 }
 
@@ -374,9 +373,8 @@ void Renderer::EnqueueRectangle(const Rect& rect,
     DrawItem di;
     di.z = z;
     di.seq = submitSeq_++;
-    di.data.image.~ImageData();
-    new(&di.data.rectangle) DrawItem::RectangleData(rect, color, strokeWidth, filled);
     di.drawType = DrawType::Rectangle;
+    new(&di.data.rectangle) DrawItem::RectangleData(rect, color, strokeWidth, filled);
     drawQueue_.push_back(std::move(di));
 }
 

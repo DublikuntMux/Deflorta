@@ -69,6 +69,7 @@ void GameObject::QueueFree()
     {
         isQueuedForDeletion_ = true;
         SetActive(false);
+        SetVisible(false);
         scene_->QueueFree(shared_from_this());
     }
 }

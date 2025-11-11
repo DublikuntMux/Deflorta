@@ -310,8 +310,12 @@ void D2DRenderBackend::DrawTexture(
     if (!bitmap) return;
 
     const auto size = bitmap->GetSize();
+    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f || 
+                         tint.value.b != 1.0f || tint.value.a != 1.0f;
 
-    if (tint.value.r != 1.0f || tint.value.g != 1.0f || tint.value.b != 1.0f || tint.value.a != 1.0f)
+    d2dContext_->SetTransform(ConvertMatrix(transform));
+
+    if (hasTint)
     {
         if (!colorMatrixEffect_)
         {
@@ -320,7 +324,7 @@ void D2DRenderBackend::DrawTexture(
         
         colorMatrixEffect_->SetInput(0, bitmap);
         
-        D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
+        const D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
             tint.value.r, 0, 0, 0,
             0, tint.value.g, 0, 0,
             0, 0, tint.value.b, 0,
@@ -328,20 +332,17 @@ void D2DRenderBackend::DrawTexture(
             0, 0, 0, 0
         );
         colorMatrixEffect_->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
-        
-        d2dContext_->SetTransform(ConvertMatrix(transform));
         d2dContext_->DrawImage(colorMatrixEffect_.Get());
-        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
     }
     else
     {
-        d2dContext_->SetTransform(ConvertMatrix(transform));
         d2dContext_->DrawBitmap(
             bitmap,
             D2D1::RectF(0, 0, size.width, size.height),
             opacity);
-        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
     }
+
+    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
 void D2DRenderBackend::DrawTextureRect(
@@ -361,8 +362,12 @@ void D2DRenderBackend::DrawTextureRect(
 
     const float destWidth = sourceRect.Width();
     const float destHeight = sourceRect.Height();
+    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f || 
+                         tint.value.b != 1.0f || tint.value.a != 1.0f;
 
-    if (tint.value.r != 1.0f || tint.value.g != 1.0f || tint.value.b != 1.0f || tint.value.a != 1.0f)
+    d2dContext_->SetTransform(ConvertMatrix(transform));
+
+    if (hasTint)
     {
         if (!colorMatrixEffect_)
         {
@@ -371,7 +376,7 @@ void D2DRenderBackend::DrawTextureRect(
         
         colorMatrixEffect_->SetInput(0, bitmap);
         
-        D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
+        const D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
             tint.value.r, 0, 0, 0,
             0, tint.value.g, 0, 0,
             0, 0, tint.value.b, 0,
@@ -380,24 +385,22 @@ void D2DRenderBackend::DrawTextureRect(
         );
         colorMatrixEffect_->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
         
-        d2dContext_->SetTransform(ConvertMatrix(transform));
         d2dContext_->DrawImage(colorMatrixEffect_.Get(), 
             D2D1::Point2F(0, 0),
             D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()),
             D2D1_INTERPOLATION_MODE_LINEAR);
-        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
     }
     else
     {
-        d2dContext_->SetTransform(ConvertMatrix(transform));
         d2dContext_->DrawBitmap(
             bitmap,
             D2D1::RectF(0, 0, destWidth, destHeight),
             opacity,
             D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
             D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()));
-        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
     }
+
+    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
 }
 
 void D2DRenderBackend::DrawTexts(
