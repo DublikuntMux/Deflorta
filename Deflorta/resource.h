@@ -1,13 +1,9 @@
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
-// Used by Renderer.rc
+// Used by Deflorta.rc
 //
-#define IDC_MYICON                      2
-#define IDD_DEFLORTA_DIALOG             102
-#define IDI_DEFLORTA                    106
-#define IDI_SMALL                       107
-#define IDR_MAINFRAME                   128
-#define IDC_STATIC                      -1
+#define IDI_SMALL                       102
+#define IDI_DEFLORTA                    101
 
 // Next default values for new objects
 // 
