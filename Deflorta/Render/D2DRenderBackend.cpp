@@ -150,6 +150,7 @@ void D2DRenderBackend::DiscardDeviceResources()
     std::lock_guard lock(mutex_);
 
     brush_.Reset();
+    colorMatrixEffect_.Reset();
     d2dTargetBitmap_.Reset();
     swapChain_.Reset();
     d2dContext_.Reset();
@@ -297,7 +298,8 @@ std::shared_ptr<ITextFormat> D2DRenderBackend::CreateTextFormat(
 void D2DRenderBackend::DrawTexture(
     ITexture* texture,
     const glm::mat3& transform,
-    float opacity)
+    float opacity,
+    const Color& tint)
 {
     std::lock_guard lock(mutex_);
 
@@ -309,19 +311,45 @@ void D2DRenderBackend::DrawTexture(
 
     const auto size = bitmap->GetSize();
 
-    d2dContext_->SetTransform(ConvertMatrix(transform));
-    d2dContext_->DrawBitmap(
-        bitmap,
-        D2D1::RectF(0, 0, size.width, size.height),
-        opacity);
-    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    if (tint.value.r != 1.0f || tint.value.g != 1.0f || tint.value.b != 1.0f || tint.value.a != 1.0f)
+    {
+        if (!colorMatrixEffect_)
+        {
+            d2dContext_->CreateEffect(CLSID_D2D1ColorMatrix, &colorMatrixEffect_);
+        }
+        
+        colorMatrixEffect_->SetInput(0, bitmap);
+        
+        D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
+            tint.value.r, 0, 0, 0,
+            0, tint.value.g, 0, 0,
+            0, 0, tint.value.b, 0,
+            0, 0, 0, tint.value.a,
+            0, 0, 0, 0
+        );
+        colorMatrixEffect_->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
+        
+        d2dContext_->SetTransform(ConvertMatrix(transform));
+        d2dContext_->DrawImage(colorMatrixEffect_.Get());
+        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    }
+    else
+    {
+        d2dContext_->SetTransform(ConvertMatrix(transform));
+        d2dContext_->DrawBitmap(
+            bitmap,
+            D2D1::RectF(0, 0, size.width, size.height),
+            opacity);
+        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    }
 }
 
 void D2DRenderBackend::DrawTextureRect(
     ITexture* texture,
     const glm::mat3& transform,
     const Rect& sourceRect,
-    float opacity)
+    float opacity,
+    const Color& tint)
 {
     std::lock_guard lock(mutex_);
 
@@ -334,14 +362,42 @@ void D2DRenderBackend::DrawTextureRect(
     const float destWidth = sourceRect.Width();
     const float destHeight = sourceRect.Height();
 
-    d2dContext_->SetTransform(ConvertMatrix(transform));
-    d2dContext_->DrawBitmap(
-        bitmap,
-        D2D1::RectF(0, 0, destWidth, destHeight),
-        opacity,
-        D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
-        D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()));
-    d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    if (tint.value.r != 1.0f || tint.value.g != 1.0f || tint.value.b != 1.0f || tint.value.a != 1.0f)
+    {
+        if (!colorMatrixEffect_)
+        {
+            d2dContext_->CreateEffect(CLSID_D2D1ColorMatrix, &colorMatrixEffect_);
+        }
+        
+        colorMatrixEffect_->SetInput(0, bitmap);
+        
+        D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
+            tint.value.r, 0, 0, 0,
+            0, tint.value.g, 0, 0,
+            0, 0, tint.value.b, 0,
+            0, 0, 0, tint.value.a,
+            0, 0, 0, 0
+        );
+        colorMatrixEffect_->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
+        
+        d2dContext_->SetTransform(ConvertMatrix(transform));
+        d2dContext_->DrawImage(colorMatrixEffect_.Get(), 
+            D2D1::Point2F(0, 0),
+            D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()),
+            D2D1_INTERPOLATION_MODE_LINEAR);
+        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    }
+    else
+    {
+        d2dContext_->SetTransform(ConvertMatrix(transform));
+        d2dContext_->DrawBitmap(
+            bitmap,
+            D2D1::RectF(0, 0, destWidth, destHeight),
+            opacity,
+            D2D1_BITMAP_INTERPOLATION_MODE_LINEAR,
+            D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()));
+        d2dContext_->SetTransform(D2D1::Matrix3x2F::Identity());
+    }
 }
 
 void D2DRenderBackend::DrawTexts(

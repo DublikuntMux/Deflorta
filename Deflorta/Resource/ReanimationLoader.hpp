@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../Base/Color.hpp"
+
 #include <glm/vec2.hpp>
 #include <pugixml.hpp>
 
@@ -25,6 +27,8 @@ struct ReanimatorTransform
     std::string image;
     std::string font;
     std::string text;
+
+    Color tint = Color::White;
 };
 
 struct ReanimatorTrack

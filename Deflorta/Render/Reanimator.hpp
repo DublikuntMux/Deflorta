@@ -8,6 +8,8 @@
 #include <vector>
 #include <optional>
 
+#include "../Base/Color.hpp"
+
 enum class ReanimLoopType: std::uint8_t
 {
     Loop,
@@ -33,6 +35,7 @@ struct TrackInstance
     std::optional<std::string> imageOverride;
     bool visible = true;
     float opacity = 1.0f;
+    Color tint = Color::White;
 };
 
 class Reanimator final
@@ -64,6 +67,14 @@ public:
     void SetLayerOpacity(const std::string& trackName, float opacity);
     void SetAllLayersOpacity(float opacity);
 
+    void SetLayerTint(const std::string& trackName, const Color& tint);
+    void SetAllLayersTint(const Color& tint);
+    void ResetLayerTint(const std::string& trackName);
+    void ResetAllLayersTint();
+
+    void SetTint(const Color& tint);
+    void ResetTint();
+
     [[nodiscard]] bool IsDead() const { return dead_; }
     [[nodiscard]] bool IsFinished() const;
 
@@ -89,6 +100,8 @@ private:
 
     Transform overlay_{};
     std::vector<TrackInstance> tracks_;
+
+    Color globalTint_ = Color::White;
 
     bool blending_ = false;
     float blendDuration_ = 0.0f;

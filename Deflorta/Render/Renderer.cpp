@@ -216,7 +216,8 @@ void Renderer::FlushDrawQueue()
                 backend_->DrawTexture(
                     di.data.image.texture.get(),
                     di.data.image.transform,
-                    di.opacity);
+                    di.opacity,
+                    di.data.image.tint);
             }
             break;
         case DrawType::ImageAtlas:
@@ -230,7 +231,8 @@ void Renderer::FlushDrawQueue()
                     di.data.imageAtlas.texture.get(),
                     di.data.imageAtlas.transform,
                     sourceRect,
-                    di.opacity);
+                    di.opacity,
+                    di.data.imageAtlas.tint);
             }
             break;
         case DrawType::Text:
@@ -282,7 +284,7 @@ void Renderer::EnqueueImage(const std::shared_ptr<ITexture>& texture, const Tran
 }
 
 void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z,
-                             float opacity)
+                             float opacity, const Color& tint)
 {
     if (!texture) return;
 
@@ -305,6 +307,7 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
     new(&di.data.image) DrawItem::ImageData(texture, mat);
+    di.data.image.tint = tint;
     di.drawType = DrawType::Image;
     drawQueue_.push_back(std::move(di));
 }
@@ -312,7 +315,7 @@ void Renderer::EnqueueReanim(const std::shared_ptr<ITexture>& texture, const Rea
 void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
                                   const ReanimatorTransform& transform,
                                   const AtlasRegion& region,
-                                  int z, float opacity)
+                                  int z, float opacity, const Color& tint)
 {
     if (!atlasTexture) return;
 
@@ -335,6 +338,7 @@ void Renderer::EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
     di.seq = submitSeq_++;
     di.data.image.~ImageData();
     new(&di.data.imageAtlas) DrawItem::ImageAtlasData(atlasTexture, mat, region);
+    di.data.imageAtlas.tint = tint;
     di.drawType = DrawType::ImageAtlas;
     drawQueue_.push_back(std::move(di));
 }

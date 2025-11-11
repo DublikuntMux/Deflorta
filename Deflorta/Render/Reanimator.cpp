@@ -166,6 +166,46 @@ void Reanimator::SetAllLayersOpacity(float opacity)
     }
 }
 
+void Reanimator::SetLayerTint(const std::string& trackName, const Color& tint)
+{
+    const int idx = FindTrackIndexByName(trackName);
+    if (idx < 0 || std::cmp_greater_equal(idx, tracks_.size())) return;
+    tracks_[static_cast<size_t>(idx)].tint = tint;
+}
+
+void Reanimator::SetAllLayersTint(const Color& tint)
+{
+    for (auto& track : tracks_)
+    {
+        track.tint = tint;
+    }
+}
+
+void Reanimator::ResetLayerTint(const std::string& trackName)
+{
+    const int idx = FindTrackIndexByName(trackName);
+    if (idx < 0 || std::cmp_greater_equal(idx, tracks_.size())) return;
+    tracks_[static_cast<size_t>(idx)].tint = {1.0f, 1.0f, 1.0f, 1.0f};
+}
+
+void Reanimator::ResetAllLayersTint()
+{
+    for (auto& track : tracks_)
+    {
+        track.tint = Color::White;
+    }
+}
+
+void Reanimator::SetTint(const Color& tint)
+{
+    globalTint_ = tint;
+}
+
+void Reanimator::ResetTint()
+{
+    globalTint_ = Color::White;
+}
+
 std::pair<int, int> Reanimator::GetFramesForLayer(const std::string& trackName) const
 {
     int start = 0;
@@ -328,18 +368,28 @@ void Reanimator::Draw() const
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
                 auto opacity = tracks_[ti].opacity;
+                
+                Color tint = Color::White;
+                if (ti < tracks_.size())
+                {
+                    tint = tracks_[ti].tint.value * globalTint_.value;
+                }
+                else
+                {
+                    tint = globalTint_;
+                }
 
                 if (def_->useAtlas && def_->atlasTexture)
                 {
                     auto it = def_->atlasRegions.find(cur.image);
                     if (it != def_->atlasRegions.end())
                     {
-                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity);
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity, tint);
                     }
                 }
                 else if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    Renderer::EnqueueReanim(bmp, cur, z, opacity);
+                    Renderer::EnqueueReanim(bmp, cur, z, opacity, tint);
                 }
             }
             else if (!cur.text.empty() && !cur.font.empty())
@@ -389,18 +439,28 @@ void Reanimator::Draw() const
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
                 auto opacity = tracks_[ti].opacity;
+                
+                Color tint = Color::White;
+                if (ti < tracks_.size())
+                {
+                    tint = tracks_[ti].tint.value * globalTint_.value;
+                }
+                else
+                {
+                    tint = globalTint_;
+                }
 
                 if (def_->useAtlas && def_->atlasTexture)
                 {
                     auto it = def_->atlasRegions.find(cur.image);
                     if (it != def_->atlasRegions.end())
                     {
-                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity);
+                        Renderer::EnqueueReanimAtlas(def_->atlasTexture, cur, it->second, z, opacity, tint);
                     }
                 }
                 else if (auto bmp = ResourceManager::GetImage(cur.image))
                 {
-                    Renderer::EnqueueReanim(bmp, cur, z, opacity);
+                    Renderer::EnqueueReanim(bmp, cur, z, opacity, tint);
                 }
             }
             else if (!cur.text.empty() && !cur.font.empty())

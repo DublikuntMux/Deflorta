@@ -24,6 +24,7 @@ struct DrawItem
     {
         std::shared_ptr<ITexture> texture;
         glm::mat3 transform{};
+        Color tint = Color::White;
         ImageData() = default;
 
         ImageData(std::shared_ptr<ITexture> tex, const glm::mat3& m)
@@ -37,6 +38,7 @@ struct DrawItem
         std::shared_ptr<ITexture> texture;
         glm::mat3 transform{};
         AtlasRegion region;
+        Color tint = Color::White;
         ImageAtlasData() = default;
 
         ImageAtlasData(std::shared_ptr<ITexture> tex, const glm::mat3& m, const AtlasRegion& r)
@@ -120,12 +122,13 @@ public:
     static void EnqueueImage(const std::shared_ptr<ITexture>& texture, const Transform& transform, float opacity,
                              int z);
     static void EnqueueReanim(const std::shared_ptr<ITexture>& texture, const ReanimatorTransform& transform, int z,
-                              float opacity);
+                              float opacity, const Color& tint);
     static void EnqueueReanimAtlas(const std::shared_ptr<ITexture>& atlasTexture,
                                    const ReanimatorTransform& transform,
                                    const AtlasRegion& region,
                                    int z,
-                                   float opacity);
+                                   float opacity,
+                                   const Color& tint);
     static void EnqueueTextW(const std::wstring& text,
                              const Rect& layoutRect,
                              const std::wstring& fontFamily,

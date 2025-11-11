@@ -58,13 +58,15 @@ public:
     virtual void DrawTexture(
         ITexture* texture,
         const glm::mat3& transform,
-        float opacity) = 0;
+        float opacity,
+        const Color& tint) = 0;
 
     virtual void DrawTextureRect(
         ITexture* texture,
         const glm::mat3& transform,
         const Rect& sourceRect,
-        float opacity) = 0;
+        float opacity,
+        const Color& tint) = 0;
 
     virtual void DrawTexts(
         const std::wstring& text,

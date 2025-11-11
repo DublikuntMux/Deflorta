@@ -81,13 +81,15 @@ public:
     void DrawTexture(
         ITexture* texture,
         const glm::mat3& transform,
-        float opacity) override;
+        float opacity,
+        const Color& tint) override;
 
     void DrawTextureRect(
         ITexture* texture,
         const glm::mat3& transform,
         const Rect& sourceRect,
-        float opacity) override;
+        float opacity,
+        const Color& tint) override;
 
     void DrawTexts(
         const std::wstring& text,
@@ -130,4 +132,5 @@ private:
     Microsoft::WRL::ComPtr<IDWriteFactory> dwFactory_;
 
     std::unordered_map<std::wstring, std::shared_ptr<ITextFormat>> textFormatCache_;
+    Microsoft::WRL::ComPtr<ID2D1Effect> colorMatrixEffect_;
 };
