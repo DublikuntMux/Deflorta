@@ -191,8 +191,6 @@ SelectorScene::SelectorScene()
                                       });
         AddWidget(quitButton_.get());
     }
-
-    AudioManager::PlayMusic("resources/sounds/mainmusic.ogg");
 }
 
 void SelectorScene::OnEnter()

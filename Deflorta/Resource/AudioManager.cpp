@@ -10,15 +10,9 @@
 Microsoft::WRL::ComPtr<IXAudio2> AudioManager::xaudio_;
 IXAudio2MasteringVoice* AudioManager::masterVoice_ = nullptr;
 
-MusicChannel AudioManager::musicA_;
-MusicChannel AudioManager::musicB_;
-bool AudioManager::usingA_ = true;
-
 std::mutex AudioManager::audioMutex_;
-std::atomic<float> AudioManager::masterVolume_ = 1.0f;
 std::atomic<float> AudioManager::sfxVolume_ = 1.0f;
 std::atomic<bool> AudioManager::running_ = true;
-std::thread AudioManager::fadeThread_;
 std::unordered_map<std::string, AudioData> AudioManager::audioCache_;
 
 bool AudioManager::Initialize()
@@ -35,7 +29,6 @@ bool AudioManager::Initialize()
 void AudioManager::Uninitialize()
 {
     running_ = false;
-    if (fadeThread_.joinable()) fadeThread_.join();
     if (masterVoice_) masterVoice_->DestroyVoice();
 }
 
@@ -62,71 +55,6 @@ bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
 
     free(samples);
     return !outData.buffer.empty();
-}
-
-void AudioManager::PlayMusic(const std::string& filePath, float fadeTimeSec)
-{
-    std::lock_guard lock(audioMutex_);
-
-    AudioData data;
-    if (!LoadOggFile(filePath, data)) return;
-
-    auto& next = usingA_ ? musicB_ : musicA_;
-    next.buffer = std::move(data.buffer);
-
-    if (next.voice) next.voice->DestroyVoice();
-
-    if (FAILED(xaudio_->CreateSourceVoice(&next.voice, &data.format)))
-        return;
-
-    next.xaBuffer = {};
-    next.xaBuffer.AudioBytes = static_cast<UINT32>(next.buffer.size());
-    next.xaBuffer.pAudioData = next.buffer.data();
-    next.xaBuffer.Flags = XAUDIO2_END_OF_STREAM;
-    next.xaBuffer.LoopCount = XAUDIO2_LOOP_INFINITE;
-
-    next.voice->SubmitSourceBuffer(&next.xaBuffer);
-    next.voice->SetVolume(0.0f * masterVolume_);
-    next.voice->Start();
-
-    usingA_ = !usingA_;
-
-    if (fadeThread_.joinable()) fadeThread_.join();
-    fadeThread_ = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, false);
-}
-
-void AudioManager::StopMusic(float fadeTimeSec)
-{
-    if (fadeThread_.joinable()) fadeThread_.join();
-    fadeThread_ = std::thread(&AudioManager::FadeThreadFunc, fadeTimeSec, true);
-}
-
-void AudioManager::FadeThreadFunc(float duration, bool stopAfter)
-{
-    const float step = 1.0f / std::max(duration * 60.0f, 1.0f);
-
-    float t = 0.0f;
-    while (t < 1.0f && running_)
-    {
-        t += step;
-        {
-            const float fade = std::clamp(t, 0.0f, 1.0f);
-            std::lock_guard lock(audioMutex_);
-            if (musicA_.voice)
-                musicA_.voice->SetVolume((usingA_ ? fade : 1.0f - fade) * masterVolume_);
-            if (musicB_.voice)
-                musicB_.voice->SetVolume((usingA_ ? 1.0f - fade : fade) * masterVolume_);
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));
-    }
-
-    if (stopAfter)
-    {
-        std::lock_guard lock(audioMutex_);
-        if (musicA_.voice) musicA_.voice->Stop();
-        if (musicB_.voice) musicB_.voice->Stop();
-    }
 }
 
 void AudioManager::PlaySfx(const std::string& id)
@@ -249,12 +177,6 @@ void AudioManager::PlayAudioData(const AudioData& data)
         while (state.BuffersQueued > 0);
         voice->DestroyVoice();
     }).detach();
-}
-
-void AudioManager::SetMasterVolume(float volume)
-{
-    masterVolume_ = std::clamp(volume, 0.0f, 1.0f);
-    if (masterVoice_) masterVoice_->SetVolume(masterVolume_);
 }
 
 void AudioManager::SetSfxVolume(float volume)
