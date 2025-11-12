@@ -11,7 +11,13 @@ D2DRenderBackend::~D2DRenderBackend()
 
 bool D2DRenderBackend::Initialize(void* windowHandle)
 {
-    hwnd_ = windowHandle;
+    if (!windowHandle)
+    {
+        std::cerr << "Error: windowHandle is null in D2DRenderBackend::Initialize\n";
+        return false;
+    }
+
+    hwnd_ = static_cast<HWND>(windowHandle);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -42,7 +48,7 @@ bool D2DRenderBackend::Initialize(void* windowHandle)
         return false;
     }
 
-    const bool result = CreateDeviceResources(windowHandle);
+    const bool result = CreateDeviceResources(hwnd_);
     if (!result)
     {
         std::cerr << "ERROR: Failed to create D2D device resources\n";
@@ -310,8 +316,8 @@ void D2DRenderBackend::DrawTexture(
     if (!bitmap) return;
 
     const auto size = bitmap->GetSize();
-    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f || 
-                         tint.value.b != 1.0f || tint.value.a != 1.0f;
+    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f ||
+        tint.value.b != 1.0f || tint.value.a != 1.0f;
 
     d2dContext_->SetTransform(ConvertMatrix(transform));
 
@@ -321,9 +327,9 @@ void D2DRenderBackend::DrawTexture(
         {
             d2dContext_->CreateEffect(CLSID_D2D1ColorMatrix, &colorMatrixEffect_);
         }
-        
+
         colorMatrixEffect_->SetInput(0, bitmap);
-        
+
         const D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
             tint.value.r, 0, 0, 0,
             0, tint.value.g, 0, 0,
@@ -362,8 +368,8 @@ void D2DRenderBackend::DrawTextureRect(
 
     const float destWidth = sourceRect.Width();
     const float destHeight = sourceRect.Height();
-    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f || 
-                         tint.value.b != 1.0f || tint.value.a != 1.0f;
+    const bool hasTint = tint.value.r != 1.0f || tint.value.g != 1.0f ||
+        tint.value.b != 1.0f || tint.value.a != 1.0f;
 
     d2dContext_->SetTransform(ConvertMatrix(transform));
 
@@ -373,9 +379,9 @@ void D2DRenderBackend::DrawTextureRect(
         {
             d2dContext_->CreateEffect(CLSID_D2D1ColorMatrix, &colorMatrixEffect_);
         }
-        
+
         colorMatrixEffect_->SetInput(0, bitmap);
-        
+
         const D2D1_MATRIX_5X4_F matrix = D2D1::Matrix5x4F(
             tint.value.r, 0, 0, 0,
             0, tint.value.g, 0, 0,
@@ -384,11 +390,12 @@ void D2DRenderBackend::DrawTextureRect(
             0, 0, 0, 0
         );
         colorMatrixEffect_->SetValue(D2D1_COLORMATRIX_PROP_COLOR_MATRIX, matrix);
-        
-        d2dContext_->DrawImage(colorMatrixEffect_.Get(), 
-            D2D1::Point2F(0, 0),
-            D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(), sourceRect.Bottom()),
-            D2D1_INTERPOLATION_MODE_LINEAR);
+
+        d2dContext_->DrawImage(colorMatrixEffect_.Get(),
+                               D2D1::Point2F(0, 0),
+                               D2D1::RectF(sourceRect.Left(), sourceRect.Top(), sourceRect.Right(),
+                                           sourceRect.Bottom()),
+                               D2D1_INTERPOLATION_MODE_LINEAR);
     }
     else
     {

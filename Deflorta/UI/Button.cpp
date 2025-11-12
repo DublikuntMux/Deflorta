@@ -1,5 +1,7 @@
 #include "Button.hpp"
 
+#include <GLFW/glfw3.h>
+
 #include "../Base/Input.hpp"
 #include "../Render/Renderer.hpp"
 
@@ -60,8 +62,8 @@ void Button::Update()
 
     if (mouseOver)
     {
-        Input::SetCursorType(IDC_HAND);
-        if (Input::IsMouseDown(VK_LBUTTON))
+        Input::SetCursorType(GLFW_POINTING_HAND_CURSOR);
+        if (Input::IsMouseDown(MouseButton::Left))
         {
             state_ = State::Pressed;
         }

@@ -1,39 +1,37 @@
-﻿#include "Input.hpp"
-
-#include <Windowsx.h>
-
+#include "Input.hpp"
+#include <GLFW/glfw3.h>
 #include <ranges>
 
-std::unordered_map<WPARAM, bool> Input::keyStates_;
+std::unordered_map<uint32_t, bool> Input::keyStates_;
 
 glm::vec2 Input::mousePos_{0, 0};
-std::unordered_map<int, bool> Input::mouseButtonDown_{};
-std::unordered_map<int, bool> Input::mouseButtonPressed_{};
-LPCWSTR Input::cursorId_ = IDC_ARROW;
-LPCWSTR Input::requestedCursorId_ = IDC_ARROW;
-LPCWSTR Input::activeCursorId_ = IDC_ARROW;
+std::unordered_map<uint32_t, bool> Input::mouseButtonDown_{};
+std::unordered_map<uint32_t, bool> Input::mouseButtonPressed_{};
+int Input::cursorId_ = GLFW_ARROW_CURSOR;
+int Input::requestedCursorId_ = GLFW_ARROW_CURSOR;
+int Input::activeCursorId_ = GLFW_ARROW_CURSOR;
 bool Input::cursorVisible_ = true;
 bool Input::cursorNeedsUpdate_ = false;
 
-void Input::HandleKeyDown(WPARAM key)
+void Input::HandleKeyDown(Key key)
 {
-    keyStates_[key] = true;
+    keyStates_[static_cast<uint32_t>(key)] = true;
 }
 
-void Input::HandleKeyUp(WPARAM key)
+void Input::HandleKeyUp(Key key)
 {
-    keyStates_[key] = false;
+    keyStates_[static_cast<uint32_t>(key)] = false;
 }
 
-bool Input::IsKeyPressed(WPARAM key)
+bool Input::IsKeyPressed(Key key)
 {
-    return keyStates_.contains(key) && keyStates_[key];
+    const uint32_t keyCode = static_cast<uint32_t>(key);
+    return keyStates_.contains(keyCode) && keyStates_[keyCode];
 }
 
-void Input::HandleMouseMove(LPARAM lParam)
+void Input::HandleMouseMove(glm::vec2 position)
 {
-    mousePos_.x = GET_X_LPARAM(lParam);
-    mousePos_.y = GET_Y_LPARAM(lParam);
+    mousePos_ = position;
 }
 
 glm::vec2 Input::GetMousePosition()
@@ -41,25 +39,29 @@ glm::vec2 Input::GetMousePosition()
     return mousePos_;
 }
 
-void Input::HandleMouseDown(int vkButton)
+void Input::HandleMouseDown(MouseButton button)
 {
-    mouseButtonDown_[vkButton] = true;
-    mouseButtonPressed_[vkButton] = true;
+    const uint32_t buttonCode = static_cast<uint32_t>(button);
+    mouseButtonDown_[buttonCode] = true;
+    mouseButtonPressed_[buttonCode] = true;
 }
 
-void Input::HandleMouseUp(int vkButton)
+void Input::HandleMouseUp(MouseButton button)
 {
-    mouseButtonDown_[vkButton] = false;
+    const uint32_t buttonCode = static_cast<uint32_t>(button);
+    mouseButtonDown_[buttonCode] = false;
 }
 
-bool Input::IsMouseDown(int vkButton)
+bool Input::IsMouseDown(MouseButton button)
 {
-    return mouseButtonDown_.contains(vkButton) && mouseButtonDown_[vkButton];
+    const uint32_t buttonCode = static_cast<uint32_t>(button);
+    return mouseButtonDown_.contains(buttonCode) && mouseButtonDown_[buttonCode];
 }
 
-bool Input::IsMousePressed(int vkButton)
+bool Input::IsMousePressed(MouseButton button)
 {
-    return mouseButtonPressed_.contains(vkButton) && mouseButtonPressed_[vkButton];
+    const uint32_t buttonCode = static_cast<uint32_t>(button);
+    return mouseButtonPressed_.contains(buttonCode) && mouseButtonPressed_[buttonCode];
 }
 
 void Input::ResetMousePresses()
@@ -68,12 +70,12 @@ void Input::ResetMousePresses()
         pressed = false;
 }
 
-void Input::SetCursorType(LPCWSTR idcCursorId)
+void Input::SetCursorType(int cursorType)
 {
-    requestedCursorId_ = idcCursorId;
+    requestedCursorId_ = cursorType;
 }
 
-LPCWSTR Input::GetCursorType()
+int Input::GetCursorType()
 {
     return cursorId_;
 }
@@ -84,7 +86,10 @@ void Input::ShowCursor(bool show)
         return;
 
     cursorVisible_ = show;
-    ::ShowCursor(show ? TRUE : FALSE);
+    if (GLFWwindow* window = Window::GetNativeWindow())
+    {
+        glfwSetInputMode(window, GLFW_CURSOR, show ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_HIDDEN);
+    }
 }
 
 bool Input::IsCursorVisible()
@@ -94,7 +99,7 @@ bool Input::IsCursorVisible()
 
 void Input::BeginCursorUpdate()
 {
-    requestedCursorId_ = IDC_ARROW;
+    requestedCursorId_ = GLFW_ARROW_CURSOR;
 }
 
 void Input::EndCursorUpdate()
@@ -110,10 +115,13 @@ void Input::UpdateCursor()
 {
     if (cursorNeedsUpdate_)
     {
-        if (cursorVisible_)
-            SetCursor(LoadCursor(nullptr, cursorId_));
-        else
-            SetCursor(nullptr);
+        if (GLFWwindow* window = Window::GetNativeWindow(); window && cursorVisible_)
+        {
+            if (GLFWcursor* cursor = glfwCreateStandardCursor(cursorId_))
+            {
+                glfwSetCursor(window, cursor);
+            }
+        }
         activeCursorId_ = cursorId_;
         cursorNeedsUpdate_ = false;
     }

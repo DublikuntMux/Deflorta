@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 SunObject::SunObject(glm::vec2 position, int value, SpawnAnimation spawnAnimation) : ClickableObject(
-    position, GameObjectTag::Sun), value_(value)
+        position, GameObjectTag::Sun), value_(value)
 {
     const auto reanim = ReanimationLoader::LoadFromFile("resources/reanim/Sun.xml");
     if (!reanim.has_value())

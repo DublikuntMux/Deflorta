@@ -17,7 +17,6 @@ SunFlower::SunFlower() : BasePlant(PlantType::SunFlower, PlantLayer::Base)
     sprite = std::make_unique<Reanimator>(reanim.value());
     sprite->PlayLayer("anim_idle", ReanimLoopType::Loop);
     sprite->SetAllLayersZ(static_cast<int>(RenderLayer::PlantBase));
-    sprite->SetAllLayersTint(Color::Blue);
 
     timer_ = std::make_unique<Timer>();
     timer_->SetTimeoutCallback([this] { ProduceSun(); });

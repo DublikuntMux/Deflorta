@@ -15,7 +15,7 @@
 BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 {
     const int rows = settings_.backgroundType == BackgroundType::Pool ||
-                     settings_.backgroundType == BackgroundType::PoolNight
+                     settings_.backgroundType == BackgroundType::NightPool
                          ? 6
                          : 5;
 
@@ -39,7 +39,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND1_COVER";
         hasCover = true;
         bushesNight = false;
-        tempCoverTransform = Transform{.position = {920, 580}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempCoverTransform = Transform{.position = {920, 620}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Night:
         loadGroup = "DelayLoad_Background2";
@@ -47,7 +47,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND2_COVER";
         hasCover = true;
         bushesNight = true;
-        tempCoverTransform = Transform{.position = {920, 580}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempCoverTransform = Transform{.position = {920, 620}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Pool:
         loadGroup = "DelayLoad_Background3";
@@ -55,15 +55,15 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         coverName = "IMAGE_BACKGROUND3_COVER";
         hasCover = true;
         bushesNight = false;
-        tempCoverTransform = Transform{.position = {925, 635}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempCoverTransform = Transform{.position = {925, 675}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
-    case BackgroundType::PoolNight:
+    case BackgroundType::NightPool:
         loadGroup = "DelayLoad_Background4";
         bgName = "IMAGE_BACKGROUND4";
         coverName = "IMAGE_BACKGROUND4_COVER";
         hasCover = true;
         bushesNight = true;
-        tempCoverTransform = Transform{.position = {925, 635}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
+        tempCoverTransform = Transform{.position = {925, 675}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
     case BackgroundType::Roof:
         loadGroup = "DelayLoad_Background5";
@@ -73,7 +73,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
         tempPoleTransform = Transform{.position = {870, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         tempTreeTransform = Transform{.position = {930, 0}, .scale = {1.0f, 1.0f}, .rotation = 0.0f};
         break;
-    case BackgroundType::RoofNight:
+    case BackgroundType::NightRoof:
         loadGroup = "DelayLoad_Background6";
         bgName = "IMAGE_BACKGROUND6";
         hasPole = true;
@@ -136,7 +136,7 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
 
     plants_.reserve(Utils::NextPowerOf2(rows * 9));
 
-    for (int row = 0; row < 5; ++row)
+    for (int row = 0; row < rows; ++row)
     {
         for (int col = 0; col < 9; ++col)
         {
@@ -146,8 +146,8 @@ BoardScene::BoardScene(BoardSettings settings) : settings_(std::move(settings))
     }
 
     if (settings_.backgroundType != BackgroundType::Night &&
-        settings_.backgroundType != BackgroundType::PoolNight &&
-        settings_.backgroundType != BackgroundType::RoofNight)
+        settings_.backgroundType != BackgroundType::NightPool &&
+        settings_.backgroundType != BackgroundType::NightRoof)
     {
         skySunTimer_ = std::make_unique<Timer>();
         skySunTimer_->SetTimeoutCallback([this]
@@ -191,7 +191,7 @@ glm::vec2 BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
     float y;
 
     if (bgType == BackgroundType::Roof ||
-        bgType == BackgroundType::RoofNight)
+        bgType == BackgroundType::NightRoof)
     {
         if (column >= 5)
         {
@@ -201,6 +201,11 @@ glm::vec2 BoardScene::GridToPosition(int row, int column, BackgroundType bgType)
         {
             y = kPlantBaseYRoof - static_cast<float>(column) * 20.0f + kPlantCellHeightRoof * static_cast<float>(row);
         }
+    }
+    else if (bgType == BackgroundType::Pool ||
+        bgType == BackgroundType::NightPool)
+    {
+        y = kPlantBaseY + kPlantCellHeightPool * static_cast<float>(row);
     }
     else
     {
@@ -218,7 +223,7 @@ glm::ivec2 BoardScene::PositionToGrid(const glm::vec2& position, BackgroundType 
 
     float rowF;
     if (bgType == BackgroundType::Roof ||
-        bgType == BackgroundType::RoofNight)
+        bgType == BackgroundType::NightRoof)
     {
         if (col >= 5)
         {
@@ -228,6 +233,11 @@ glm::ivec2 BoardScene::PositionToGrid(const glm::vec2& position, BackgroundType 
         {
             rowF = (position.y - kPlantBaseYRoof + static_cast<float>(col) * 20.0f) / kPlantCellHeightRoof;
         }
+    }
+    else if (bgType == BackgroundType::Pool ||
+        bgType == BackgroundType::NightPool)
+    {
+        rowF = (position.y - kPlantBaseY) / kPlantCellHeightPool;
     }
     else
     {
@@ -248,7 +258,7 @@ std::shared_ptr<SeedBank> BoardScene::GetSeedBank() const
 bool BoardScene::CanPlantAt(int row, int column, PlantLayer layer) const
 {
     const int maxRows = settings_.backgroundType == BackgroundType::Pool ||
-                        settings_.backgroundType == BackgroundType::PoolNight
+                        settings_.backgroundType == BackgroundType::NightPool
                             ? 6
                             : 5;
     constexpr int maxColumns = 9;

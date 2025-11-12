@@ -1,10 +1,13 @@
 #include "SaveManager.hpp"
 
 #include <pugixml.hpp>
+#include <filesystem>
+#include <cstdlib>
+
+#ifdef _WIN32
 #include <Windows.h>
 #include <ShlObj.h>
-
-#include <filesystem>
+#endif
 
 std::string SaveManager::save_file_path_;
 std::unordered_map<std::string, SaveManager::Value> SaveManager::data_;
@@ -15,6 +18,9 @@ void SaveManager::Initialize()
     if (initialized_)
         return;
 
+    std::filesystem::path save_dir;
+
+#ifdef _WIN32
     PWSTR documents_path = nullptr;
     const HRESULT hr = SHGetKnownFolderPath(FOLDERID_Documents, 0, nullptr, &documents_path);
 
@@ -26,27 +32,55 @@ void SaveManager::Initialize()
 
         CoTaskMemFree(documents_path);
 
-        const std::filesystem::path save_dir = std::filesystem::path(documents_str) / "My Games" / "Deflorta";
-
-        try
-        {
-            std::filesystem::create_directories(save_dir);
-        }
-        catch (const std::filesystem::filesystem_error&)
-        {
-            save_file_path_ = "save.xml";
-            initialized_ = true;
-            Load();
-            return;
-        }
-
-        save_file_path_ = (save_dir / "save.xml").string();
+        save_dir = std::filesystem::path(documents_str) / "My Games" / "Deflorta";
     }
     else
     {
         save_file_path_ = "save.xml";
+        initialized_ = true;
+        Load();
+        return;
+    }
+#else
+    // Use XDG_DATA_HOME on Linux, ~/Library/Application Support on macOS, AppData on Windows
+    const char* home = std::getenv("HOME");
+    if (!home)
+    {
+        save_file_path_ = "save.xml";
+        initialized_ = true;
+        Load();
+        return;
     }
 
+#ifdef __APPLE__
+    save_dir = std::filesystem::path(home) / "Library" / "Application Support" / "Deflorta";
+#else
+    // Linux and other Unix-like systems
+    const char* xdg_data_home = std::getenv("XDG_DATA_HOME");
+    if (xdg_data_home)
+    {
+        save_dir = std::filesystem::path(xdg_data_home) / "Deflorta";
+    }
+    else
+    {
+        save_dir = std::filesystem::path(home) / ".local" / "share" / "Deflorta";
+    }
+#endif
+#endif
+
+    try
+    {
+        std::filesystem::create_directories(save_dir);
+    }
+    catch (const std::filesystem::filesystem_error&)
+    {
+        save_file_path_ = "save.xml";
+        initialized_ = true;
+        Load();
+        return;
+    }
+
+    save_file_path_ = (save_dir / "save.xml").string();
     initialized_ = true;
     Load();
 }

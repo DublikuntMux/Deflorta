@@ -368,7 +368,7 @@ void Reanimator::Draw() const
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
                 auto opacity = tracks_[ti].opacity;
-                
+
                 Color tint = Color::White;
                 if (ti < tracks_.size())
                 {
@@ -439,7 +439,7 @@ void Reanimator::Draw() const
                 cur.translation += overlay_.position + tracks_[ti].shake;
                 cur.scale *= overlay_.scale;
                 auto opacity = tracks_[ti].opacity;
-                
+
                 Color tint = Color::White;
                 if (ti < tracks_.size())
                 {

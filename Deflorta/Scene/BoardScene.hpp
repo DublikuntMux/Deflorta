@@ -6,7 +6,7 @@
 #include "../Object/Fog.hpp"
 #include "../Object/Plant/BasePlant.hpp"
 #include "../Object/SeedBank.hpp"
-#include "../Base/Timer.hpp""
+#include "../Base/Timer.hpp"
 
 #include <string>
 
@@ -15,9 +15,9 @@ enum class BackgroundType: std::uint8_t
     Day,
     Night,
     Pool,
-    PoolNight,
+    NightPool,
     Roof,
-    RoofNight,
+    NightRoof,
 };
 
 struct BoardSettings
@@ -33,6 +33,8 @@ static constexpr float kPlantBaseX = 270.0f;
 static constexpr float kPlantBaseY = 150.0f;
 static constexpr float kPlantCellWidth = 81.0f;
 static constexpr float kPlantCellHeight = 97.0f;
+
+static constexpr float kPlantCellHeightPool = 87.0f;
 
 static constexpr float kPlantBaseYRoof = kPlantBaseY + 87.0f;
 static constexpr float kPlantBaseYRoofFlat = kPlantBaseY - 10.0f;

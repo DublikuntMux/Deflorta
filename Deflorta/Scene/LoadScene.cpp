@@ -1,5 +1,7 @@
 ﻿#include "LoadScene.hpp"
 
+#include <GLFW/glfw3.h>
+
 #include "SelectorScene.hpp"
 #include "../Base/Game.hpp"
 #include "../Base/Time.hpp"
@@ -74,7 +76,7 @@ LoadScene::LoadScene()
 void LoadScene::OnEnter()
 {
     Discord::SetPresence("Loading", "Starting up");
-    Input::SetCursorType(IDC_WAIT);
+    Input::SetCursorType(GLFW_NOT_ALLOWED_CURSOR);
 }
 
 void LoadScene::Update()

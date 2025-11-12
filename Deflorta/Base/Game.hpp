@@ -1,15 +1,13 @@
-﻿#pragma once
+#pragma once
 
 #include "../Scene/Scene.hpp"
-
-#include <Windows.h>
 
 #include <memory>
 
 class Game final
 {
 public:
-    static void Initialize(HWND hwnd);
+    static void Initialize();
     static void Uninitialize();
 
     static void Run();
@@ -22,7 +20,6 @@ public:
     }
 
 private:
-    static HWND hwnd_;
     static std::unique_ptr<Scene> scene_;
     static std::unique_ptr<Scene> next_scene_;
     static bool running_;

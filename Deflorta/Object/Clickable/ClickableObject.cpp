@@ -1,9 +1,11 @@
 #include "ClickableObject.hpp"
 
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+
 #include "../../Collision/Collider.hpp"
 #include "../../Base/Input.hpp"
 
-#include <glm/glm.hpp>
 
 ClickableObject::ClickableObject(glm::vec2 position, GameObjectTag tag)
     : GameObject(tag)
@@ -46,7 +48,7 @@ void ClickableObject::HandleMouseInput()
 
     if (mouseOverNow)
     {
-        const bool leftMouseDown = Input::IsMouseDown(VK_LBUTTON);
+        const bool leftMouseDown = Input::IsMouseDown(MouseButton::Left);
 
         if (leftMouseDown)
         {
@@ -77,7 +79,7 @@ void ClickableObject::HandleMouseInput()
 
     if (isMouseOver_)
     {
-        Input::SetCursorType(IDC_HAND);
+        Input::SetCursorType(GLFW_POINTING_HAND_CURSOR);
     }
 }
 

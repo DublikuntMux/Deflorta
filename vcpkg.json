@@ -4,6 +4,7 @@
     "libvorbis",
     "pugixml",
     "discord-rpc",
-    "glm"
+    "glm",
+    "glfw3"
   ]
 }

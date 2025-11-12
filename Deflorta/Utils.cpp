@@ -1,8 +1,10 @@
-﻿#include "Utils.hpp"
-
-#include <Windows.h>
+#include "Utils.hpp"
 
 #include <filesystem>
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 namespace Utils
 {
@@ -26,6 +28,7 @@ namespace Utils
 
     std::string GetExecutableDir()
     {
+#ifdef _WIN32
         char exePath[MAX_PATH];
         const DWORD len = GetModuleFileNameA(nullptr, exePath, MAX_PATH);
         if (len == 0)
@@ -38,5 +41,15 @@ namespace Utils
         {
             return {"./"};
         }
+#else
+        try
+        {
+            return std::filesystem::current_path().string();
+        }
+        catch (...)
+        {
+            return {"./"};
+        }
+#endif
     }
 }

@@ -1,28 +1,28 @@
 #include "Game.hpp"
 
+#include <GLFW/glfw3.h>
+
 #include "Time.hpp"
 #include "Input.hpp"
 #include "Discord.hpp"
 #include "SaveManager.hpp"
+#include "Window.hpp"
 #include "../Render/Renderer.hpp"
 #include "../Resource/AudioManager.hpp"
 #include "../Resource/ResourceManager.hpp"
 #include "../Resource/Foley.hpp"
 
-HWND Game::hwnd_;
 std::unique_ptr<Scene> Game::scene_;
 std::unique_ptr<Scene> Game::next_scene_;
 bool Game::running_ = true;
 
-void Game::Initialize(HWND hwnd)
+void Game::Initialize()
 {
-    hwnd_ = hwnd;
-
     SaveManager::Initialize();
 
     if (!AudioManager::Initialize())
         running_ = false;
-    if (!Renderer::Initialize(hwnd_))
+    if (!Renderer::Initialize(Window::GetNativeWindowHandle()))
         running_ = false;
 
     ResourceManager::SetRenderBackend(Renderer::GetRenderBackend());
@@ -45,26 +45,15 @@ void Game::Uninitialize()
 
 void Game::Run()
 {
-    MSG msg;
-    while (running_)
+    while (running_ && Window::IsOpen())
     {
-        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-        {
-            if (msg.message == WM_QUIT)
-            {
-                running_ = false;
-                break;
-            }
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-        }
-
+        Window::PollEvents();
         Discord::Update();
 
         if (next_scene_)
         {
             if (scene_) scene_->OnExit();
-            Input::SetCursorType(IDC_ARROW);
+            Input::SetCursorType(GLFW_ARROW_CURSOR);
             scene_ = std::move(next_scene_);
             scene_->OnEnter();
         }
@@ -72,9 +61,8 @@ void Game::Run()
         Time::Tick();
         Input::BeginCursorUpdate();
 
-        // Toggle collision debug rendering with F3
         static bool f3WasPressed = false;
-        if (Input::IsKeyPressed(VK_F3))
+        if (Input::IsKeyPressed(Key::F3))
         {
             if (!f3WasPressed && scene_ && scene_->GetCollisionSystem())
             {
@@ -95,6 +83,7 @@ void Game::Run()
             scene_->Render();
         }
         Input::EndCursorUpdate();
+        Input::UpdateCursor();
         Renderer::Render();
     }
 }
