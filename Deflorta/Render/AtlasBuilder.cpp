@@ -1,6 +1,7 @@
-﻿#include "AtlasBuilder.hpp"
+#include "AtlasBuilder.hpp"
 
-#include <png.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 #include <algorithm>
 #include <iostream>
@@ -12,71 +13,20 @@ bool TextureAtlas::Save(const std::string& filePath) const
 {
     if (atlasData.width == 0 || atlasData.height == 0 || atlasData.pixels.empty())
     {
-        std::cerr << "TextureAtlas::SaveToPNG: No image data to save\n";
+        std::cerr << "TextureAtlas::Save: No image data to save\n";
         return false;
     }
 
-    FILE* fp = std::fopen(filePath.c_str(), "wb");
-    if (!fp)
-    {
-        std::cerr << "TextureAtlas::SaveToPNG: Failed to open file '" << filePath << "'\n";
-        return false;
-    }
-
-    png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png_ptr)
-    {
-        std::cerr << "TextureAtlas::SaveToPNG: Failed to create write struct\n";
-        std::fclose(fp);
-        return false;
-    }
-
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (!info_ptr)
-    {
-        std::cerr << "TextureAtlas::SaveToPNG: Failed to create info struct\n";
-        png_destroy_write_struct(&png_ptr, nullptr);
-        std::fclose(fp);
-        return false;
-    }
-
-    if (setjmp(png_jmpbuf(png_ptr)))
-    {
-        std::cerr << "TextureAtlas::SaveToPNG: libpng encountered an error\n";
-        png_destroy_write_struct(&png_ptr, &info_ptr);
-        std::fclose(fp);
-        return false;
-    }
-
-    png_init_io(png_ptr, fp);
-
-    png_set_IHDR(
-        png_ptr, info_ptr,
-        atlasData.width,
-        atlasData.height,
-        8,
-        PNG_COLOR_TYPE_RGBA,
-        PNG_INTERLACE_NONE,
-        PNG_COMPRESSION_TYPE_BASE,
-        PNG_FILTER_TYPE_BASE
+    const int result = stbi_write_png(
+        filePath.c_str(),
+        static_cast<int>(atlasData.width),
+        static_cast<int>(atlasData.height),
+        4,
+        atlasData.pixels.data(),
+        static_cast<int>(atlasData.width) * 4
     );
 
-    png_write_info(png_ptr, info_ptr);
-
-    std::vector<png_bytep> row_pointers(atlasData.height);
-    for (uint32_t y = 0; y < atlasData.height; ++y)
-    {
-        row_pointers[y] = const_cast<png_bytep>(
-            &atlasData.pixels[y * atlasData.width * 4]
-        );
-    }
-
-    png_write_image(png_ptr, row_pointers.data());
-    png_write_end(png_ptr, nullptr);
-
-    png_destroy_write_struct(&png_ptr, &info_ptr);
-    std::fclose(fp);
-    return true;
+    return result != 0;
 }
 
 void AtlasBuilder::AddImage(const std::string& id, const PixelData& pixelData)

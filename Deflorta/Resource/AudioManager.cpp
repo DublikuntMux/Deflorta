@@ -1,6 +1,6 @@
-﻿#include "AudioManager.hpp"
+#include "AudioManager.hpp"
 
-#include <vorbis/vorbisfile.h>
+#include <stb_vorbis.c>
 
 #include <algorithm>
 #include <chrono>
@@ -41,48 +41,26 @@ void AudioManager::Uninitialize()
 
 bool AudioManager::LoadOggFile(const std::string& filePath, AudioData& outData)
 {
-    FILE* file = nullptr;
-    fopen_s(&file, filePath.c_str(), "rb");
-    if (!file) return false;
+    int channels, rate;
+    short* samples = nullptr;
+    int samplesCount = stb_vorbis_decode_filename(filePath.c_str(), &channels, &rate, &samples);
 
-    OggVorbis_File vf;
-    if (ov_open_callbacks(file, &vf, nullptr, 0, OV_CALLBACKS_DEFAULT) < 0)
-    {
-        fclose(file);
-        return false;
-    }
-
-    vorbis_info* vi = ov_info(&vf, -1);
-    if (!vi)
-    {
-        ov_clear(&vf);
-        return false;
-    }
+    if (!samples) return false;
 
     WAVEFORMATEX& wfx = outData.format;
     wfx.wFormatTag = WAVE_FORMAT_PCM;
-    wfx.nChannels = static_cast<WORD>(vi->channels);
-    wfx.nSamplesPerSec = static_cast<DWORD>(vi->rate);
+    wfx.nChannels = static_cast<WORD>(channels);
+    wfx.nSamplesPerSec = static_cast<DWORD>(rate);
     wfx.wBitsPerSample = 16;
     wfx.nBlockAlign = wfx.nChannels * (wfx.wBitsPerSample / 8);
     wfx.nAvgBytesPerSec = wfx.nSamplesPerSec * wfx.nBlockAlign;
     wfx.cbSize = 0;
 
-    constexpr size_t BUFFER_SIZE = 4096;
-    std::vector<char> temp(BUFFER_SIZE);
-    outData.buffer.clear();
+    const size_t buffer_size = static_cast<size_t>(samplesCount) * channels * sizeof(short);
+    outData.buffer.resize(buffer_size);
+    std::memcpy(outData.buffer.data(), samples, buffer_size);
 
-    int bitstream = 0;
-    long bytesRead;
-    do
-    {
-        bytesRead = ov_read(&vf, temp.data(), static_cast<int>(temp.size()), 0, 2, 1, &bitstream);
-        if (bytesRead > 0)
-            outData.buffer.insert(outData.buffer.end(), temp.begin(), temp.begin() + bytesRead);
-    }
-    while (bytesRead > 0);
-
-    ov_clear(&vf);
+    free(samples);
     return !outData.buffer.empty();
 }
 

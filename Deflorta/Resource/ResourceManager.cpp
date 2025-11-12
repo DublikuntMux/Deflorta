@@ -4,7 +4,8 @@
 #include "../Utils.hpp"
 
 #include <pugixml.hpp>
-#include <png.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -123,79 +124,20 @@ bool ResourceManager::PreloadReanimImage(const std::string& id)
 
 bool ResourceManager::LoadPngFile(const std::string& filePath, PixelData& outData)
 {
-    FILE* fp = nullptr;
-    fopen_s(&fp, filePath.c_str(), "rb");
-    if (!fp)
+    int width, height, channels;
+    unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &channels, 4);
+
+    if (!data)
     {
-        std::cout << "Error: Failed to open PNG file: " << filePath << "\n";
+        std::cout << "Error: Failed to load PNG file: " << filePath << "\n";
         return false;
     }
 
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png)
-    {
-        std::cout << "Error: Failed to create PNG read struct for file: " << filePath << "\n";
-        fclose(fp);
-        return false;
-    }
-
-    png_infop info = png_create_info_struct(png);
-    if (!info)
-    {
-        std::cout << "Error: Failed to create PNG info struct for file: " << filePath << "\n";
-        png_destroy_read_struct(&png, nullptr, nullptr);
-        fclose(fp);
-        return false;
-    }
-
-    if (setjmp(png_jmpbuf(png)))
-    {
-        std::cout << "Error: PNG reading failed for file: " << filePath << "\n";
-        png_destroy_read_struct(&png, &info, nullptr);
-        fclose(fp);
-        return false;
-    }
-
-    png_init_io(png, fp);
-    png_read_info(png, info);
-
-    outData.width = png_get_image_width(png, info);
-    outData.height = png_get_image_height(png, info);
-    const png_byte color_type = png_get_color_type(png, info);
-    const png_byte bit_depth = png_get_bit_depth(png, info);
-
-    if (bit_depth == 16)
-        png_set_strip_16(png);
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE)
-        png_set_palette_to_rgb(png);
-
-    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
-        png_set_expand_gray_1_2_4_to_8(png);
-
-    if (png_get_valid(png, info, PNG_INFO_tRNS))
-        png_set_tRNS_to_alpha(png);
-
-    if (color_type == PNG_COLOR_TYPE_RGB ||
-        color_type == PNG_COLOR_TYPE_GRAY ||
-        color_type == PNG_COLOR_TYPE_PALETTE)
-        png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
-
-    if (color_type == PNG_COLOR_TYPE_GRAY ||
-        color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
-        png_set_gray_to_rgb(png);
-
-    png_read_update_info(png, info);
-
-    outData.pixels.resize(outData.width * outData.height * 4);
-    std::vector<png_bytep> row_pointers(outData.height);
-
-    for (uint32_t y = 0; y < outData.height; ++y)
-        row_pointers[y] = outData.pixels.data() + y * outData.width * 4;
-
-    png_read_image(png, row_pointers.data());
-    png_destroy_read_struct(&png, &info, nullptr);
-    fclose(fp);
+    outData.width = static_cast<uint32_t>(width);
+    outData.height = static_cast<uint32_t>(height);
+    outData.pixels.resize(static_cast<size_t>(width) * height * 4);
+    std::memcpy(outData.pixels.data(), data, outData.pixels.size());
+    stbi_image_free(data);
 
     uint8_t* pixels = outData.pixels.data();
     const size_t pixelCount = outData.width * outData.height;
