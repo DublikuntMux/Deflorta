@@ -13,6 +13,7 @@ public:
     LoadScene();
 
     void OnEnter() override;
+    void OnExit() override;
     void Update() override;
     void Render() override;
 

@@ -34,21 +34,18 @@ SelectorScene::SelectorScene()
             throw std::runtime_error("Failed to load selector scene reanim");
 
         screenAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        screenAnimation_->SetPosition({0.0f, 0.0f});
         screenAnimation_->SetLayerVisible("almanac_key_shadow", false);
         screenAnimation_->PlayLayer("anim_open", ReanimLoopType::PlayOnceAndHold);
         screenAnimation_->SetLayerZ("SelectorScreen_BG", static_cast<int>(RenderLayer::Background));
 
         grassAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        grassAnimation_->SetPosition({0.0f, -30.0f});
         grassAnimation_->PlayLayer("anim_grass", ReanimLoopType::Loop, 6.0f);
 
         signAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        signAnimation_->SetPosition({0.0f, -60.0f});
+        signAnimation_->SetPosition({0.0f, -80.0f});
         signAnimation_->PlayLayer("anim_sign", ReanimLoopType::PlayOnceAndHold);
 
         cloudAnimation_ = std::make_unique<Reanimator>(reanim.value());
-        cloudAnimation_->SetPosition({0.0f, 0.0f});
         const auto cloudId = Random::UniformInt(1, 6);
         cloudAnimation_->PlayLayer("anim_cloud" + std::to_string(cloudId), ReanimLoopType::PlayOnceAndHold, 0.5f);
         for (int i = 1; i < 7; ++i)
@@ -196,7 +193,6 @@ SelectorScene::SelectorScene()
     }
 
     AudioManager::PlayMusic("resources/sounds/mainmusic.ogg");
-    AudioManager::PlaySfx("SOUND_ROLL_IN");
 }
 
 void SelectorScene::OnEnter()

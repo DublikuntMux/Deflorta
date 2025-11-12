@@ -13,6 +13,7 @@
 #include "../Base/Discord.hpp"
 #include "../Base/Input.hpp"
 #include "../Render/Layer.hpp"
+#include "../Resource/AudioManager.hpp"
 
 namespace
 {
@@ -77,6 +78,12 @@ void LoadScene::OnEnter()
 {
     Discord::SetPresence("Loading", "Starting up");
     Input::SetCursorType(GLFW_NOT_ALLOWED_CURSOR);
+}
+
+void LoadScene::OnExit()
+{
+    AudioManager::PlaySfx("SOUND_ROLL_IN");
+    Input::SetCursorType(GLFW_ARROW_CURSOR);
 }
 
 void LoadScene::Update()
