@@ -1,7 +1,10 @@
 //! Music, sound effects, voice and video soundtracks on separate mixer
 //! tracks (kira).
 
+mod webm;
+
 use std::collections::HashMap;
+use std::path::Path;
 use std::time::Duration;
 
 use kira::sound::FromFileError;
@@ -15,6 +18,14 @@ use log::{debug, info, warn};
 use crate::assets::Assets;
 
 type Stream = StreamingSoundHandle<FromFileError>;
+
+fn open_stream(path: &Path) -> Result<StreamingSoundData<FromFileError>, FromFileError> {
+    if crate::video::is_webm(path) {
+        Ok(StreamingSoundData::from_decoder(webm::Decoder::open(path)?))
+    } else {
+        StreamingSoundData::from_file(path)
+    }
+}
 
 pub struct Audio {
     _manager: AudioManager<DefaultBackend>,
@@ -50,7 +61,7 @@ fn stream(
     fade_in: f32,
 ) -> Option<StreamingSoundData<FromFileError>> {
     let path = assets.resolve(file)?;
-    let mut data = match StreamingSoundData::from_file(&path) {
+    let mut data = match open_stream(&path) {
         Ok(data) => data.volume(decibels(volume)),
         Err(err) => {
             warn!("Cannot play '{file}': {err}");
@@ -183,7 +194,7 @@ impl Audio {
             let Some(path) = assets.resolve(src) else {
                 continue;
             };
-            let data = match StreamingSoundData::from_file(&path) {
+            let data = match open_stream(&path) {
                 Ok(data) => data,
                 Err(err) => {
                     debug!("Video '{src}' has no playable soundtrack: {err}");
@@ -218,5 +229,47 @@ mod tests {
     fn decodes_movie_soundtrack() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/game/movies/intro.mp4");
         assert!(StreamingSoundData::from_file(path).is_ok());
+    }
+
+    #[test]
+    fn streams_webm_soundtrack_and_rewinds() {
+        use kira::sound::streaming::Decoder as _;
+
+        for codec in ["vp8", "vp9"] {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("tests/fixtures/{codec}-vorbis.webm"));
+            assert!(open_stream(&path).is_ok());
+            let mut decoder = webm::Decoder::open(&path).unwrap();
+            assert_eq!(decoder.sample_rate(), 48_000);
+            assert!((28_800..31_200).contains(&decoder.num_frames()));
+            let first = decoder.decode().unwrap();
+            assert_ne!(first.len(), 0);
+            let mut sample_count = first.len();
+            let mut audible = first.iter().any(|frame| frame.left.abs() > 0.01);
+            let mut last = first.clone();
+            loop {
+                let frames = decoder.decode().unwrap();
+                if frames.is_empty() {
+                    break;
+                }
+                sample_count += frames.len();
+                audible |= frames.iter().any(|frame| frame.left.abs() > 0.01);
+                last = frames;
+            }
+            assert!(audible);
+            assert!(sample_count >= decoder.num_frames());
+            if codec == "vp9" {
+                // This stereo soundtrack ends before the video: fill its tail with silence.
+                assert!(last.iter().all(|frame| *frame == kira::Frame::ZERO));
+            }
+            assert!(
+                (28_000..31_200).contains(&sample_count),
+                "decoded {sample_count} samples"
+            );
+            assert_eq!(decoder.seek(0).unwrap(), 0);
+            assert_eq!(decoder.decode().unwrap(), first);
+            assert!(decoder.seek(14_400).unwrap() <= 14_400);
+            assert_ne!(decoder.decode().unwrap().len(), 0);
+        }
     }
 }

@@ -1,6 +1,12 @@
-//! Video playback: H.264 in MP4, demuxed with `mp4` and decoded with
-//! `OpenH264` on a background thread. Frames are timed against the wall clock;
+//! Video playback: H.264 in MP4 and VP8/VP9 in `WebM`, decoded on a background
+//! thread. `WebM` demuxing and decoding use pure Rust libraries.
+//! Frames are timed against the wall clock;
 //! the engine plays the file's audio track separately.
+
+mod webm;
+
+#[cfg(test)]
+mod tests;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -28,13 +34,14 @@ struct Frame {
 
 enum Message {
     Frame(Frame),
-    End,
+    End(f64),
 }
 
 struct State {
     queue: VecDeque<Frame>,
     current: Option<(u64, Arc<image::RgbaImage>)>,
     decoding_done: bool,
+    end_pts: f64,
     ended: bool,
     end_reported: bool,
 }
@@ -62,13 +69,17 @@ impl VideoPlayer {
         std::thread::Builder::new()
             .name(format!("video {src}"))
             .spawn(move || {
-                match decode(&thread_path, looping, &sender) {
-                    Ok(frames) => {
+                let end_pts = match decode(&thread_path, looping, &sender) {
+                    Ok((frames, end_pts)) => {
                         debug!("Video '{thread_src}' decoding finished after {frames} frames");
+                        end_pts
                     }
-                    Err(err) => error!("Video '{thread_src}' failed: {err:#}"),
-                }
-                let _ = sender.send(Message::End);
+                    Err(err) => {
+                        error!("Video '{thread_src}' failed: {err:#}");
+                        0.0
+                    }
+                };
+                let _ = sender.send(Message::End(end_pts));
             })
             .expect("spawn video thread");
         Self {
@@ -81,6 +92,7 @@ impl VideoPlayer {
                 queue: VecDeque::new(),
                 current: None,
                 decoding_done: false,
+                end_pts: 0.0,
                 ended: false,
                 end_reported: false,
             }),
@@ -122,7 +134,11 @@ impl VideoPlayer {
             while state.queue.len() < QUEUE_AHEAD && !state.decoding_done {
                 match self.receiver.try_recv() {
                     Ok(Message::Frame(frame)) => state.queue.push_back(frame),
-                    Ok(Message::End) | Err(TryRecvError::Disconnected) => {
+                    Ok(Message::End(end_pts)) => {
+                        state.end_pts = end_pts;
+                        state.decoding_done = true;
+                    }
+                    Err(TryRecvError::Disconnected) => {
                         state.decoding_done = true;
                     }
                     Err(TryRecvError::Empty) => break,
@@ -137,7 +153,7 @@ impl VideoPlayer {
                 _ => break,
             }
         }
-        if state.decoding_done && state.queue.is_empty() {
+        if state.decoding_done && state.queue.is_empty() && elapsed >= state.end_pts {
             state.ended = true;
         }
         state.current.clone()
@@ -159,6 +175,9 @@ fn video_track(reader: &mp4::Mp4Reader<BufReader<File>>) -> Result<&mp4::Mp4Trac
 }
 
 fn probe_size(path: &Path) -> Result<(u32, u32)> {
+    if is_webm(path) {
+        return webm::probe_size(path);
+    }
     let reader = open_reader(path)?;
     let track = video_track(&reader)?;
     Ok((u32::from(track.width()), u32::from(track.height())))
@@ -183,7 +202,20 @@ fn to_annex_b(sample: &[u8], out: &mut Vec<u8>) {
 }
 
 /// Decodes frames until the end (or until the player is dropped). Returns the frame count.
-fn decode(path: &Path, looping: bool, sender: &SyncSender<Message>) -> Result<u64> {
+fn decode(path: &Path, looping: bool, sender: &SyncSender<Message>) -> Result<(u64, f64)> {
+    if is_webm(path) {
+        webm::decode(path, looping, sender)
+    } else {
+        decode_mp4(path, looping, sender)
+    }
+}
+
+pub fn is_webm(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("webm"))
+}
+
+fn decode_mp4(path: &Path, looping: bool, sender: &SyncSender<Message>) -> Result<(u64, f64)> {
     let mut offset = 0.0;
     let mut frames = 0;
     loop {
@@ -233,12 +265,12 @@ fn decode(path: &Path, looping: bool, sender: &SyncSender<Message>) -> Result<u6
                 .is_err()
             {
                 // The player was dropped (the video left the screen).
-                return Ok(frames);
+                return Ok((frames, offset + duration));
             }
             frames += 1;
         }
         if !looping || duration <= 0.0 {
-            return Ok(frames);
+            return Ok((frames, offset + duration));
         }
         trace!("Looping video {}", path.display());
         offset += duration;

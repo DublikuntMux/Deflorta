@@ -18,7 +18,7 @@ mygame/
   main.js        entry module
   images/        "bg room" → images/bg room.png unless declared with image()
   audio/
-  movies/        H.264 MP4 (AAC audio)
+  movies/        H.264 MP4 (AAC audio), VP8/VP9 WebM (Vorbis audio)
   fonts/         all fonts in here are loaded; pick one with configure({ font })
   tl/            translations: tl/<language>.json = { "source": "translation" }
 ```
@@ -42,6 +42,14 @@ label("start", async () => {
 ```
 
 `game/main.js` is a complete demo using most features.
+
+WebM files work with `playMovie()`, `video()` and `configure({ menuVideo })`,
+including looping and end callbacks. WebM demuxing, VP8/VP9 decoding and color
+conversion use pure Rust dependencies; no FFmpeg or libvpx installation is needed.
+VP9 supports 8/10/12-bit video with 4:2:0, 4:2:2 or 4:4:4 chroma, displayed as
+8-bit RGBA. Vorbis soundtracks stream in mono or stereo; files without audio
+play silently. Opus audio, AV1 video and WebM alpha channels are not supported.
+WebM soundtracks require the container's duration metadata.
 
 ## Scripting API (`import … from "deflorta"`)
 

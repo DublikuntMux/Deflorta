@@ -877,13 +877,17 @@ dependencies = [
  "num-traits",
  "openh264",
  "oxc",
+ "oxideav-vp8",
+ "oxideav-vp9",
  "pollster",
  "pretty_env_logger",
  "serde",
  "serde_json",
+ "symphonia",
  "taffy",
  "wgpu",
  "winit",
+ "yuv",
 ]
 
 [[package]]
@@ -3699,6 +3703,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxideav-core"
+version = "0.1.39"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f49a13fc8a75d81fb4af6108bd67d080d52213ffa008340212246d543d63f982"
+dependencies = [
+ "bytemuck",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "oxideav-vp8"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "506f2495a728488c2fee1ee54bc7f819ca934dc3246369b4100c83848f057852"
+
+[[package]]
+name = "oxideav-vp9"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01151d83fdb9dc1183ea47117e76a17421f8c08b9716506f61eccc493bb70d2c"
+dependencies = [
+ "oxideav-core",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4684,6 +4714,7 @@ dependencies = [
  "symphonia-codec-vorbis",
  "symphonia-core",
  "symphonia-format-isomp4",
+ "symphonia-format-mkv",
  "symphonia-format-ogg",
  "symphonia-format-riff",
  "symphonia-metadata",
@@ -4780,6 +4811,18 @@ dependencies = [
  "symphonia-common",
  "symphonia-core",
  "symphonia-metadata",
+]
+
+[[package]]
+name = "symphonia-format-mkv"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d015c5c0558864665894b3f4cbd95e10abb01b9c868e751c72670f326a56360e"
+dependencies = [
+ "lazy_static",
+ "log",
+ "symphonia-common",
+ "symphonia-core",
 ]
 
 [[package]]
@@ -6030,6 +6073,15 @@ dependencies = [
  "quote",
  "syn 3.0.6",
  "synstructure",
+]
+
+[[package]]
+name = "yuv"
+version = "0.8.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a295923535c00a4e72a50a0a1130097f93160b39892dd4d2d006b1e2b90d6bf9"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]

@@ -31,7 +31,7 @@ Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (p
 │             rich text, taffy flex/grid layout, scrolling, focus navigation, widgets        │
 │ render/     wgpu: instanced SDF quads (rounded, bordered, rotated, masked, image/video)    │
 │             + glyphon text, offscreen capture                                              │
-│ video.rs    MP4 demux (mp4) + H.264 decode (OpenH264) on a background thread               │
+│ video/      MP4/H.264 (mp4/OpenH264), WebM/VP8/VP9 (Symphonia/OxideAV), background decode │
 │ audio.rs    kira: music, sound, voice tracks; video soundtracks                            │
 │ assets.rs   sandboxed file access; background image decoding pool                          │
 │ app.rs      winit + gilrs front end   headless.rs  scripted front end (tests, screenshots) │
@@ -288,6 +288,6 @@ Next steps, roughly in priority order:
    developer console, and lint (missing labels/images, unserializable state).
 2. **TypeScript declarations** (`deflorta.d.ts`) for editor completion and type
    checking.
-3. **More video codecs** (VP9/AV1 in WebM) and hardware decoding.
+3. **More video codecs** (AV1 in WebM), Opus soundtracks and hardware decoding.
 4. Self-voicing (text to speech) and other accessibility options, plus
    Steam/Discord integrations.

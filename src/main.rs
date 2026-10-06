@@ -8,6 +8,7 @@ mod assets;
 mod audio;
 mod engine;
 mod headless;
+mod media;
 mod render;
 mod script;
 mod ui;
