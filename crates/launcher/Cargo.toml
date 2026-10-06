@@ -9,6 +9,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-deflorta.workspace = true
+deflorta = { workspace = true, features = ["dev-console"] }
 anyhow.workspace = true
 log.workspace = true

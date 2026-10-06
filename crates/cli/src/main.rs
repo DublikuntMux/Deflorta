@@ -419,7 +419,8 @@ fn translate(command: TranslateCommand) -> Result<ExitCode> {
                 {
                     bail!("invalid language id '{language}'");
                 }
-                let progress = translate::update(&project, &extracted.strings, language, prune)?;
+                let progress =
+                    translate::update(&project, &extracted.translatable, language, prune)?;
                 print_progress(&progress);
             }
         }
@@ -428,16 +429,20 @@ fn translate(command: TranslateCommand) -> Result<ExitCode> {
             if languages.is_empty() {
                 println!(
                     "No translations yet ({} translatable strings).",
-                    extracted.strings.len()
+                    extracted.translatable.len()
                 );
             }
             for language in &languages {
-                print_progress(&translate::status(&project, &extracted.strings, language)?);
+                print_progress(&translate::status(
+                    &project,
+                    &extracted.translatable,
+                    language,
+                )?);
             }
         }
         TranslateCommand::Missing { language, .. } => {
             let mut out = String::new();
-            for text in translate::missing(&project, &extracted.strings, &language)? {
+            for text in translate::missing(&project, &extracted.translatable, &language)? {
                 out.push_str(&serde_json::to_string(&text)?);
                 out.push('\n');
             }

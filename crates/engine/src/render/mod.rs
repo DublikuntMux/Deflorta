@@ -47,7 +47,7 @@ struct Globals {
 }
 
 struct Texture {
-    texture: wgpu::Texture,
+    raw: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     last_used: Instant,
     /// Video frame serial last uploaded.
@@ -107,6 +107,11 @@ pub struct Renderer {
 }
 
 impl Renderer {
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    pub fn create_console(&self, window: &Window) -> crate::dev_console::DevConsole {
+        crate::dev_console::DevConsole::new(window, &self.device, self.format)
+    }
+
     pub async fn for_window(instance: &wgpu::Instance, window: Arc<Window>) -> Result<Self> {
         let size = window.inner_size();
         let surface = instance
@@ -435,7 +440,7 @@ impl Renderer {
             img.as_raw(),
         );
         Some(Texture {
-            texture,
+            raw: texture,
             bind_group,
             last_used: now,
             serial,
@@ -450,7 +455,7 @@ impl Renderer {
         };
         let reusable = matches!(
             self.textures.get(&image.src),
-            Some(Some(t)) if t.texture.width() == frame.width() && t.texture.height() == frame.height()
+            Some(Some(t)) if t.raw.width() == frame.width() && t.raw.height() == frame.height()
         );
         if !reusable {
             let texture = self.texture_from_pixels(frame, now, *serial);
@@ -463,14 +468,14 @@ impl Renderer {
         if texture.serial != *serial {
             texture.serial = *serial;
             self.queue.write_texture(
-                texture.texture.as_image_copy(),
+                texture.raw.as_image_copy(),
                 frame.as_raw(),
                 wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(frame.width() * 4),
                     rows_per_image: None,
                 },
-                texture.texture.size(),
+                texture.raw.size(),
             );
         }
         true
@@ -736,8 +741,15 @@ impl Renderer {
         ui: &mut Ui,
         assets: &mut Assets,
         clear: Color,
+        #[cfg(all(debug_assertions, feature = "dev-console"))] mut console: Option<
+            &mut crate::dev_console::DevConsole,
+        >,
     ) -> Result<()> {
         let layers = self.prepare(items, ui, assets, clear)?;
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        if let Some(console) = &mut console {
+            console.upload_textures(&self.device, &self.queue);
+        }
 
         // A suboptimal frame is still drawn and presented; the surface may only be
         // reconfigured once that frame has been released.
@@ -788,6 +800,12 @@ impl Renderer {
         };
         let commands = self.encode(&view, &layers)?;
         self.queue.submit(Some(commands));
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        if let Some(console) = console {
+            let commands =
+                console.paint(&self.device, &self.queue, &view, [self.width, self.height]);
+            self.queue.submit(commands);
+        }
         if let (
             Some(frame),
             Target::Window {

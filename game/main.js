@@ -1,7 +1,6 @@
 // Deflorta demo game. Everything — story, characters and UI — is JavaScript.
 
 import {
-  atl,
   bob,
   box,
   call,

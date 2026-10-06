@@ -238,6 +238,52 @@ impl ScriptHost {
         result
     }
 
+    /// Exposes the public module namespace for commands in the debug console.
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    pub fn enable_console(&mut self) -> Result<()> {
+        let cx = self.cx();
+        unsafe {
+            rooted!(in(cx) let module = with_state(|s| s.modules["deflorta"].get()));
+            let namespace = jsapi::GetModuleNamespace(cx, module.handle().into());
+            if namespace.is_null() {
+                return Err(pending_exception(cx));
+            }
+            rooted!(in(cx) let namespace = mozjs::jsval::ObjectValue(namespace));
+            rooted!(in(cx) let global = self.global.get());
+            if !jsapi::JS_SetProperty(
+                cx,
+                global.handle().into(),
+                c"deflorta".as_ptr(),
+                namespace.handle().into(),
+            ) {
+                return Err(pending_exception(cx));
+            }
+        }
+        Ok(())
+    }
+
+    /// Evaluates a script in the live global scope, retaining declarations between
+    /// commands. Jobs and flush hooks run even after a command throws.
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    pub fn evaluate_console(&mut self, source: &str) -> Result<String> {
+        let cx = self.cx();
+        let result = unsafe {
+            let safe_cx = JSContext::from_ptr(NonNull::new_unchecked(cx));
+            let options = CompileOptionsWrapper::new(&safe_cx, CString::new("<console>")?, 1);
+            let mut text = transform_str_to_source_text(source);
+            rooted!(in(cx) let mut value = UndefinedValue());
+            if jsapi::Evaluate2(cx, options.ptr, &raw mut text, value.handle_mut().into()) {
+                run_jobs(cx);
+                Ok(format_console_value(cx, value.handle()))
+            } else {
+                Err(pending_exception(cx))
+            }
+        };
+        unsafe { run_jobs(cx) };
+        let flushed = self.flush();
+        result.and_then(|value| flushed.map(|()| value))
+    }
+
     /// Commands queued by native module calls, in call order.
     pub fn take_commands() -> Vec<Command> {
         with_state(|s| std::mem::take(&mut s.commands))
@@ -572,6 +618,50 @@ unsafe fn value_to_string(cx: *mut RawJSContext, value: Handle<Value>) -> String
         unsafe { jsapi::JS_ClearPendingException(cx) };
         "<unprintable value>".to_owned()
     }
+}
+
+#[cfg(all(debug_assertions, feature = "dev-console"))]
+unsafe fn format_console_value(cx: *mut RawJSContext, value: Handle<Value>) -> String {
+    unsafe {
+        if !value.get().is_object() {
+            return value_to_string(cx, value);
+        }
+        // JSON provides useful snapshots for arrays and plain objects. Circular
+        // objects, functions and unsupported values fall back to JS ToString.
+        rooted!(in(cx) let mut json_value = value.get());
+        rooted!(in(cx) let replacer: *mut JSObject = ptr::null_mut());
+        rooted!(in(cx) let space = UndefinedValue());
+        let mut output = String::new();
+        if jsapi::JS_Stringify(
+            cx,
+            json_value.handle_mut().into(),
+            replacer.handle().into(),
+            space.handle().into(),
+            Some(console_json),
+            (&raw mut output).cast(),
+        ) && output != "null"
+        {
+            return output;
+        }
+        jsapi::JS_ClearPendingException(cx);
+        value_to_string(cx, value)
+    }
+}
+
+#[cfg(all(debug_assertions, feature = "dev-console"))]
+unsafe extern "C" fn console_json(
+    buffer: *const u16,
+    length: u32,
+    data: *mut std::ffi::c_void,
+) -> bool {
+    unsafe {
+        let output = &mut *data.cast::<String>();
+        output.push_str(&String::from_utf16_lossy(std::slice::from_raw_parts(
+            buffer,
+            length as usize,
+        )));
+    }
+    true
 }
 
 unsafe fn get_property_string(

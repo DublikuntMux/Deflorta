@@ -54,7 +54,7 @@ pub struct Index {
 }
 
 /// Number of blocks a file of `size` bytes occupies.
-pub fn block_count(size: u64, block_size: u32) -> u64 {
+fn block_count(size: u64, block_size: u32) -> u64 {
     size.div_ceil(u64::from(block_size))
 }
 
@@ -128,6 +128,13 @@ pub fn encode_header(block_size: u32, stored_index: u32, index: u32) -> [u8; HEA
     header
 }
 
+fn decode_header_field(header: &[u8; HEADER_SIZE], offset: usize) -> Result<u32> {
+    let bytes = header
+        .get(offset..offset + 4)
+        .context("archive header is truncated")?;
+    Ok(u32::from_le_bytes(bytes.try_into()?))
+}
+
 struct BlockInfo {
     offset: u64,
     stored_size: u32,
@@ -158,37 +165,43 @@ impl Archive {
         file.read_exact(&mut header)
             .context("archive header is truncated")?;
         ensure!(
-            header[..8] == MAGIC,
+            header.starts_with(&MAGIC),
             "{} is not a Deflorta archive",
             path.display()
         );
-        let field =
-            |i: usize| u32::from_le_bytes(header[8 + i * 4..12 + i * 4].try_into().unwrap());
-        let version = field(0);
+        let version = decode_header_field(&header, 8)?;
+        let block_size = decode_header_field(&header, 12)?;
+        let stored_index_size = decode_header_field(&header, 16)?;
+        let index_size = decode_header_field(&header, 20)?;
+
         if version != VERSION {
             bail!("unsupported archive version {version} (expected {VERSION})");
         }
-        let block_size = field(1);
         ensure!(
             block_size == BLOCK_SIZE,
             "unsupported archive block size {block_size}"
         );
+
         let file_size = file.metadata()?.len();
+        let data_size = file_size
+            .checked_sub(HEADER_SIZE as u64)
+            .context("archive header is truncated")?;
         ensure!(
-            u64::from(field(2)) <= file_size - HEADER_SIZE as u64,
+            u64::from(stored_index_size) <= data_size,
             "archive index is truncated"
         );
         ensure!(
-            field(2) <= MAX_INDEX_SIZE && field(3) <= MAX_INDEX_SIZE,
+            stored_index_size <= MAX_INDEX_SIZE && index_size <= MAX_INDEX_SIZE,
             "archive index is too large"
         );
-        let mut stored = vec![0; usize::try_from(field(2))?];
+
+        let mut stored = vec![0; usize::try_from(stored_index_size)?];
         file.read_exact(&mut stored)
             .context("archive index is truncated")?;
-        let index = lz4_flex::block::decompress(&stored, usize::try_from(field(3))?)
+        let index = lz4_flex::block::decompress(&stored, usize::try_from(index_size)?)
             .context("archive index is corrupt")?;
         ensure!(
-            index.len() == field(3) as usize,
+            index.len() == usize::try_from(index_size)?,
             "archive index size does not match the header"
         );
         let index = Index::decode(&index)?;

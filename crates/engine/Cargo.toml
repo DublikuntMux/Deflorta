@@ -8,7 +8,13 @@ license.workspace = true
 [lints]
 workspace = true
 
+[features]
+dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu"]
+
 [dependencies]
+egui = { version = "0.36.2", optional = true }
+egui-winit = { version = "0.36.2", default-features = false, features = ["clipboard", "wayland", "x11"], optional = true }
+egui-wgpu = { version = "0.36.2", default-features = false, optional = true }
 mozjs = "0.26.7"
 winit = "0.30.13"
 wgpu = { version = "30.0.1", features = ["spirv"] }

@@ -120,6 +120,19 @@ impl Engine {
         &self.config
     }
 
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    pub fn enable_console(&mut self) -> anyhow::Result<()> {
+        self.script.enable_console()
+    }
+
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    pub fn evaluate_console(&mut self, source: &str) -> anyhow::Result<String> {
+        let result = self.script.evaluate_console(source);
+        self.apply(ScriptHost::take_commands());
+        self.requests.redraw = true;
+        result
+    }
+
     pub fn take_requests(&mut self) -> PlatformRequests {
         let text_input = self.ui.focused_input().is_some();
         if text_input != self.text_input {

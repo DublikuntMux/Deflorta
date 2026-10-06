@@ -22,7 +22,7 @@ use crate::report::Report;
 
 pub struct Strings {
     /// Unique translatable strings: the game's in source order, then the engine's.
-    pub strings: Vec<String>,
+    pub translatable: Vec<String>,
     /// Warnings about text that cannot be translated.
     pub report: Report,
     pub sources: HashMap<String, String>,
@@ -70,7 +70,7 @@ pub fn extract(project: &Project) -> Result<Strings> {
         push_unique(&mut strings, &mut seen, text);
     }
     Ok(Strings {
-        strings,
+        translatable: strings,
         report,
         sources: sources(&graph),
     })

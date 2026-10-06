@@ -128,7 +128,14 @@ pub fn run(mut engine: Engine, script: &Path) -> Result<()> {
             let now = Instant::now();
             let items = engine.frame(now);
             let clear = engine.clear_color();
-            renderer.render(items, &mut engine.ui, &mut engine.assets, clear)?;
+            renderer.render(
+                items,
+                &mut engine.ui,
+                &mut engine.assets,
+                clear,
+                #[cfg(all(debug_assertions, feature = "dev-console"))]
+                None,
+            )?;
             engine.after_frame(now);
             if let Some(dir) = path.parent() {
                 std::fs::create_dir_all(dir)?;

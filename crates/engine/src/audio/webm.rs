@@ -15,7 +15,7 @@ use crate::media;
 
 pub(super) struct Decoder {
     reader: Box<dyn FormatReader>,
-    decoder: Box<dyn AudioDecoder>,
+    audio: Box<dyn AudioDecoder>,
     track_id: u32,
     files: GameFiles,
     path: String,
@@ -44,7 +44,7 @@ impl Decoder {
         let track_id = track.id;
         Ok(Self {
             reader,
-            decoder,
+            audio: decoder,
             track_id,
             files: files.clone(),
             path: path.to_owned(),
@@ -78,7 +78,7 @@ impl kira::sound::streaming::Decoder for Decoder {
             if packet.track_id != self.track_id {
                 continue;
             }
-            let buffer = self.decoder.decode(&packet)?;
+            let buffer = self.audio.decode(&packet)?;
             if buffer.frames() == 0 {
                 continue;
             }
@@ -104,7 +104,7 @@ impl kira::sound::streaming::Decoder for Decoder {
         // when seeking. Kira skips samples to the requested index on its decoder
         // thread. Symphonia's Matroska reader cannot seek back after reaching EOF.
         self.reader = media::open(&self.files, &self.path)?;
-        self.decoder.reset();
+        self.audio.reset();
         self.position = 0;
         Ok(0)
     }

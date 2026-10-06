@@ -248,6 +248,31 @@ RUST_LOG=deflorta=trace,wgpu=warn deflorta run game    # everything, including p
 
 When reporting a problem, attach a `RUST_LOG=deflorta=debug` log.
 
+Debug builds of `deflorta-launcher` open a floating egui developer console.
+Press **F12** to hide or reopen it; drag its title bar to move it and its edges
+to resize it. It shows engine logs and all JavaScript console messages,
+including `console.debug`, with filtering, clearing and automatic scrolling.
+
+```sh
+cargo run -p deflorta-launcher -- game
+```
+
+Commands run in the live game's JavaScript global scope. Use **Enter** to run,
+**Shift+Enter** for a new line, and **Up/Down** for command history. Results and
+exceptions appear in the log. Global declarations persist between commands;
+the public game API is available as `deflorta`, for example:
+
+```js
+deflorta.store
+deflorta.config.textSpeed = 0
+deflorta.jump("start")
+console.log(deflorta.prefs)
+```
+
+Game module locals remain scoped to their modules. Console evaluation drains
+promise jobs and commits game updates. The console is excluded from release
+builds and does not appear in headless tests or save thumbnails.
+
 ## Automated tests and screenshots
 
 ```sh

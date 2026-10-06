@@ -34,6 +34,10 @@ pub struct App {
     fullscreen: bool,
     booted: bool,
     error: Option<anyhow::Error>,
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    console: Option<crate::dev_console::DevConsole>,
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    game_keys: std::collections::HashSet<String>,
 }
 
 impl App {
@@ -62,6 +66,10 @@ impl App {
             fullscreen: false,
             booted: false,
             error: None,
+            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            console: None,
+            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            game_keys: std::collections::HashSet::new(),
         }
     }
 
@@ -93,6 +101,11 @@ impl App {
             Box::new(event_loop.owned_display_handle()),
         ));
         let renderer = pollster::block_on(Renderer::for_window(&instance, window.clone()))?;
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        {
+            self.engine.enable_console()?;
+            self.console = Some(renderer.create_console(&window));
+        }
         let (w, h) = renderer.size();
         self.engine.resize(w, h);
         self.renderer = Some(renderer);
@@ -127,8 +140,13 @@ impl App {
             info!("{} fullscreen", if on { "Entering" } else { "Leaving" });
             window.set_fullscreen(on.then_some(Fullscreen::Borderless(None)));
         }
+        #[cfg(not(all(debug_assertions, feature = "dev-console")))]
         if let Some(on) = requests.text_input {
             window.set_ime_allowed(on);
+        }
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        if let Some(console) = &mut self.console {
+            console.sync_ime(window, self.engine.ui.focused_input().is_some());
         }
         if requests.redraw || requests.capture {
             window.request_redraw();
@@ -140,6 +158,12 @@ impl App {
     }
 
     fn redraw(&mut self) {
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        if let (Some(console), Some(window)) = (&mut self.console, &self.window)
+            && let Some(source) = console.show(window)
+        {
+            crate::dev_console::DevConsole::result(self.engine.evaluate_console(&source));
+        }
         let Some(renderer) = &mut self.renderer else {
             return;
         };
@@ -147,9 +171,14 @@ impl App {
         let items = self.engine.frame(now);
         let clear = self.engine.clear_color();
         let size = renderer.size();
-        if let Err(err) =
-            renderer.render(items, &mut self.engine.ui, &mut self.engine.assets, clear)
-        {
+        if let Err(err) = renderer.render(
+            items,
+            &mut self.engine.ui,
+            &mut self.engine.assets,
+            clear,
+            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            self.console.as_mut(),
+        ) {
             error!("Render failed: {err:#}");
         }
         // The renderer adopts the window's real size when the surface was suboptimal.
@@ -238,6 +267,45 @@ impl App {
             .as_ref()
             .is_some_and(|g| g.gamepads().next().is_some())
     }
+
+    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    fn console_event(&mut self, event: &WindowEvent) -> bool {
+        let (Some(console), Some(window)) = (&mut self.console, &self.window) else {
+            return false;
+        };
+        if let WindowEvent::KeyboardInput { event, .. } = event
+            && event.logical_key == Key::Named(NamedKey::F12)
+        {
+            if event.state == ElementState::Pressed && !event.repeat {
+                console.toggle();
+                window.request_redraw();
+            }
+            return true;
+        }
+        let consumed = console.on_event(window, event);
+        // Releases of keys pressed in the game must reach it even if the
+        // console gained focus in between (e.g. Ctrl to skip dialogue).
+        let game_release = if let WindowEvent::KeyboardInput { event, .. } = event {
+            event.state == ElementState::Released
+                && key_name(&event.logical_key).is_some_and(|key| self.game_keys.remove(&key))
+        } else {
+            false
+        };
+        if consumed && !game_release {
+            match event {
+                WindowEvent::CursorMoved { .. } | WindowEvent::CursorLeft { .. } => {
+                    self.engine.pointer_moved(None);
+                }
+                WindowEvent::MouseInput {
+                    state: ElementState::Released,
+                    ..
+                } => self.engine.mouse_up(),
+                _ => {}
+            }
+            return true;
+        }
+        false
+    }
 }
 
 fn key_name(key: &Key) -> Option<String> {
@@ -272,6 +340,11 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        if self.console_event(&event) {
+            self.handle_requests(event_loop);
+            return;
+        }
         match event {
             WindowEvent::CloseRequested => {
                 info!("Window close requested");
@@ -325,6 +398,10 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 let down = event.state == ElementState::Pressed;
                 if let Some(key) = key_name(&event.logical_key) {
+                    #[cfg(all(debug_assertions, feature = "dev-console"))]
+                    if down {
+                        self.game_keys.insert(key.clone());
+                    }
                     let m = self.modifiers;
                     self.engine.key(
                         &key,
@@ -365,10 +442,22 @@ impl ApplicationHandler for App {
         self.engine.idle();
         let polling = (self.engine.is_loading() || self.has_gamepads())
             .then(|| Instant::now() + POLL_INTERVAL);
-        match [self.engine.next_timer(), polling]
-            .into_iter()
-            .flatten()
-            .min()
+        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        let console_refresh =
+            if let (Some(console), Some(window)) = (&mut self.console, &self.window) {
+                console.refresh(window)
+            } else {
+                None
+            };
+        match [
+            self.engine.next_timer(),
+            polling,
+            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            console_refresh,
+        ]
+        .into_iter()
+        .flatten()
+        .min()
         {
             Some(due) => event_loop.set_control_flow(ControlFlow::WaitUntil(due)),
             None => event_loop.set_control_flow(ControlFlow::Wait),
