@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use num_traits::{AsPrimitive, ToPrimitive};
 use serde::Deserialize;
 
+use crate::util::math::unit_to_u8;
+
 /// Output of one `__deflorta_pump()` call.
 #[derive(Deserialize, Default)]
 pub struct PumpOutput {
@@ -493,8 +495,7 @@ impl Color {
     }
 
     pub fn to_rgba8(self) -> [u8; 4] {
-        self.0
-            .map(|c| (c.clamp(0.0, 1.0) * 255.0).round().to_u8().unwrap_or(0))
+        self.0.map(unit_to_u8)
     }
 }
 

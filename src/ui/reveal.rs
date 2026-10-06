@@ -6,6 +6,7 @@ use std::time::Instant;
 use num_traits::{AsPrimitive, ToPrimitive};
 
 use super::desc::SpanDesc;
+use crate::util::time::elapsed_secs;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Stop {
@@ -77,7 +78,7 @@ impl Reveal {
     /// Characters visible at `now`, and whether typing has stopped at a click-wait.
     fn progress(&self, now: Instant) -> (usize, bool) {
         let mut pos = self.base;
-        let mut t = now.saturating_duration_since(self.start).as_secs_f32();
+        let mut t = elapsed_secs(self.start, now);
         let advance = |pos: usize, t: f32, cps: f32| -> usize {
             if cps <= 0.0 {
                 usize::MAX

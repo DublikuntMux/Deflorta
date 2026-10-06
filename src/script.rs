@@ -30,15 +30,22 @@ use num_traits::ToPrimitive;
 
 use crate::assets::normalize_game_path;
 
+/// Embeds a runtime module prepared by the build script (minified in release).
+macro_rules! runtime_module {
+    ($name:literal) => {
+        include_str!(concat!(env!("OUT_DIR"), "/runtime/", $name, ".js"))
+    };
+}
+
 /// Built-in modules, importable by bare specifier.
 const BUILTIN_MODULES: &[(&str, &str)] = &[
-    ("deflorta", include_str!("../runtime/deflorta.js")),
-    ("deflorta/core", include_str!("../runtime/core.js")),
-    ("deflorta/ui", include_str!("../runtime/ui.js")),
-    ("deflorta/text", include_str!("../runtime/text.js")),
-    ("deflorta/scene", include_str!("../runtime/scene.js")),
-    ("deflorta/story", include_str!("../runtime/story.js")),
-    ("deflorta/screens", include_str!("../runtime/screens.js")),
+    ("deflorta", runtime_module!("deflorta")),
+    ("deflorta/core", runtime_module!("core")),
+    ("deflorta/ui", runtime_module!("ui")),
+    ("deflorta/text", runtime_module!("text")),
+    ("deflorta/scene", runtime_module!("scene")),
+    ("deflorta/story", runtime_module!("story")),
+    ("deflorta/screens", runtime_module!("screens")),
 ];
 
 const BOOT_MODULE: &str = "import \"deflorta\";\nimport \"./main.js\";\n";

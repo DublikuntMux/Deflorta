@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use crate::assets::Assets;
 use crate::ui::desc::FontWeight;
+use crate::util::time::elapsed_secs;
 use crate::video::VideoPlayer;
 use desc::{AnimDesc, Color, Ease, NodeDesc, NodeKind, SpanDesc, Style};
 use reveal::Reveal;
@@ -66,12 +67,12 @@ impl Timed {
         if self.spec.dur <= 0.0 {
             return 1.0;
         }
-        let t = now.saturating_duration_since(self.start).as_secs_f32() / self.spec.dur;
+        let t = elapsed_secs(self.start, now) / self.spec.dur;
         self.spec.ease_or(default).apply(t)
     }
 
     fn finished(&self, now: Instant) -> bool {
-        now.saturating_duration_since(self.start).as_secs_f32() >= self.spec.dur
+        elapsed_secs(self.start, now) >= self.spec.dur
     }
 }
 
@@ -541,15 +542,14 @@ impl Ui {
             || self
                 .moves
                 .values()
-                .any(|m| now.saturating_duration_since(m.start).as_secs_f32() < m.spec.dur)
+                .any(|m| elapsed_secs(m.start, now) < m.spec.dur)
             || !self.pending_moves.is_empty()
             || self
                 .nodes
                 .iter()
                 .any(|n| n.ghost.as_ref().is_some_and(|g| !g.finished(now)))
             || self.transforms.values().any(|(start, program)| {
-                transform::duration(&program.steps)
-                    .is_none_or(|d| now.saturating_duration_since(*start).as_secs_f32() < d)
+                transform::duration(&program.steps).is_none_or(|d| elapsed_secs(*start, now) < d)
             })
             || self.videos.values().any(|v| !v.ended())
             || self.reveals.values().any(|r| r.is_typing(now))
@@ -561,7 +561,7 @@ impl Ui {
             || self
                 .moves
                 .values()
-                .any(|m| now.saturating_duration_since(m.start).as_secs_f32() < m.spec.dur)
+                .any(|m| elapsed_secs(m.start, now) < m.spec.dur)
             || self
                 .nodes
                 .iter()
@@ -610,7 +610,7 @@ impl Ui {
     pub fn prune(&mut self, now: Instant) {
         self.enters.retain(|_, a| !a.finished(now));
         self.moves
-            .retain(|_, m| now.saturating_duration_since(m.start).as_secs_f32() < m.spec.dur);
+            .retain(|_, m| elapsed_secs(m.start, now) < m.spec.dur);
     }
 }
 

@@ -2,6 +2,7 @@
 //! rotated, masked) interleaved with glyphon text layers so text and shapes
 //! keep their painter's order. Colors are blended in sRGB space like browsers.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -13,7 +14,7 @@ use glyphon::{
     Viewport,
 };
 use log::{debug, error, info, trace, warn};
-use num_traits::{AsPrimitive, ToPrimitive};
+use num_traits::AsPrimitive;
 use wgpu::util::DeviceExt;
 use wgpu::{CommandEncoderDescriptor, PipelineCompilationOptions, TextureViewDescriptor};
 use winit::window::Window;
@@ -21,6 +22,7 @@ use winit::window::Window;
 use crate::assets::Assets;
 use crate::ui::desc::Color;
 use crate::ui::{DrawItem, ImageRef, Quad, Rect, TextDraw, Ui};
+use crate::util::math::{clamp_to_u32, saturating_i32};
 
 /// Textures unused for this long are released.
 const TEXTURE_IDLE_LIMIT: Duration = Duration::from_secs(60);
@@ -279,7 +281,13 @@ impl Renderer {
         globals_layout: &wgpu::BindGroupLayout,
         texture_layout: &wgpu::BindGroupLayout,
     ) -> wgpu::RenderPipeline {
-        let shader = device.create_shader_module(wgpu::include_wgsl!("quad.wgsl"));
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("quad"),
+            source: wgpu::ShaderSource::SpirV(Cow::Borrowed(wgpu::include_spirv_source!(concat!(
+                env!("OUT_DIR"),
+                "/shaders/quad.spv"
+            )))),
+        });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("quad"),
             bind_group_layouts: &[
@@ -623,10 +631,10 @@ impl Renderer {
                     top: t.y,
                     scale: t.scale,
                     bounds: TextBounds {
-                        left: text_bound(clip.x.floor()),
-                        top: text_bound(clip.y.floor()),
-                        right: text_bound((clip.x + clip.w).ceil()),
-                        bottom: text_bound((clip.y + clip.h).ceil()),
+                        left: saturating_i32(clip.x.floor()),
+                        top: saturating_i32(clip.y.floor()),
+                        right: saturating_i32((clip.x + clip.w).ceil()),
+                        bottom: saturating_i32((clip.y + clip.h).ceil()),
                     },
                     default_color: glyphon::Color::rgba(r, g, b, a),
                     custom_glyphs: &[],
@@ -955,40 +963,11 @@ async fn request_device(
 
 /// Integer scissor rectangle, or None when empty.
 fn scissor(rect: Rect, width: u32, height: u32) -> Option<[u32; 4]> {
-    let x = rect.x.max(0.0).floor().to_u32().unwrap_or(width).min(width);
-    let y = rect
-        .y
-        .max(0.0)
-        .floor()
-        .to_u32()
-        .unwrap_or(height)
-        .min(height);
-    let x1 = (rect.x + rect.w)
-        .ceil()
-        .max(0.0)
-        .to_u32()
-        .unwrap_or(width)
-        .min(width);
-    let y1 = (rect.y + rect.h)
-        .ceil()
-        .max(0.0)
-        .to_u32()
-        .unwrap_or(height)
-        .min(height);
+    let x = clamp_to_u32(rect.x.floor(), width);
+    let y = clamp_to_u32(rect.y.floor(), height);
+    let x1 = clamp_to_u32((rect.x + rect.w).ceil(), width);
+    let y1 = clamp_to_u32((rect.y + rect.h).ceil(), height);
     (x1 > x && y1 > y).then(|| [x, y, x1 - x, y1 - y])
-}
-
-/// Saturates glyph bounds to glyphon's coordinate range; NaN maps to zero.
-fn text_bound(value: f32) -> i32 {
-    value.to_i32().unwrap_or_else(|| {
-        if value.is_nan() {
-            0
-        } else if value.is_sign_negative() {
-            i32::MIN
-        } else {
-            i32::MAX
-        }
-    })
 }
 
 fn quad_instance(quad: &Quad) -> QuadInstance {
@@ -1011,7 +990,7 @@ fn quad_instance(quad: &Quad) -> QuadInstance {
 
 #[cfg(test)]
 mod tests {
-    use super::{Rect, scissor, text_bound};
+    use super::{Rect, scissor};
 
     #[test]
     fn scissor_rounds_outward_and_clips_to_surface() {
@@ -1055,16 +1034,5 @@ mod tests {
             ),
             None
         );
-    }
-
-    #[test]
-    fn text_bounds_saturate_and_handle_nan() {
-        assert_eq!(text_bound(-12.0), -12);
-        assert_eq!(text_bound(12.0), 12);
-        assert_eq!(text_bound(f32::MAX), i32::MAX);
-        assert_eq!(text_bound(-f32::MAX), i32::MIN);
-        assert_eq!(text_bound(f32::INFINITY), i32::MAX);
-        assert_eq!(text_bound(f32::NEG_INFINITY), i32::MIN);
-        assert_eq!(text_bound(f32::NAN), 0);
     }
 }

@@ -87,7 +87,9 @@ trivial to debug and to keep memory-safe.
 ### Scripting runtime (`runtime/*.js`, embedded)
 
 Games are ES modules. `main.js` imports the public API from `"deflorta"`;
-relative imports load other game files. Modules are layered:
+relative imports load other game files. Release builds minify the runtime
+with oxc before embedding it; `build.rs` also compiles `src/render/*.wgsl` to
+SPIR-V with naga. Modules are layered:
 
 | Module | Responsibility |
 |---|---|

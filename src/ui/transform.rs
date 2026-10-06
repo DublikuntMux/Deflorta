@@ -2,7 +2,7 @@
 
 use num_traits::AsPrimitive;
 
-use crate::math::lerp;
+use crate::util::math::lerp;
 
 use super::Rect;
 use super::desc::{RepeatCount, TransformProps, TransformStep};

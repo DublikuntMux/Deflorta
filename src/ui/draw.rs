@@ -9,8 +9,9 @@ use super::layout::input_display;
 use super::transform::{self, Similarity, Values};
 use super::{DrawItem, ImageRef, MaskDraw, Quad, Rect, TextDraw, Timed, Ui};
 use crate::assets::Assets;
-use crate::math::lerp;
 use crate::ui::desc::{Display, Edges};
+use crate::util::math::lerp;
+use crate::util::time::elapsed_secs;
 
 const DEFAULT_TRACK: Color = Color([1.0, 1.0, 1.0, 0.18]);
 const DEFAULT_FILL: Color = Color([0.91, 0.66, 0.78, 1.0]);
@@ -178,11 +179,7 @@ impl Ui {
         }
         let mut program = Values::default();
         if let Some((start, desc)) = self.transforms.get(&node.id) {
-            transform::evaluate(
-                &desc.steps,
-                now.saturating_duration_since(*start).as_secs_f32(),
-                &mut program,
-            );
+            transform::evaluate(&desc.steps, elapsed_secs(*start, now), &mut program);
         }
         Some((anim, mask, program))
     }

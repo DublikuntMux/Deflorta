@@ -8,10 +8,10 @@ mod assets;
 mod audio;
 mod engine;
 mod headless;
-mod math;
 mod render;
 mod script;
 mod ui;
+mod util;
 mod video;
 
 use std::path::PathBuf;

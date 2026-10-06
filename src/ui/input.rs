@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use super::desc::{NodeKind, Overflow};
 use super::{Rect, Ui};
+use crate::util::math::snap;
 
 /// Interaction results the engine forwards to script handlers.
 #[derive(Debug, Clone, PartialEq)]
@@ -363,12 +364,4 @@ impl Ui {
         self.layout_dirty = true;
         desc.on_input.map(|h| InputEvent::Input { h, value })
     }
-}
-
-fn snap(value: f32, min: f32, max: f32, step: Option<f32>) -> f32 {
-    let value = match step {
-        Some(step) if step > 0.0 => ((value - min) / step).round().mul_add(step, min),
-        _ => value,
-    };
-    value.clamp(min.min(max), max.max(min))
 }

@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use log::{info, warn};
-use num_traits::ToPrimitive;
 
 use glyphon::cosmic_text::Align as TextAlignment;
 use glyphon::{
@@ -13,6 +12,7 @@ use glyphon::{
 };
 
 use super::desc::{Color, SpanDesc, TextAlign};
+use crate::util::math::unit_to_u8;
 
 /// Resolved (inherited) text properties of a text node.
 #[derive(Clone, Debug, PartialEq)]
@@ -151,11 +151,7 @@ impl TextSystem {
             style: style.clone(),
             scale,
             revealed,
-            alpha: if has_colors {
-                (alpha.clamp(0.0, 1.0) * 255.0).to_u8().unwrap_or(0)
-            } else {
-                255
-            },
+            alpha: if has_colors { unit_to_u8(alpha) } else { 255 },
             color_override: color_override.map(|c| c.with_alpha_mul(alpha).to_rgba8()),
         };
 

@@ -15,6 +15,7 @@ use crate::audio::Audio;
 use crate::script::ScriptHost;
 use crate::ui::desc::{AnimDesc, Color, Command, GameConfig, NodeDesc, PumpOutput};
 use crate::ui::{DrawItem, InputEvent, Nav, Ui};
+use crate::util::math::clamp_to_u32;
 
 /// Upper bound on timers fired per tick, so a zero-delay timer loop in
 /// script code cannot freeze the engine.
@@ -400,30 +401,10 @@ impl Engine {
         // Keep only the game area, without letterbox bars.
         let area = self.ui.viewport();
         self.thumbnail = image.map(|img| {
-            let x = area
-                .x
-                .max(0.0)
-                .to_u32()
-                .unwrap_or(u32::MAX)
-                .min(img.width().saturating_sub(1));
-            let y = area
-                .y
-                .max(0.0)
-                .to_u32()
-                .unwrap_or(u32::MAX)
-                .min(img.height().saturating_sub(1));
-            let w = area
-                .w
-                .max(0.0)
-                .to_u32()
-                .unwrap_or(u32::MAX)
-                .clamp(1, img.width() - x);
-            let h = area
-                .h
-                .max(0.0)
-                .to_u32()
-                .unwrap_or(u32::MAX)
-                .clamp(1, img.height() - y);
+            let x = clamp_to_u32(area.x, img.width().saturating_sub(1));
+            let y = clamp_to_u32(area.y, img.height().saturating_sub(1));
+            let w = clamp_to_u32(area.w, img.width() - x).max(1);
+            let h = clamp_to_u32(area.h, img.height() - y).max(1);
             let game = image::imageops::crop_imm(&img, x, y, w, h).to_image();
             let height = (u64::from(h) * u64::from(THUMBNAIL_WIDTH) / u64::from(w))
                 .to_u32()
