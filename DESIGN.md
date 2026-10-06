@@ -10,12 +10,33 @@ screens, preferences — is written in JavaScript** and executed by SpiderMonkey
 |---|---|
 | Cross-platform | Rust + winit (windowing/input), wgpu (Vulkan, Metal, DX12, GL), kira/cpal (audio), SpiderMonkey via `mozjs`. No platform code in the engine itself. |
 | High performance | Event-driven loop: zero CPU when idle, JS runs only on input/timers, frames render only while something animates. Layout, animation, text shaping and drawing live in Rust; JS only describes *what* should be on screen. |
-| Small footprint | One binary plus the game directory. Only the needed codecs/backends are compiled in. Small saves (~0.5 KB) due to replay-based state. |
+| Small footprint | One launcher binary plus `game.dm`. Only the needed codecs/backends are compiled in. Small saves (~0.5 KB) due to replay-based state. |
 | Everything in JS | The native API is a handful of functions. The story runtime, screen system and all default screens are JS modules shipped inside the binary, and games can replace any of them. |
 
 Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (probably make own competing standard).
 
 ## Architecture
+
+The Cargo workspace has three crates: `crates/engine` exposes the reusable
+`deflorta` library, `crates/cli` implements the clap-based developer CLI, and
+`crates/launcher` runs published games. The engine owns `GameFiles`, which
+provides the same read/seek API for development directories and `.dm` archives.
+Script loading, fonts, images, audio and video all use that API.
+
+The CLI resolves the game's static module graph from `main.js`, follows
+imports and re-exports, renames bindings to avoid collisions and emits one
+game module. Namespace objects use live getters. Engine modules remain
+embedded in the executable. oxc supplies parsing, semantic analysis and
+minification. The same resolver is used by the CLI and the runtime, so import
+paths and built-in module names agree in development and published games.
+
+`game.dm` is an indexed container with an LZ4HC-compressed directory and
+independent 128 KiB blocks. Each entry records its path, size and first block;
+the index records stored block sizes and compression flags. Raw blocks are
+used for already compressed formats and when compression does not shrink a
+block. Packing uses bounded batches, and readers decompress only the requested
+block, keeping media seekable without unpacking the game. See
+`crates/engine/src/archive.rs` for the binary format.
 
 ```
     ┌─────────────────────── game/ (JS, images, audio, fonts) ───────────────────────┐
@@ -111,7 +132,7 @@ the event and UI bridge. Direct arguments are plain data: own enumerable
 properties, with `undefined` omitted and non-finite numbers treated as null;
 `toJSON` is not invoked.
 
-### Scripting runtime (`runtime/*.js`, embedded)
+### Scripting runtime (`crates/engine/runtime/*.js`, embedded)
 
 Games are ES modules. `main.js` imports the public API from `"deflorta"`;
 relative imports load other game files. Release builds minify the runtime
@@ -255,7 +276,7 @@ The same model gives several Ren'Py features almost for free:
 
 ### Headless mode
 
-`deflorta GAME --test steps.json` plays scripted input (`wait`, `move`,
+`deflorta run GAME --test steps.json` plays scripted input (`wait`, `move`,
 `click`, `release`, `key`, `type`, `wheel`) against an offscreen renderer and
 saves screenshots (`shot`). It's used for regression tests, CI, and store/press
 screenshots. `tests/demo.json` covers every feature of the demo.
@@ -283,11 +304,10 @@ dominated by SpiderMonkey with JIT and Intl.
 
 Next steps, roughly in priority order:
 
-1. **Tooling**: a `deflorta` CLI (`new`, `pack` into a single archive,
-   per-platform builds), hot reload that replays to the current line, a
-   developer console, and lint (missing labels/images, unserializable state).
-2. **TypeScript declarations** (`deflorta.d.ts`) for editor completion and type
-   checking.
-3. **More video codecs** (AV1 in WebM), Opus soundtracks and hardware decoding.
-4. Self-voicing (text to speech) and other accessibility options, plus
+1. **Development tools**: hot reload that replays to the current line, a
+   developer console, automated per-platform launcher builds and lint for
+   unserializable state. Project creation, checks, bundling, publishing,
+   translation management and TypeScript declarations are available.
+2. **More video codecs** (AV1 in WebM), Opus soundtracks and hardware decoding.
+3. Self-voicing (text to speech) and other accessibility options, plus
    Steam/Discord integrations.

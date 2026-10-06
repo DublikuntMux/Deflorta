@@ -4,12 +4,75 @@ A cross-platform visual novel engine written in pure Rust and scripted entirely 
 from the story to the menus. See [DESIGN.md](DESIGN.md) for the architecture.
 
 ```sh
-cargo run --release -- game          # play the demo
-cargo run --release -- path/to/game  # play your game
+cargo build --release --workspace
+target/release/deflorta run game          # play the demo
+target/release/deflorta run path/to/game  # play your game
 ```
 
 Building needs a Rust toolchain and clang (bindgen). 
 A prebuilt SpiderMonkey is downloaded automatically for common targets.
+
+The workspace has three crates: `crates/engine` (the `deflorta` library),
+`crates/cli` (the `deflorta` command), and `crates/launcher`
+(`deflorta-launcher`, shipped to players). Keep the CLI and launcher together
+in your PATH, or pass `--launcher` when publishing.
+
+## CLI workflow
+
+```sh
+deflorta create mygame --title "My Game"
+deflorta check mygame
+deflorta run mygame
+deflorta translate update uk -p mygame
+deflorta translate status -p mygame
+deflorta translate missing uk -p mygame
+deflorta bundle mygame                          # build/game.dm
+deflorta info mygame/build/game.dm
+deflorta publish mygame                         # dist/<os>-<arch>/
+deflorta types mygame                           # refresh editor declarations
+```
+
+`create` writes a playable story, fonts and their license, `deflorta.d.ts`,
+and `jsconfig.json` for editor completion and JavaScript type checking.
+`types` refreshes the declarations without replacing an existing editor config.
+
+`check` reports syntax and import errors, missing exports, labels, images,
+audio/video files and invalid translation tables. It warns about duplicate or
+unused labels, missing fonts and nondeterministic story code. By default it
+also boots the scripts without a window to catch startup exceptions;
+`--no-boot` selects static checks. Computed values cannot always be checked.
+
+`bundle` resolves static game imports from `main.js`, including default,
+named and namespace imports and re-exports. Paths name files exactly:
+`./chapter.js`, `../characters.js`, or `/screens.js`; npm package resolution,
+dynamic `import()` and TypeScript compilation are not supported. Game scripts
+become one `main.js`, minified with oxc; engine imports refer to the runtime
+embedded in the launcher. Use `--no-minify` for a readable bundle,
+`--emit-js FILE` to inspect it, `-o FILE` to choose the archive path, and
+`--level 1..12` to set the LZ4HC compression level (default 9).
+
+The `.dm` format has an LZ4HC-compressed index of paths, file sizes and block
+locations, followed by independently compressed 128 KiB blocks. Already
+compressed media and blocks that do not shrink are stored verbatim. The engine
+reads and seeks through the archive directly, including streaming movies and
+audio. Tooling files and the `build/`, `dist/`, and `node_modules/` directories
+are excluded from game assets.
+
+`publish` checks the project, bundles it, boots the bundle, and copies the
+launcher beside `game.dm`. Players run the named executable; it locates the
+archive next to itself, independently of the working directory. Publishing
+targets the supplied launcher: build one for each target OS/architecture and
+pass `--launcher FILE`. Use `-o DIR` and `--name NAME` to choose the folder
+and executable name. Distribute the whole folder.
+
+`translate update` extracts dialogue, character names, menu prompts/choices,
+input questions, game titles, explicit `_()` strings and the engine interface
+strings into `tl/<language>.json`. Existing translations are preserved;
+untranslated entries are `null` and show the source text. With no language
+arguments it updates all existing tables. `--prune` removes obsolete entries.
+Substituted template strings are reported because their final text cannot be
+extracted statically. Add languages to `configure({ languages })` to expose
+them in preferences, or switch with `setLanguage(id)`.
 
 ## A game
 
@@ -178,9 +241,9 @@ Messages from game scripts (`console.log`, `console.warn`, …) appear under
 `deflorta::js`. GPU validation errors are logged instead of crashing the game.
 
 ```sh
-deflorta game 2> deflorta.log                    # default: engine info, warnings, errors
-RUST_LOG=deflorta=debug deflorta game 2> deflorta.log   # details for bug reports
-RUST_LOG=deflorta=trace,wgpu=warn deflorta game  # everything, including per-frame work
+deflorta run game 2> deflorta.log                    # default: engine info, warnings, errors
+deflorta run game -v 2> deflorta.log                 # debug details for bug reports
+RUST_LOG=deflorta=trace,wgpu=warn deflorta run game    # everything, including per-frame work
 ```
 
 When reporting a problem, attach a `RUST_LOG=deflorta=debug` log.
@@ -188,7 +251,9 @@ When reporting a problem, attach a `RUST_LOG=deflorta=debug` log.
 ## Automated tests and screenshots
 
 ```sh
-deflorta game --test tests/demo.json
+deflorta run game --test tests/demo.json
+deflorta run game/build/game.dm --test tests/demo.json  # test the packed game
+cargo test --workspace
 ```
 
 The script is a list of `{ "wait": ms }`, `{ "move": [x, y] }`,

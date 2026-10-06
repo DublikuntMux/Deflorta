@@ -1,0 +1,14 @@
+[package]
+name = "deflorta-launcher"
+description = "Runs a published Deflorta game from its game.dm archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+deflorta.workspace = true
+anyhow.workspace = true
+log.workspace = true

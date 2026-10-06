@@ -1,0 +1,23 @@
+[package]
+name = "deflorta-cli"
+description = "Command-line tools for Deflorta games"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "deflorta"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+deflorta.workspace = true
+anyhow.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+oxc.workspace = true
+clap = { version = "4.6.7", features = ["derive"] }
+lz4 = "1.28.1"
