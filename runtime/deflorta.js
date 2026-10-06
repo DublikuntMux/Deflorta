@@ -4,10 +4,10 @@
 
 export {
   clearTimer,
-  command,
   config,
   configure,
   log,
+  native,
   on,
   readText,
   setTimer,

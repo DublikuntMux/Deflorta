@@ -1,12 +1,14 @@
 // deflorta/ui — declarative UI elements, widgets and the screen stack.
 //
 // Screens are functions returning an element tree. Whenever state changes,
-// call invalidate(); the whole tree is re-rendered and sent to the engine,
-// which lays it out (flexbox/grid), animates and draws it. Keyboard and
+// call invalidate(); at the end of the turn the whole tree is re-rendered and
+// committed to the engine, which reads it in place, lays it out
+// (flexbox/grid), animates and draws it. Handler functions stay in JS; the
+// engine hands them back in click and handler events. Keyboard and
 // gamepad focus moves between elements with handlers; focused elements use
 // their `hover` style.
 
-import { addFrameSource, emit, on } from "deflorta/core";
+import { emit, native, on, onFlush } from "deflorta/core";
 import { parseMarkup } from "deflorta/text";
 
 // ---------------------------------------------------------------------------
@@ -175,6 +177,7 @@ let dirty = true;
 let instant = false;
 let hidden = false;
 let tooltipText = null;
+let tooltipObserved = false;
 let sceneLayer = () => null;
 const exits = {};
 
@@ -267,6 +270,7 @@ export function isUiHidden() {
 
 /** The tooltip of the hovered or focused element, or null. */
 export function tooltip() {
+  tooltipObserved = true;
   return tooltipText;
 }
 
@@ -274,16 +278,8 @@ export function tooltip() {
 // Rendering and event routing
 // ---------------------------------------------------------------------------
 
-let handlers = [];
-const HANDLER_PROPS = new Set([
-  "onClick",
-  "onChange",
-  "onInput",
-  "onSubmit",
-  "onEnd",
-]);
-
 function renderRoot() {
+  tooltipObserved = false;
   const children = [sceneLayer()];
   if (!hidden) {
     for (const entry of shown) {
@@ -321,34 +317,14 @@ function renderRoot() {
   );
 }
 
-// Copies the tree, replacing handlers with indices into `handlers`.
-function serialize(node) {
-  const out = {};
-  for (const key in node) {
-    const value = node[key];
-    if (key === "children") {
-      out.children = value.map(serialize);
-    } else if (HANDLER_PROPS.has(key)) {
-      if (typeof value === "function") out[key] = handlers.push(value) - 1;
-    } else if (typeof value !== "function" && value !== undefined) {
-      out[key] = value;
-    }
-  }
-  return out;
-}
-
-addFrameSource(() => {
+onFlush(() => {
   if (!dirty) return;
   dirty = false;
-  handlers = [];
-  const out = { tree: serialize(renderRoot()) };
-  if (instant) out.instant = true;
-  if (Object.keys(exits).length) {
-    out.exits = { ...exits };
-    for (const k of Object.keys(exits)) delete exits[k];
-  }
+  const tree = renderRoot();
+  const options = { instant, exits: { ...exits } };
   instant = false;
-  return out;
+  for (const k of Object.keys(exits)) delete exits[k];
+  native.ui.commit(tree, options);
 });
 
 on("click", (event) => {
@@ -358,17 +334,19 @@ on("click", (event) => {
   }
   // Only the primary button activates elements; others go to the game (menus).
   if (event.button !== "left") emit("backgroundClick", event);
-  else if (event.h != null) handlers[event.h]?.(event);
+  else event.handler?.(event);
 });
 
 on("handler", (event) => {
-  handlers[event.h]?.(event.value);
+  event.handler?.(event.value);
   invalidate();
 });
 
 on("tooltip", (event) => {
-  tooltipText = event.text ?? null;
-  invalidate();
+  const next = event.text ?? null;
+  if (next === tooltipText) return;
+  tooltipText = next;
+  if (tooltipObserved) invalidate();
 });
 
 on("key", (event) => {

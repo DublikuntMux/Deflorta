@@ -4,15 +4,16 @@ use std::collections::HashSet;
 
 use super::desc::{NodeKind, Overflow};
 use super::{Rect, Ui};
+use crate::script::Handler;
 use crate::util::math::snap;
 
 /// Interaction results the engine forwards to script handlers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputEvent {
-    Click { h: u32 },
-    Change { h: u32, value: f32 },
-    Input { h: u32, value: String },
-    Submit { h: u32, value: String },
+    Click { h: Handler },
+    Change { h: Handler, value: f32 },
+    Input { h: Handler, value: String },
+    Submit { h: Handler, value: String },
     Tooltip(Option<String>),
 }
 
@@ -103,6 +104,7 @@ impl Ui {
             return None;
         }
         self.tooltip.clone_from(&tooltip);
+        self.sync_tooltip_text();
         Some(InputEvent::Tooltip(tooltip))
     }
 
@@ -157,7 +159,7 @@ impl Ui {
     }
 
     /// The click handler under the pointer, bubbling up from the topmost element.
-    pub fn click_target(&self) -> Option<u32> {
+    pub fn click_target(&self) -> Option<Handler> {
         let (x, y) = self.cursor?;
         let target = self.topmost_at(x, y)?;
         self.ancestors(target)
@@ -362,6 +364,14 @@ impl Ui {
         // Show the edit immediately; the script's re-render confirms it.
         desc.value = Some(serde_json::Value::String(value.clone()));
         self.layout_dirty = true;
-        desc.on_input.map(|h| InputEvent::Input { h, value })
+        if let Some(id) = self.nodes[i].layout_id {
+            self.layout_tree
+                .mark_dirty(id)
+                .expect("invalidate input measurement");
+        }
+        self.nodes[i]
+            .desc
+            .on_input
+            .map(|h| InputEvent::Input { h, value })
     }
 }

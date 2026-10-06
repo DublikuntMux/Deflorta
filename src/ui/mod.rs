@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::assets::Assets;
+use crate::script::Handler;
 use crate::ui::desc::FontWeight;
 use crate::util::time::elapsed_secs;
 use crate::video::VideoPlayer;
@@ -89,6 +90,8 @@ struct Node {
     desc: NodeDesc,
     /// Rich text content (plain `text` is converted to a single span).
     spans: Option<Arc<Vec<SpanDesc>>>,
+    /// Native tooltip text is absent, so this text node occupies no space.
+    tooltip_hidden: bool,
     parent: Option<usize>,
     children: Vec<usize>,
     text_style: TextStyle,
@@ -96,6 +99,8 @@ struct Node {
     rect: Rect,
     /// Size of the laid-out content, for scroll containers.
     content: (f32, f32),
+    /// Retained layout identity; exiting nodes use their frozen rectangles.
+    layout_id: Option<taffy::NodeId>,
     /// Set on the root of a subtree that is playing its exit animation.
     ghost: Option<Timed>,
     /// Part of an exiting subtree: frozen layout, not interactive.
@@ -170,6 +175,7 @@ pub struct Ui {
     scale: f32,
     offset: (f32, f32),
     layout_dirty: bool,
+    layout_tree: taffy::TaffyTree<usize>,
     hovered: HashSet<usize>,
     cursor: Option<(f32, f32)>,
     focused: Option<String>,
@@ -198,6 +204,7 @@ impl Ui {
             scale: 1.0,
             offset: (0.0, 0.0),
             layout_dirty: true,
+            layout_tree: taffy::TaffyTree::new(),
             hovered: HashSet::new(),
             cursor: None,
             focused: None,
@@ -219,6 +226,7 @@ impl Ui {
             }
 
             self.layout_dirty = true;
+            self.invalidate_measurements();
         }
     }
 
@@ -233,6 +241,9 @@ impl Ui {
             (f32::mul_add(vh, -scale, height) / 2.0).floor(),
         );
         if scale != self.scale || offset != self.offset {
+            if scale != self.scale {
+                self.invalidate_measurements();
+            }
             self.scale = scale;
             self.offset = offset;
             self.layout_dirty = true;
@@ -340,6 +351,7 @@ impl Ui {
         self.moves.retain(|id, _| self.index.contains_key(id));
 
         self.sync_content(built, assets, now, instant);
+        self.reconcile_layout(&old_nodes, &old_index);
 
         self.scroll.retain(|id, _| self.index.contains_key(id));
         if self
@@ -366,7 +378,7 @@ impl Ui {
         self.text.retain(|id| live.contains(id));
         self.hovered.clear();
         self.hit_order.clear();
-        self.layout_dirty = true;
+        self.layout_dirty |= !self.pending_moves.is_empty();
     }
 
     /// Keeps removed elements at their old z position until their exit animation finishes.
@@ -477,7 +489,17 @@ impl Ui {
         );
         let text_style = inherit_text(inherited, &desc.style);
         let children = std::mem::take(&mut desc.children);
+        if desc.kind() == NodeKind::Text && desc.tooltip_text {
+            desc.cps = None;
+        }
+        let tooltip_hidden = desc.kind() == NodeKind::Text
+            && desc.tooltip_text
+            && self.tooltip.as_deref().is_none_or(str::is_empty);
         let spans = match desc.kind() {
+            NodeKind::Text if desc.tooltip_text => Some(Arc::new(vec![SpanDesc {
+                text: self.tooltip.clone().unwrap_or_default(),
+                ..Default::default()
+            }])),
             NodeKind::Text => Some(Arc::new(desc.spans.take().unwrap_or_else(|| {
                 vec![SpanDesc {
                     text: desc.text.take().unwrap_or_default(),
@@ -491,11 +513,13 @@ impl Ui {
             id: id.clone(),
             desc,
             spans,
+            tooltip_hidden,
             parent,
             children: Vec::new(),
             text_style: text_style.clone(),
             rect: Rect::default(),
             content: (0.0, 0.0),
+            layout_id: None,
             ghost: None,
             in_ghost: false,
         });
@@ -520,6 +544,7 @@ impl Ui {
         let mut node = old[oi].clone();
         node.parent = Some(parent);
         node.in_ghost = true;
+        node.layout_id = None;
         node.ghost = ghost.or(node.ghost);
         node.children = Vec::new();
         self.nodes.push(node);
@@ -588,7 +613,7 @@ impl Ui {
     }
 
     /// Handlers of videos that finished since the last call.
-    pub fn take_ended_videos(&mut self) -> Vec<u32> {
+    pub fn take_ended_videos(&mut self) -> Vec<Handler> {
         let mut ended = Vec::new();
         for (id, player) in &mut self.videos {
             if player.take_ended()
@@ -641,8 +666,12 @@ mod tests {
         let mut ui = Ui::new(TextSystem::new(&game_dir));
         let now = Instant::now();
         let exits = HashMap::new();
+        let handler = |index| Handler {
+            generation: 1,
+            index,
+        };
         let button = NodeDesc {
-            on_click: Some(1),
+            on_click: Some(handler(1)),
             style: Style {
                 width: Some(Dim::Px(100.0)),
                 height: Some(Dim::Px(100.0)),
@@ -665,14 +694,14 @@ mod tests {
             );
             ui.draw(&mut assets, now);
             ui.pointer_moved(Some((10.0, 10.0)));
-            assert_eq!(ui.click_target(), Some(1));
+            assert_eq!(ui.click_target(), Some(handler(1)));
 
             ui.commit(
                 NodeDesc {
-                    on_click: Some(2),
+                    on_click: Some(handler(2)),
                     children: vec![
                         NodeDesc {
-                            on_click: Some(3),
+                            on_click: Some(handler(3)),
                             ..button.clone()
                         };
                         child_count
@@ -693,7 +722,7 @@ mod tests {
 
             ui.draw(&mut assets, now);
             ui.refresh_hover();
-            let expected = if child_count == 0 { 2 } else { 3 };
+            let expected = handler(if child_count == 0 { 2 } else { 3 });
             assert_eq!(ui.click_target(), Some(expected));
             assert_eq!(ui.mouse_down(), vec![InputEvent::Click { h: expected }]);
         }

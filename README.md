@@ -102,7 +102,12 @@ Element props: `key`, `style`, `hover` (style overrides while hovered *or
 focused*), `onClick`, `tooltip`, `focusable`, `autofocus`, `enter`/`exit`
 (`{ dur, ease, opacity, x, y, scale, rotate, mask }`), `move`, `transform`;
 images: `fit` (`fill`/`cover`/`contain`), `anchor: [x, y]`; text: `cps`
-(typewriter speed); scroll containers: `startAtEnd`.
+(typewriter speed), `tooltipText: true` (instant native tooltip text, hidden
+when empty); scroll containers: `startAtEnd`.
+Use stable `key` values for children that can be inserted, removed or reordered.
+Keys preserve native layout caches and interaction/animation state across
+renders. Paint and handler changes skip layout; text and size changes invalidate
+the affected layout nodes.
 Style follows CSS naming: `position`, `left/top/right/bottom`,
 `width/height` (px or `"50%"`), `min*/max*`, `padding`/`margin` (n, [v, h] or
 [t, r, b, l]), `gap`, `flexDirection`, `flexWrap`, `flexGrow`, `flexShrink`,
@@ -122,6 +127,13 @@ Style follows CSS naming: `position`, `left/top/right/bottom`,
 `on(event, fn)`, `setTimer`/`setTimeout`, `storage`, `readText(path)`,
 `config`/`configure()` (`id`, `title`, `version`, `width`, `height`, `font`,
 `textSpeed`, `autosave`, `languages`, `menuBackground`, `menuVideo`).
+
+For low-level engine operations, `native` exposes typed `app`, `audio`, `ui`,
+`timers`, `files` and `storage` modules. For example, `native.app.quit()` and
+`native.audio.voice(file)` replace the former `command("quit")` and
+`command("voice", { file })` message API. Events and UI trees cross directly
+as JS values; saves continue to use JSON. See [DESIGN.md](DESIGN.md) for the
+boundary and callback lifetime rules.
 
 Saves include a thumbnail, there are 9 pages of slots plus autosave and
 quick-save pages, and saves made with an older version of the script resume
@@ -179,6 +191,12 @@ game's virtual resolution, and rendering is offscreen (no window).
 `tests/demo.json` plays the whole demo and writes 20 screenshots to
 `target/shots/`. Run it with a fresh data directory
 (`~/.local/share/deflorta/deflorta-demo`) for identical results.
+`tests/save-delete.json` covers saving a manual slot, confirming its deletion,
+and removing its thumbnail; it expects slot 1 on page 1 to be empty. Set
+`XDG_DATA_HOME` to a temporary directory on Linux to isolate test saves.
+`tests/save-hover.json` saves the same slot and checks its preview, delete-button
+tooltip and tooltip dismissal. With `RUST_LOG=deflorta=trace`, steps 16–28 should
+produce no `Committing UI tree` entries.
 
 ## License
 

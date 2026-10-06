@@ -2,7 +2,7 @@
 // transforms, and the serializable scene state (background, sprites, music,
 // NVL page) that saves and rollback restore.
 
-import { addFrameSource, command } from "deflorta/core";
+import { native, onFlush } from "deflorta/core";
 import {
   FILL,
   box,
@@ -244,7 +244,7 @@ export class Atl {
     return this.#add({ pause: seconds });
   }
   /** Appends another program. */
-  then(program) {
+  after(program) {
     return new Atl([...this.steps, ...program.steps]);
   }
   /** Repeats the whole program `times` times, or forever. */
@@ -358,7 +358,7 @@ export function imageSources(name) {
 
 /** Starts decoding images before they are shown (e.g. at the start of a chapter). */
 export function preload(...names) {
-  command("preload", { images: names.flatMap(imageSources) });
+  native.ui.preload(names.flatMap(imageSources));
 }
 
 function renderSprite(s) {
@@ -423,13 +423,13 @@ function renderScene() {
 
 setSceneLayer(renderScene);
 
-addFrameSource(() => {
+onFlush(() => {
   pendingEnters.clear();
   pendingMoves.clear();
   const music = JSON.stringify(scene.music);
   if (music === sentMusic) return;
   sentMusic = music;
-  command("music", { ...(scene.music ?? { file: null }), ...musicFade });
+  native.audio.music(scene.music, musicFade);
   musicFade = { fadeIn: 0, fadeOut: 0 };
 });
 
@@ -452,6 +452,6 @@ export const music = {
 /** One-shot sound effects. Skipped while fast-forwarding a load or rollback. */
 export const sound = {
   play(file, { volume = 1 } = {}) {
-    if (!isReplaying()) command("sound", { file, volume });
+    if (!isReplaying()) native.audio.sound(file, volume);
   },
 };

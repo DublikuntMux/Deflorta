@@ -4,8 +4,8 @@
 
 import {
   clearTimer,
-  command,
   config,
+  native,
   on,
   setTimer,
   storage,
@@ -27,7 +27,6 @@ import {
   slider,
   text,
   theme,
-  tooltip,
   video,
 } from "deflorta/ui";
 import { _ } from "deflorta/text";
@@ -179,7 +178,7 @@ screen(
       quickButton("Skip", () => actions.skip(), isSkipping()),
       quickButton("Auto", () => actions.auto(), prefs.autoForward),
       quickButton("Save", () => {
-        command("captureThumbnail");
+        native.ui.captureThumbnail(false);
         showScreen("game_menu", { page: "save" });
       }),
       quickButton("Q.Save", () => actions.quickSave()),
@@ -367,7 +366,7 @@ screen(
             entry.voice &&
               box(
                 {
-                  onClick: () => command("voice", { file: entry.voice }),
+                  onClick: () => native.audio.voice(entry.voice),
                   style: {
                     padding: [2, 8],
                     radius: 6,
@@ -462,7 +461,7 @@ screen(
         menuButton("Preferences", () =>
           showScreen("game_menu", { page: "prefs" }),
         ),
-        menuButton("Quit", () => command("quit")),
+        menuButton("Quit", () => native.app.quit()),
       ),
     );
   },
@@ -835,7 +834,7 @@ screen(
           ),
         navButton(playing ? "Quit" : "Back", () =>
           playing
-            ? confirm(_("Quit the game?"), () => command("quit"))
+            ? confirm(_("Quit the game?"), () => native.app.quit())
             : hideScreen("game_menu"),
         ),
       ),
@@ -971,8 +970,6 @@ screen(
 screen(
   "tooltip",
   () => {
-    const tip = tooltip();
-    if (!tip) return null;
     return box(
       {
         key: "tooltip",
@@ -985,17 +982,17 @@ screen(
           flexDirection: "row",
         },
       },
-      box(
-        {
-          style: {
-            maxWidth: 800,
-            padding: [6, 14],
-            radius: 8,
-            background: "#000000cc",
-          },
+      text("", {
+        tooltipText: true,
+        style: {
+          maxWidth: 800,
+          padding: [6, 14],
+          radius: 8,
+          background: "#000000cc",
+          fontSize: 17,
+          color: "#ffffff",
         },
-        text(tip, { style: { fontSize: 17, color: "#ffffff" } }),
-      ),
+      }),
     );
   },
   { z: 950 },
@@ -1031,7 +1028,7 @@ screen(
           hideScreen("error");
           endGame();
         }),
-        button(_("Quit"), () => command("quit")),
+        button(_("Quit"), () => native.app.quit()),
       ),
     ),
   { z: 1000, modal: true },

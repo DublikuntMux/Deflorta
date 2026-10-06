@@ -21,10 +21,10 @@ Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (p
     ┌─────────────────────── game/ (JS, images, audio, fonts) ───────────────────────┐
     │  main.js  ──import──▶  "deflorta" (runtime, embedded in binary)                │
     └────────────────────────────────────────────────────────────────────────────────┘
-                     ▲ __deflorta_dispatch(event)          ▼ __deflorta_pump() → {tree, cmds}
+                     ▲ dispatch(event object)             ▼ native modules + ui.commit(tree)
                      │                                     │
 ┌──────────── Rust ──┴─────────────────────────────────────┴─────────────────────────────────┐
-│ script.rs   SpiderMonkey host: ES module loader, microtask queue, native __host API        │
+│ script/     SpiderMonkey host: modules, microtasks, typed native calls and direct values   │
 │ engine.rs   Engine core: routes input → JS, applies commands, owns timers/UI/audio,        │
 │             gates commits on image decoding, captures save thumbnails                      │
 │ ui/         Retained tree: diff, enter/exit/move animations, ATL interpreter, typewriter,  │
@@ -42,13 +42,15 @@ Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (p
 
 The engine never runs JS per frame. The loop is:
 
-1. An input event or due timer arrives → `Engine` serializes it and calls
-   `__deflorta_dispatch(json)`.
+1. An input event or due timer arrives → `Engine` creates a JS object directly
+   and calls the runtime's registered `dispatch(event)` function.
 2. The microtask queue is drained, so `async` story code runs until its next
    `await` on an engine promise (a line of dialogue, a menu, a pause).
-3. `__deflorta_pump()` returns pending output: a new UI tree if anything was
-   invalidated, plus commands (timers, music, config, …).
-4. Rust diffs the tree, lays it out and redraws. Frames repeat on vsync only
+3. The runtime's registered `flush()` runs its UI and music hooks. Multiple
+   invalidations in a turn produce one `native.ui.commit(tree, options)`.
+   Native calls read JS values directly and queue typed Rust commands.
+4. Rust applies commands in order, reconciles the tree, lays it out and redraws.
+   Frames repeat on vsync only
    while an animation or typewriter effect is running; otherwise the process
    sleeps until the next event or timer.
 
@@ -57,32 +59,57 @@ styles) means JS cost is proportional to player *actions*, not to frame rate.
 
 ### The JS ↔ Rust boundary
 
-The native API is deliberately tiny (`script.rs`):
+The boundary follows React Native's
+[New Architecture](https://reactnative.dev/architecture/landing-page): direct
+runtime values in place of a serialized message bridge, grouped native modules,
+and explicit UI commits. SpiderMonkey's JSAPI provides the direct interface;
+Deflorta does not depend on React Native or JSI itself.
 
-| `__host.*` | Purpose |
+`script/mod.rs` owns the runtime, module loader and registered entry points.
+`script/native.rs` defines the typed command/event schema and native functions.
+`script/value.rs` reads serde types directly from rooted JS values and creates
+JS event objects without JSON text. Struct fields match pinned property atoms;
+unknown fields are skipped without reading their values.
+
+The `native` export groups engine operations:
+
+| Module | Purpose |
 |---|---|
-| `log(level, msg)` | logging |
-| `readText(path)` | read a text file from the game directory |
-| `readData/writeData/deleteData/listData` | per-game user data (saves, prefs) in the OS data dir, written atomically |
+| `log`, `connect` | logging and registration of dispatch/flush callbacks |
+| `files` | text files in the game directory |
+| `storage` | atomic per-game saves/preferences and a direct array of stored entries |
+| `timers` | set and clear engine timers |
+| `app` | configuration, fullscreen, quit |
+| `audio` | music, sound, voice and channel volumes |
+| `ui` | tree commits, reveal, preloading and save thumbnails |
 
-Everything else is message passing in JSON:
-
-- **Events** (Rust → JS): `boot`, `click {h, button, revealing}`,
-  `handler {h, value}` (slider changes, text input, video end),
+- **Events** (Rust → JS): `boot`, `click {handler, button, revealing}`,
+  `handler {handler, value}` (slider changes, text input, video end),
   `key {key, down, repeat, ctrl, shift, alt, revealing}`, `wheel {dy}`,
   `tooltip {text}`, `timer {id}`, `revealed`, `quit`.
-- **Commands** (JS → Rust): `config`, `timer`, `cancelTimer`, `music`,
-  `sound`, `voice`, `volume`, `revealSkip`, `preload`, `captureThumbnail`,
-  `saveThumbnail`, `fullscreen`, `quit`.
+- **Native calls** (JS → Rust) read their arguments synchronously. Engine
+  mutations are queued as Rust enum values and applied after JS returns,
+  avoiding reentrant borrowing of the engine.
 - **UI tree**: nested `{t: "box"|"text"|"image"|"slider"|"input"|"video",
   key, style, hover, onClick/onChange/onInput/onSubmit/onEnd, tooltip,
   focusable, autofocus, children, text | spans, cps, src, hoverSrc, fit,
-  anchor, enter, exit, move, transform, …}`. Handlers are replaced by indices
-  when serialized; Rust reports the index back.
+  anchor, enter, exit, move, transform, …}`. Rust reads the tree in place.
+  Callback functions stay in a rooted JS array per commit; Rust holds a
+  generation and index. Events resolve those handles back to JS functions.
+  The displayed tree's callbacks remain alive while a replacement waits for
+  images or thumbnail capture. Older callback arrays are released once the
+  replacement is shown.
 
-JSON was chosen over building JS objects through JSAPI: the trees are small,
-SpiderMonkey's `JSON.stringify` and serde are fast, and the boundary stays
-trivial to debug and to keep memory-safe.
+UI commits still read the full element tree. Native layout nodes are reconciled
+by identity and element kind, retaining Taffy's layout and measurement caches.
+Only changed layout styles, child lists and intrinsic measurement inputs dirty
+the affected nodes and their ancestors; paint and handler changes skip layout.
+This does not implement Fabric's immutable shadow-node sharing or concurrent
+renderer. Layout, text shaping, animation state and rendering remain native.
+JSON remains the on-disk save format and is used for story snapshots, outside
+the event and UI bridge. Direct arguments are plain data: own enumerable
+properties, with `undefined` omitted and non-finite numbers treated as null;
+`toJSON` is not invoked.
 
 ### Scripting runtime (`runtime/*.js`, embedded)
 
@@ -93,9 +120,9 @@ SPIR-V with naga. Modules are layered:
 
 | Module | Responsibility |
 |---|---|
-| `deflorta/core` | host bridge, timers (`setTimeout`), config, storage, event bus, error reporting |
+| `deflorta/core` | native modules, timers (`setTimeout`), config, storage, event bus, error reporting |
 | `deflorta/text` | text-tag parser (`{b}`, `{w}`, `{ruby=…}` → spans), translations (`_()`, `tl/*.json`) |
-| `deflorta/ui` | elements and widgets, theme, screen stack (z-order, modal, per-screen keys), tooltips, serialization |
+| `deflorta/ui` | elements and widgets, theme, screen stack (z-order, modal, per-screen keys), tooltips, UI commits |
 | `deflorta/scene` | images, layered images, positions, transitions, ATL builder, scene state, music/sound |
 | `deflorta/story` | labels, `say`/`menu`/`prompt`/`pause`/`playMovie`, NVL, voice, history, store, persistent data, seen text, rollback, save/load/autosave, input bindings, preferences |
 | `deflorta/screens` | default screens: dialogue, NVL, quick menu, choices, input, movie, history, main menu, game menu (paged saves with thumbnails, sliders in preferences), confirm, notifications, tooltips, errors |
@@ -157,6 +184,11 @@ The same model gives several Ren'Py features almost for free:
   padding, margin, gap, flex direction/wrap/grow/shrink, justify/align, equal
   grid tracks, `overflow`). Text nodes are measured with cosmic-text; words
   never break (CSS `overflow-wrap: normal`).
+- **Incremental updates**: keyed layout nodes survive reorders and commits.
+  Style and content changes invalidate the affected layout caches; unrelated
+  subtrees retain theirs. Surface scale changes invalidate text measurements,
+  and exit ghosts retain frozen rectangles outside the layout tree. Handler,
+  color, opacity and other paint-only changes do not trigger layout.
 - **Virtual resolution**: games lay out at a fixed size (e.g. 1280×720). The
   engine letterboxes and scales, and shapes text at the physical size so it
   stays crisp at any window size.
@@ -165,6 +197,9 @@ The same model gives several Ren'Py features almost for free:
   `game/fonts`, so rendering is identical on every machine. Rich text arrives
   as spans (bold, italic, size, color, font, underline, strikethrough, ruby);
   decorations and ruby annotations are placed from the shaped glyph layout.
+  Unchanged text reuses its shaped buffer and measured size without copying
+  spans or traversing glyph runs. Shadow and ruby buffers share their owner's
+  lifetime, including for elements identified by child index.
 - **Typewriter**: spans carry timed waits, click-waits and a fast-forward
   point. A click while typing shows text up to the next click-wait; a click at
   a click-wait resumes typing. The current line is re-shaped only when its
@@ -191,6 +226,10 @@ The same model gives several Ren'Py features almost for free:
   drag and step in Rust, text fields edit in Rust (IME commits included), and
   both report changes to their handlers. Scroll containers clip their children
   and scroll with the wheel and focus. Tooltips follow hover and focus.
+  The default tooltip uses a `tooltipText` text binding: Rust updates its
+  content and visibility in place, so hovering save slots does not re-render
+  screens or commit a replacement UI tree. Custom screens that call
+  `tooltip()` still invalidate on tooltip changes; unchanged values are ignored.
 
 ### Rendering
 
@@ -227,8 +266,8 @@ See the README for the current release-binary size. The breakdown is
 dominated by SpiderMonkey with JIT and Intl.
 
 - Idle CPU: ~0% (the loop blocks on events and timers).
-- Per click: one JSON dispatch plus one tree commit, re-laid-out only when it
-  changes.
+- Per click: one direct event dispatch plus a tree commit when invalidated.
+  Animation frames do not cross the JS boundary.
 
 ## Platform notes
 

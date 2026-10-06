@@ -8,12 +8,11 @@ use std::time::{Duration, Instant};
 
 use log::{debug, error, info, trace, warn};
 use num_traits::{AsPrimitive, ToPrimitive};
-use serde_json::{Value, json};
 
 use crate::assets::Assets;
 use crate::audio::Audio;
-use crate::script::ScriptHost;
-use crate::ui::desc::{AnimDesc, Color, Command, GameConfig, NodeDesc, PumpOutput};
+use crate::script::{Command, Event, GameConfig, HandlerValue, ScriptHost, UiCommit};
+use crate::ui::desc::{AnimDesc, Color, NodeDesc};
 use crate::ui::{DrawItem, InputEvent, Nav, Ui};
 use crate::util::math::clamp_to_u32;
 
@@ -63,6 +62,8 @@ pub struct PlatformRequests {
 /// A tree waiting for its images (or for a thumbnail capture) before it is shown.
 struct PendingTree {
     tree: NodeDesc,
+    /// Handler generation of `tree`; older handlers are released once it is shown.
+    generation: u32,
     instant: bool,
     exits: HashMap<String, Option<AnimDesc>>,
     since: Instant,
@@ -111,7 +112,7 @@ impl Engine {
             thumbnail_names: Vec::new(),
             text_input: false,
         };
-        engine.pump();
+        engine.flush();
         engine
     }
 
@@ -132,59 +133,45 @@ impl Engine {
     // Script bridge
     // -----------------------------------------------------------------------
 
-    fn dispatch(&mut self, event: &Value) {
-        if let Err(err) = self.script.dispatch(&event.to_string()) {
+    fn dispatch(&mut self, event: &Event) {
+        if let Err(err) = self.script.dispatch(event) {
             error!("Script event failed: {err:#}");
         }
-        self.pump();
+        self.apply(ScriptHost::take_commands());
     }
 
-    fn pump(&mut self) {
-        let json = match self.script.pump() {
-            Ok(Some(json)) => json,
-            Ok(None) => return,
-            Err(err) => {
-                error!("Reading script output failed: {err:#}");
-                return;
-            }
-        };
-        match serde_json::from_str::<PumpOutput>(&json) {
-            Ok(output) => self.apply(output),
-            Err(err) => error!("Invalid output from the script runtime: {err}"),
+    /// Commits output the runtime produced outside of an event (at startup).
+    fn flush(&mut self) {
+        if let Err(err) = self.script.flush() {
+            error!("Script flush failed: {err:#}");
         }
+        self.apply(ScriptHost::take_commands());
     }
 
-    fn apply(&mut self, output: PumpOutput) {
+    fn apply(&mut self, commands: Vec<Command>) {
         let now = Instant::now();
         // Only the last configuration in a batch matters (the runtime's defaults
         // and the game's configure() usually arrive together).
-        let last_config = output
-            .cmds
+        let last_config = commands
             .iter()
-            .rposition(|c| matches!(c, Command::Config { .. }));
-        for (index, command) in output.cmds.into_iter().enumerate() {
+            .rposition(|c| matches!(c, Command::Configure(_)));
+        for (index, command) in commands.into_iter().enumerate() {
             match command {
-                Command::Config { config } if Some(index) == last_config => self.set_config(config),
-                Command::Config { .. } => {}
-                Command::Timer { id, ms } => self
+                Command::Configure(config) if Some(index) == last_config => self.set_config(config),
+                Command::Configure(_) => {}
+                Command::SetTimer { id, ms } => self
                     .timers
                     .push((now + Duration::from_secs_f64(ms / 1000.0), id)),
-                Command::CancelTimer { id } => self.timers.retain(|(_, t)| *t != id),
-                Command::Music {
-                    file,
-                    r#loop,
-                    volume,
-                    fade_in,
-                    fade_out,
-                } => {
+                Command::ClearTimer { id } => self.timers.retain(|(_, t)| *t != id),
+                Command::Music(music, fade) => {
                     if let Some(audio) = &mut self.audio {
                         audio.play_music(
                             &self.assets,
-                            file.as_deref(),
-                            r#loop,
-                            volume,
-                            fade_in,
-                            fade_out,
+                            music.as_ref().map(|m| m.file.as_str()),
+                            music.as_ref().is_none_or(|m| m.r#loop),
+                            music.as_ref().map_or(1.0, |m| m.volume),
+                            fade.fade_in,
+                            fade.fade_out,
                         );
                     }
                 }
@@ -231,10 +218,8 @@ impl Engine {
                     info!("Game requested quit");
                     self.requests.quit = true;
                 }
+                Command::Commit(commit) => self.stage_tree(*commit, now),
             }
-        }
-        if let Some(tree) = output.tree {
-            self.stage_tree(tree, output.instant, output.exits, now);
         }
         match self.capture {
             // Nothing new to show: capture what is on screen.
@@ -264,13 +249,13 @@ impl Engine {
         });
     }
 
-    fn stage_tree(
-        &mut self,
-        tree: NodeDesc,
-        instant: bool,
-        exits: HashMap<String, Option<AnimDesc>>,
-        now: Instant,
-    ) {
+    fn stage_tree(&mut self, commit: UiCommit, now: Instant) {
+        let UiCommit {
+            tree,
+            generation,
+            instant,
+            exits,
+        } = commit;
         let mut images = Vec::new();
         Ui::collect_images(&tree, &mut images);
         for src in &images {
@@ -280,12 +265,14 @@ impl Engine {
         let pending = match self.pending.take() {
             Some(mut previous) => {
                 previous.tree = tree;
+                previous.generation = generation;
                 previous.instant |= instant;
                 previous.exits.extend(exits);
                 previous
             }
             None => PendingTree {
                 tree,
+                generation,
                 instant,
                 exits,
                 since: now,
@@ -327,6 +314,7 @@ impl Engine {
             &self.assets,
             Instant::now(),
         );
+        ScriptHost::release_handlers(pending.generation);
         if let Some(audio) = &mut self.audio {
             audio.sync_videos(&self.assets, self.ui.video_sources());
         }
@@ -473,12 +461,12 @@ impl Engine {
 
     pub fn boot(&mut self) {
         info!("Booting the game");
-        self.dispatch(&json!({ "type": "boot" }));
+        self.dispatch(&Event::Boot);
     }
 
     pub fn quit(&mut self) {
         info!("Shutting down the game");
-        self.dispatch(&json!({ "type": "quit" }));
+        self.dispatch(&Event::Quit);
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -492,19 +480,25 @@ impl Engine {
 
     fn handle_ui_events(&mut self, events: Vec<InputEvent>, button: &str) {
         for event in events {
-            let json = match event {
-                InputEvent::Click { h } => {
-                    json!({ "type": "click", "h": h, "button": button, "revealing": self.revealing() })
-                }
-                InputEvent::Change { h, value } => {
-                    json!({ "type": "handler", "h": h, "value": value })
-                }
+            let event = match event {
+                InputEvent::Click { h } => Event::Click {
+                    handler: Some(h),
+                    button,
+                    revealing: self.revealing(),
+                },
+                InputEvent::Change { h, value } => Event::Handler {
+                    handler: h,
+                    value: Some(HandlerValue::Number(value)),
+                },
                 InputEvent::Input { h, value } | InputEvent::Submit { h, value } => {
-                    json!({ "type": "handler", "h": h, "value": value })
+                    Event::Handler {
+                        handler: h,
+                        value: Some(HandlerValue::Text(value)),
+                    }
                 }
-                InputEvent::Tooltip(text) => json!({ "type": "tooltip", "text": text }),
+                InputEvent::Tooltip(text) => Event::Tooltip { text },
             };
-            self.dispatch(&json);
+            self.dispatch(&event);
             self.requests.redraw = true;
         }
     }
@@ -530,9 +524,11 @@ impl Engine {
         };
         if events.is_empty() {
             let revealing = self.revealing();
-            self.dispatch(
-                &json!({ "type": "click", "h": null, "button": button, "revealing": revealing }),
-            );
+            self.dispatch(&Event::Click {
+                handler: None,
+                button,
+                revealing,
+            });
         } else {
             self.handle_ui_events(events, button);
         }
@@ -550,7 +546,7 @@ impl Engine {
             return;
         }
         let revealing = self.revealing();
-        self.dispatch(&json!({ "type": "wheel", "dy": dy, "revealing": revealing }));
+        self.dispatch(&Event::Wheel { dy, revealing });
     }
 
     /// Typed text (after IME composition) for the focused text field.
@@ -599,16 +595,15 @@ impl Engine {
             }
         }
         let revealing = self.revealing();
-        self.dispatch(&json!({
-            "type": "key",
-            "key": key,
-            "down": down,
-            "repeat": repeat,
-            "ctrl": modifiers.ctrl,
-            "shift": modifiers.shift,
-            "alt": modifiers.alt,
-            "revealing": revealing,
-        }));
+        self.dispatch(&Event::Key {
+            key,
+            down,
+            repeat,
+            ctrl: modifiers.ctrl,
+            shift: modifiers.shift,
+            alt: modifiers.alt,
+            revealing,
+        });
     }
 
     // -----------------------------------------------------------------------
@@ -627,7 +622,7 @@ impl Engine {
                 .map(|(i, _)| i);
             let Some(pos) = due else { break };
             let (_, id) = self.timers.swap_remove(pos);
-            self.dispatch(&json!({ "type": "timer", "id": id }));
+            self.dispatch(&Event::Timer { id });
         }
     }
 
@@ -658,10 +653,13 @@ impl Engine {
         let animating = self.ui.is_animating(now);
         self.ui.prune(now);
         if self.ui.take_revealed_event(now) {
-            self.dispatch(&json!({ "type": "revealed" }));
+            self.dispatch(&Event::Revealed);
         }
-        for h in self.ui.take_ended_videos() {
-            self.dispatch(&json!({ "type": "handler", "h": h }));
+        for handler in self.ui.take_ended_videos() {
+            self.dispatch(&Event::Handler {
+                handler,
+                value: None,
+            });
         }
         hover_changed || animating || self.assets.has_pending()
     }

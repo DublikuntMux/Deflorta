@@ -1,11 +1,14 @@
-// deflorta/core — host bridge, timers, config, storage and the event loop glue.
+// deflorta/core — native modules, timers, config, storage and the event loop glue.
 //
-// The native side calls two globals:
-//   __deflorta_dispatch(json)  delivers one input/timer event
-//   __deflorta_pump()          returns pending output (UI tree + commands) as JSON
+// The engine exposes typed native modules (`native.audio`, `native.ui`, …) that
+// JS calls synchronously with plain values; nothing is serialized. The engine
+// calls back into two functions registered with `native.connect`:
+//   dispatch(event)  delivers one input/timer event object
+//   flush()          runs at the end of each turn to commit pending output
 
-const host = globalThis.__host;
-delete globalThis.__host;
+/** Native engine modules: files, storage, timers, app, audio, ui. */
+export const native = globalThis.__native;
+delete globalThis.__native;
 
 // ---------------------------------------------------------------------------
 // Logging
@@ -22,7 +25,7 @@ function format(value) {
 }
 
 function logger(level) {
-  return (...args) => host.log(level, args.map(format).join(" "));
+  return (...args) => native.log(level, args.map(format).join(" "));
 }
 
 export const log = logger("info");
@@ -34,17 +37,6 @@ globalThis.console = {
   warn: logger("warn"),
   error: logger("error"),
 };
-
-// ---------------------------------------------------------------------------
-// Commands sent to the engine
-// ---------------------------------------------------------------------------
-
-const outbox = [];
-
-/** Queues a command for the native engine; delivered on the next pump. */
-export function command(op, args = {}) {
-  outbox.push({ op, ...args });
-}
 
 // ---------------------------------------------------------------------------
 // Config
@@ -69,7 +61,7 @@ export const config = {
 /** Updates game configuration. Call at the top level of main.js. */
 export function configure(options) {
   Object.assign(config, options);
-  command("config", { config: { ...config } });
+  native.app.configure(config);
 }
 
 // ---------------------------------------------------------------------------
@@ -83,12 +75,12 @@ const timers = new Map();
 export function setTimer(ms, fn) {
   const id = ++timerSeq;
   timers.set(id, fn);
-  command("timer", { id, ms: Math.max(0, Number(ms) || 0) });
+  native.timers.set(id, Math.max(0, Number(ms) || 0));
   return id;
 }
 
 export function clearTimer(id) {
-  if (timers.delete(id)) command("cancelTimer", { id });
+  if (timers.delete(id)) native.timers.clear(id);
 }
 
 globalThis.setTimeout = (fn, ms = 0, ...args) =>
@@ -101,7 +93,7 @@ globalThis.clearTimeout = clearTimer;
 
 export const storage = {
   read(name) {
-    const text = host.readData(name);
+    const text = native.storage.read(name);
     if (text == null) return null;
     try {
       return JSON.parse(text);
@@ -111,20 +103,20 @@ export const storage = {
     }
   },
   write(name, value) {
-    host.writeData(name, JSON.stringify(value));
+    native.storage.write(name, JSON.stringify(value));
   },
   remove(name) {
-    return host.deleteData(name);
+    return native.storage.remove(name);
   },
   /** Returns [{ name, modified }] for every stored entry. */
   list() {
-    return JSON.parse(host.listData());
+    return native.storage.list();
   },
 };
 
 /** Reads a text file from the game directory, or null if it does not exist. */
 export function readText(path) {
-  return host.readText(path);
+  return native.files.readText(path);
 }
 
 // ---------------------------------------------------------------------------
@@ -172,20 +164,15 @@ export function reportError(error) {
 // Engine bridge
 // ---------------------------------------------------------------------------
 
-const frameSources = [];
+const flushHooks = [];
 
-/**
- * Registers a function contributing to each pump result. Each source returns
- * an object merged into the output, or nothing.
- */
-export function addFrameSource(fn) {
-  frameSources.push(fn);
+/** Registers a function run at the end of every turn to commit output (UI tree, music). */
+export function onFlush(fn) {
+  flushHooks.push(fn);
 }
 
-globalThis.__deflorta_dispatch = (json) => {
-  let event;
+function dispatch(event) {
   try {
-    event = JSON.parse(json);
     if (event.type === "timer") {
       const fn = timers.get(event.id);
       timers.delete(event.id);
@@ -196,19 +183,17 @@ globalThis.__deflorta_dispatch = (json) => {
   } catch (e) {
     reportError(e);
   }
-};
+}
 
-globalThis.__deflorta_pump = () => {
-  const out = {};
-  for (const source of frameSources) {
+function flush() {
+  for (const fn of flushHooks) {
     try {
-      Object.assign(out, source());
+      fn();
     } catch (e) {
       reportError(e);
     }
   }
-  if (outbox.length) out.cmds = outbox.splice(0);
-  return Object.keys(out).length ? JSON.stringify(out) : "";
-};
+}
 
-command("config", { config: { ...config } });
+native.connect(dispatch, flush);
+native.app.configure(config);

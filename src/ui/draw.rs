@@ -1,5 +1,6 @@
 //! Per-frame traversal producing draw items in physical pixels.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use num_traits::AsPrimitive;
@@ -83,7 +84,7 @@ impl Ui {
         items: &mut Vec<DrawItem>,
     ) {
         let node = &self.nodes[i];
-        if node.desc.style.display == Some(Display::None) {
+        if node.tooltip_hidden || node.desc.style.display == Some(Display::None) {
             return;
         }
         let highlighted = self.is_highlighted(i);
@@ -396,7 +397,7 @@ impl Ui {
         let clip = ctx.clip;
         let node = &self.nodes[i];
         let id = node.id.clone();
-        let style = node.text_style.clone();
+        let style = &node.text_style;
         let shadow = node.desc.style.text_shadow;
         // Text sits in the content box (inside border and padding).
         let [pt, pr, _, pl] = node.desc.style.padding.map_or([0.0; 4], Edges::trbl);
@@ -417,19 +418,19 @@ impl Ui {
                     color
                 };
                 (
-                    vec![SpanDesc {
+                    Arc::new(vec![SpanDesc {
                         text: content,
                         ..Default::default()
-                    }],
+                    }]),
                     color,
                     None,
                 )
             },
-            |spans| (spans.to_vec(), color, Some(rect.w)),
+            |spans| (Arc::clone(spans), color, Some(rect.w)),
         );
         let revealed = self.reveals.get(&id).map_or(usize::MAX, |r| r.shown(now));
         let (text_w, _) = self.text.prepare(
-            &id, &spans, &style, self.scale, width, revealed, opacity, None,
+            &id, &spans, style, self.scale, width, revealed, opacity, None,
         );
         let text_scale = xf.scale() / self.scale;
         let (x, y) = xf.apply(rect.x, rect.y);
@@ -439,7 +440,7 @@ impl Ui {
             self.text.prepare(
                 &shadow_id,
                 &spans,
-                &style,
+                style,
                 self.scale,
                 width,
                 revealed,

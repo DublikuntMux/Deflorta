@@ -1,8 +1,18 @@
-//! `SpiderMonkey` host: ES module loading, the native `__host` API and the
-//! dispatch/pump bridge between Rust and the JavaScript runtime.
+//! `SpiderMonkey` host: ES module loading, the microtask queue, and the
+//! synchronous bridge to the JavaScript runtime. Events are passed to JS as
+//! objects, and JS calls typed native modules (`native.rs`) whose values are
+//! read in place (`value.rs`); no JSON crosses the boundary.
+
+mod native;
+#[cfg(test)]
+mod tests;
+mod value;
+
+pub use native::{Command, Event, GameConfig, HandlerValue, UiCommit};
+pub use value::Handler;
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::ffi::CString;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -17,16 +27,15 @@ use mozjs::conversions::{
 };
 use mozjs::gc::{Handle, MutableHandle, RootedTraceableBox};
 use mozjs::jsapi::{
-    self, CallArgs, ColumnNumberOneOrigin, Heap, JSObject, JSScript, OnNewGlobalHookOption,
-    PromiseState, Value,
+    self, ColumnNumberOneOrigin, Heap, JSObject, JSScript, OnNewGlobalHookOption, PromiseState,
+    Value,
 };
-use mozjs::jsval::{BooleanValue, NullValue, UndefinedValue};
+use mozjs::jsval::{NullValue, UndefinedValue};
 use mozjs::rooted;
 use mozjs::rust::{
     CompileOptionsWrapper, JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS,
     transform_str_to_source_text,
 };
-use num_traits::ToPrimitive;
 
 use crate::assets::normalize_game_path;
 
@@ -56,6 +65,26 @@ struct HostState {
     data_dir: Option<PathBuf>,
     modules: HashMap<String, RootedTraceableBox<Heap<*mut JSObject>>>,
     load_error: Option<String>,
+    /// The runtime's `dispatch(event)` and `flush()` functions.
+    entry_points: Option<[RootedTraceableBox<Heap<Value>>; 2]>,
+    /// Commands queued by native calls since the engine last took them.
+    commands: Vec<Command>,
+    /// Functions of committed trees, oldest first, until the engine releases them.
+    handlers: VecDeque<HandlerTable>,
+    generation: u32,
+}
+
+/// The functions captured from one `ui.commit`, as a JS array.
+struct HandlerTable {
+    generation: u32,
+    functions: RootedTraceableBox<Heap<*mut JSObject>>,
+}
+
+impl HostState {
+    const fn next_generation(&mut self) -> u32 {
+        self.generation = (self.generation + 1) % Handler::GENERATIONS;
+        self.generation
+    }
 }
 
 thread_local! {
@@ -89,6 +118,10 @@ impl ScriptHost {
                 data_dir: None,
                 modules: HashMap::new(),
                 load_error: None,
+                entry_points: None,
+                commands: Vec::new(),
+                handlers: VecDeque::new(),
+                generation: 0,
             });
         });
 
@@ -116,7 +149,7 @@ impl ScriptHost {
             if !jsapi::InitRealmStandardClasses(cx) {
                 bail!("failed to init standard classes");
             }
-            define_host_object(cx, global.get())?;
+            native::install(cx, global.get())?;
             info!(
                 "Script runtime ready (SpiderMonkey, {} built-in modules)",
                 BUILTIN_MODULES.len()
@@ -181,19 +214,49 @@ impl ScriptHost {
         Ok(())
     }
 
-    /// Delivers an input/timer event to the JS runtime, then runs promise jobs
-    /// so story code can advance to its next suspension point.
-    pub fn dispatch(&mut self, event_json: &str) -> Result<()> {
-        self.call_global("__deflorta_dispatch", Some(event_json))?;
+    /// Delivers an event to the JS runtime, runs promise jobs so story code
+    /// can advance to its next suspension point, then lets the runtime commit
+    /// its output. The resulting commands are available from `take_commands`.
+    pub fn dispatch(&mut self, event: &Event) -> Result<()> {
         let cx = self.cx();
+        let result = unsafe {
+            rooted!(in(cx) let mut arg = UndefinedValue());
+            value::to_js(cx, event, arg.handle_mut())?;
+            self.call_entry_point(0, Some(arg.handle()))
+        };
         unsafe { run_jobs(cx) };
-        Ok(())
+        let flushed = self.flush();
+        result.and(flushed)
     }
 
-    /// Collects pending output (UI tree, commands) from the JS runtime.
-    pub fn pump(&mut self) -> Result<Option<String>> {
-        let out = self.call_global("__deflorta_pump", None)?;
-        Ok(out.filter(|s| !s.is_empty()))
+    /// Lets the runtime commit pending output (UI tree, music) through native calls.
+    pub fn flush(&mut self) -> Result<()> {
+        let result = unsafe { self.call_entry_point(1, None) };
+        let cx = self.cx();
+        unsafe { run_jobs(cx) };
+        result
+    }
+
+    /// Commands queued by native module calls, in call order.
+    pub fn take_commands() -> Vec<Command> {
+        with_state(|s| std::mem::take(&mut s.commands))
+    }
+
+    /// Drops the functions of trees committed before `generation`; their
+    /// handlers can no longer be triggered.
+    pub fn release_handlers(generation: u32) {
+        with_state(|s| {
+            if !s.handlers.iter().any(|t| t.generation == generation) {
+                return;
+            }
+            while s
+                .handlers
+                .front()
+                .is_some_and(|t| t.generation != generation)
+            {
+                s.handlers.pop_front();
+            }
+        });
     }
 
     pub fn maybe_gc(&mut self) {
@@ -206,42 +269,66 @@ impl ScriptHost {
         with_state(|s| s.data_dir = Some(dir));
     }
 
-    fn call_global(&mut self, name: &str, arg: Option<&str>) -> Result<Option<String>> {
+    /// Calls `dispatch` (0) or `flush` (1) as registered by `native.connect`.
+    unsafe fn call_entry_point(&mut self, which: usize, arg: Option<Handle<Value>>) -> Result<()> {
         let global = self.global.get();
         let cx = self.cx();
-        let name = CString::new(name)?;
         unsafe {
+            rooted!(in(cx) let function = with_state(|s| {
+                s.entry_points.as_ref().map_or_else(UndefinedValue, |functions| functions[which].get())
+            }));
+            if function.get().is_undefined() {
+                bail!("the runtime did not connect to the engine");
+            }
             rooted!(in(cx) let global = global);
-            rooted!(in(cx) let mut argv = UndefinedValue());
             rooted!(in(cx) let mut rval = UndefinedValue());
-            let mut safe_cx = JSContext::from_ptr(NonNull::new_unchecked(cx));
             let args = arg.map_or_else(jsapi::HandleValueArray::empty, |arg| {
-                arg.to_jsval(&mut safe_cx, argv.handle_mut());
-                let raw: jsapi::HandleValue = argv.handle().into();
+                let raw: jsapi::HandleValue = arg.into();
                 jsapi::HandleValueArray::from(raw)
             });
-            if !jsapi::JS_CallFunctionName(
+            if !jsapi::JS_CallFunctionValue(
                 cx,
                 global.handle().into(),
-                name.as_ptr(),
+                function.handle().into(),
                 &raw const args,
                 rval.handle_mut().into(),
             ) {
                 return Err(pending_exception(cx));
             }
-            if rval.get().is_string() {
-                Ok(Some(value_to_string(cx, rval.handle())))
-            } else {
-                Ok(None)
-            }
         }
+        Ok(())
     }
+}
+
+/// Writes the function behind `handler` to `out`, or null once released.
+unsafe fn handler_function(cx: *mut RawJSContext, handler: Handler, mut out: MutableHandle<Value>) {
+    out.set(NullValue());
+    with_state(|s| {
+        let Some(table) = s
+            .handlers
+            .iter()
+            .find(|t| t.generation == handler.generation)
+        else {
+            return;
+        };
+        if !unsafe {
+            jsapi::JS_GetElement(
+                cx,
+                table.functions.handle().into(),
+                handler.index,
+                out.into(),
+            )
+        } {
+            unsafe { jsapi::JS_ClearPendingException(cx) };
+        }
+    });
 }
 
 impl Drop for ScriptHost {
     fn drop(&mut self) {
-        // Module roots must be released while the runtime is still alive.
+        // Module and handler roots must be released while the runtime is still alive.
         STATE.with(|s| s.borrow_mut().take());
+        value::clear_atom_cache();
         info!("Script runtime shut down");
     }
 }
@@ -525,203 +612,5 @@ unsafe fn describe_error(cx: *mut RawJSContext, value: Handle<Value>) -> String 
             }
         }
         text
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Native `__host` object
-// ---------------------------------------------------------------------------
-
-type Native = unsafe extern "C" fn(*mut RawJSContext, u32, *mut Value) -> bool;
-
-unsafe fn define_host_object(cx: *mut RawJSContext, global: *mut JSObject) -> Result<()> {
-    const NATIVES: &[(&std::ffi::CStr, Native, u32)] = &[
-        (c"log", host_log, 2),
-        (c"readText", host_read_text, 1),
-        (c"readData", host_read_data, 1),
-        (c"writeData", host_write_data, 2),
-        (c"deleteData", host_delete_data, 1),
-        (c"listData", host_list_data, 0),
-    ];
-    unsafe {
-        rooted!(in(cx) let global = global);
-        rooted!(in(cx) let host = jsapi::JS_NewPlainObject(cx));
-        if host.get().is_null() {
-            bail!("failed to create __host");
-        }
-        for (name, native, nargs) in NATIVES {
-            let f = jsapi::JS_DefineFunction(
-                cx,
-                host.handle().into(),
-                name.as_ptr(),
-                Some(*native),
-                *nargs,
-                0,
-            );
-            if f.is_null() {
-                bail!("failed to define __host.{}", name.to_string_lossy());
-            }
-        }
-        rooted!(in(cx) let host_value = mozjs::jsval::ObjectValue(host.get()));
-        if !jsapi::JS_DefineProperty(
-            cx,
-            global.handle().into(),
-            c"__host".as_ptr(),
-            host_value.handle().into(),
-            0,
-        ) {
-            bail!("failed to define __host");
-        }
-    }
-    Ok(())
-}
-
-unsafe fn arg_string(cx: *mut RawJSContext, args: &CallArgs, index: u32) -> Option<String> {
-    if index >= args.argc_ {
-        return None;
-    }
-    let value = unsafe { Handle::from_raw(args.get(index)) };
-    if value.get().is_undefined() || value.get().is_null() {
-        return None;
-    }
-    Some(unsafe { value_to_string(cx, value) })
-}
-
-unsafe fn return_string(cx: *mut RawJSContext, args: &CallArgs, value: Option<&str>) {
-    unsafe {
-        let mut rval = MutableHandle::from_raw(args.rval());
-        match value {
-            Some(s) => {
-                let mut safe_cx = JSContext::from_ptr(NonNull::new_unchecked(cx));
-                s.to_jsval(&mut safe_cx, rval);
-            }
-            None => rval.set(NullValue()),
-        }
-    }
-}
-
-fn is_valid_data_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 64
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-}
-
-fn data_path(name: &str) -> Option<PathBuf> {
-    if !is_valid_data_name(name) {
-        return None;
-    }
-    with_state(|s| s.data_dir.as_ref().map(|d| d.join(format!("{name}.json"))))
-}
-
-unsafe extern "C" fn host_log(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let level = arg_string(cx, &arguments, 0).unwrap_or_default();
-        let message = arg_string(cx, &arguments, 1).unwrap_or_default();
-        let level = match level.as_str() {
-            "error" => log::Level::Error,
-            "warn" => log::Level::Warn,
-            "debug" => log::Level::Debug,
-            "trace" => log::Level::Trace,
-            _ => log::Level::Info,
-        };
-        log::log!(target: "deflorta::js", level, "{message}");
-        arguments.rval().set(UndefinedValue());
-        true
-    }
-}
-
-unsafe extern "C" fn host_read_text(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let text = arg_string(cx, &arguments, 0)
-            .and_then(|p| normalize_game_path(Path::new(&p)))
-            .and_then(|p| std::fs::read_to_string(with_state(|s| s.game_dir.join(p))).ok());
-        return_string(cx, &arguments, text.as_deref());
-        true
-    }
-}
-
-unsafe extern "C" fn host_read_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let text = arg_string(cx, &arguments, 0)
-            .and_then(|name| data_path(&name))
-            .and_then(|path| std::fs::read_to_string(path).ok());
-        return_string(cx, &arguments, text.as_deref());
-        true
-    }
-}
-
-unsafe extern "C" fn host_write_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let (Some(path), Some(text)) = (
-            arg_string(cx, &arguments, 0).and_then(|n| data_path(&n)),
-            arg_string(cx, &arguments, 1),
-        ) else {
-            throw_error(
-                cx,
-                "writeData: invalid name or data directory not configured",
-            );
-            return false;
-        };
-        // Write to a temporary file first so a crash never leaves a torn save.
-        let tmp = path.with_extension("json.tmp");
-        let result = path
-            .parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&tmp, text))
-            .and_then(|()| std::fs::rename(&tmp, &path));
-        if let Err(err) = result {
-            throw_error(cx, &format!("writeData failed: {err}"));
-            return false;
-        }
-        arguments.rval().set(BooleanValue(true));
-        true
-    }
-}
-
-unsafe extern "C" fn host_delete_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let deleted = arg_string(cx, &arguments, 0)
-            .and_then(|name| data_path(&name))
-            .is_some_and(|path| std::fs::remove_file(path).is_ok());
-        arguments.rval().set(BooleanValue(deleted));
-        true
-    }
-}
-
-/// Returns a JSON array of `{name, modified}` for every stored data file.
-unsafe extern "C" fn host_list_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
-    unsafe {
-        let arguments = CallArgs::from_vp(vp, argc);
-        let mut entries = Vec::new();
-        if let Some(dir) = with_state(|s| s.data_dir.clone())
-            && let Ok(read) = std::fs::read_dir(dir)
-        {
-            for entry in read.flatten() {
-                let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) != Some("json") {
-                    continue;
-                }
-                let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
-                    continue;
-                };
-                let modified = entry
-                    .metadata()
-                    .and_then(|m| m.modified())
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_millis().to_u64().unwrap_or(u64::MAX));
-                entries.push(serde_json::json!({ "name": name, "modified": modified }));
-            }
-        }
-        let json = serde_json::Value::Array(entries).to_string();
-        return_string(cx, &arguments, Some(&json));
-        true
     }
 }

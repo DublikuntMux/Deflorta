@@ -1,112 +1,10 @@
-//! Serialized UI tree and command types produced by the JS runtime.
-
-use std::collections::HashMap;
+//! Element tree types read from the JS runtime.
 
 use num_traits::{AsPrimitive, ToPrimitive};
 use serde::Deserialize;
 
+use crate::script::Handler;
 use crate::util::math::unit_to_u8;
-
-/// Output of one `__deflorta_pump()` call.
-#[derive(Deserialize, Default)]
-pub struct PumpOutput {
-    pub tree: Option<NodeDesc>,
-    #[serde(default)]
-    pub instant: bool,
-    /// Exit animations for keyed elements removed in this commit.
-    #[serde(default)]
-    pub exits: HashMap<String, Option<AnimDesc>>,
-    #[serde(default)]
-    pub cmds: Vec<Command>,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "op", rename_all = "camelCase")]
-pub enum Command {
-    Config {
-        config: GameConfig,
-    },
-    Timer {
-        id: u64,
-        ms: f64,
-    },
-    CancelTimer {
-        id: u64,
-    },
-    #[serde(rename_all = "camelCase")]
-    Music {
-        file: Option<String>,
-        #[serde(default = "default_true")]
-        r#loop: bool,
-        #[serde(default = "default_one")]
-        volume: f32,
-        #[serde(default)]
-        fade_in: f32,
-        #[serde(default)]
-        fade_out: f32,
-    },
-    Sound {
-        file: String,
-        #[serde(default = "default_one")]
-        volume: f32,
-    },
-    /// Plays a voice line, stopping the previous one; `None` stops voice.
-    Voice {
-        file: Option<String>,
-    },
-    Volume {
-        channel: String,
-        value: f32,
-    },
-    /// Shows all text up to the next click-wait (or the end).
-    RevealSkip,
-    /// Starts decoding images in the background.
-    Preload {
-        images: Vec<String>,
-    },
-    /// Captures a frame for a save thumbnail: the screen as it is now (before
-    /// the next tree is shown, e.g. under a menu that is opening), or with
-    /// `after`, once the next tree is shown (e.g. a scene that is starting).
-    CaptureThumbnail {
-        #[serde(default)]
-        after: bool,
-    },
-    /// Writes the last captured thumbnail to `<data dir>/<name>.png`.
-    SaveThumbnail {
-        name: String,
-    },
-    /// Removes `<data dir>/<name>.png` (when its save is deleted).
-    DeleteThumbnail {
-        name: String,
-    },
-    Fullscreen {
-        on: bool,
-    },
-    Quit,
-}
-
-const fn default_true() -> bool {
-    true
-}
-
-const fn default_one() -> f32 {
-    1.0
-}
-
-#[derive(Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct GameConfig {
-    pub id: String,
-    pub title: String,
-    pub width: f32,
-    pub height: f32,
-    pub font: String,
-    /// Game version as set by the script (any JSON value, e.g. "1.2" or 3).
-    #[serde(default)]
-    pub version: Option<serde_json::Value>,
-    #[serde(default)]
-    pub clear_color: Option<Color>,
-}
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -128,6 +26,8 @@ pub enum Fit {
     Contain,
 }
 
+// Independent flags mirror the JavaScript element property schema.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeDesc {
@@ -137,15 +37,15 @@ pub struct NodeDesc {
     pub style: Style,
     /// Paint-only overrides applied while hovered or focused.
     pub hover: Option<Style>,
-    pub on_click: Option<u32>,
+    pub on_click: Option<Handler>,
     /// Slider value changes.
-    pub on_change: Option<u32>,
+    pub on_change: Option<Handler>,
     /// Text input edits.
-    pub on_input: Option<u32>,
+    pub on_input: Option<Handler>,
     /// Enter pressed in a text input.
-    pub on_submit: Option<u32>,
+    pub on_submit: Option<Handler>,
     /// A non-looping video finished.
-    pub on_end: Option<u32>,
+    pub on_end: Option<Handler>,
     /// Whether keyboard/gamepad focus can land here (defaults to having a handler).
     pub focusable: Option<bool>,
     /// Receive focus when the element appears.
@@ -158,6 +58,9 @@ pub struct NodeDesc {
     #[serde(default)]
     pub children: Vec<Self>,
     pub text: Option<String>,
+    /// Instant text bound to the current tooltip; hidden while it is empty.
+    #[serde(default)]
+    pub tooltip_text: bool,
     /// Rich text; takes precedence over `text`.
     pub spans: Option<Vec<SpanDesc>>,
     /// Typewriter speed in characters per second.

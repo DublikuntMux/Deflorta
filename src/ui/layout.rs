@@ -1,6 +1,7 @@
 //! Flexbox/grid layout with taffy and element measurement.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::time::Instant;
 
 use log::error;
@@ -21,23 +22,128 @@ use crate::video::VideoPlayer;
 const SLIDER_HEIGHT: f32 = 24.0;
 
 impl Ui {
+    /// Update tooltip-bound text without a JS render or a replacement tree.
+    pub(super) fn sync_tooltip_text(&mut self) {
+        let content = self.tooltip.as_deref().unwrap_or_default();
+        for (i, node) in self.nodes.iter_mut().enumerate() {
+            if node.in_ghost || node.desc.kind() != NodeKind::Text || !node.desc.tooltip_text {
+                continue;
+            }
+            node.spans = Some(std::sync::Arc::new(vec![SpanDesc {
+                text: content.to_owned(),
+                ..Default::default()
+            }]));
+            node.tooltip_hidden = content.is_empty();
+            if let Some(id) = node.layout_id {
+                let style = layout_style(node, (i == 0).then_some(self.virtual_size));
+                if self.layout_tree.style(id).expect("live tooltip node") != &style {
+                    self.layout_tree
+                        .set_style(id, style)
+                        .expect("update tooltip visibility");
+                }
+                self.layout_tree
+                    .mark_dirty(id)
+                    .expect("invalidate tooltip measurement");
+            }
+            self.layout_dirty = true;
+        }
+    }
+
+    /// Retain keyed Taffy nodes and invalidate only changed layout inputs.
+    pub(super) fn reconcile_layout(&mut self, old: &[Node], old_index: &HashMap<String, usize>) {
+        let tree = &mut self.layout_tree;
+        let mut retained = HashSet::new();
+        for (i, node) in self
+            .nodes
+            .iter_mut()
+            .enumerate()
+            .filter(|(_, n)| !n.in_ghost)
+        {
+            let previous = old_index
+                .get(&node.id)
+                .map(|&oi| &old[oi])
+                .filter(|old| old.desc.kind() == node.desc.kind());
+            let style = layout_style(node, (i == 0).then_some(self.virtual_size));
+            let id = if let Some(old) = previous.filter(|old| old.layout_id.is_some()) {
+                let id = old.layout_id.unwrap();
+                retained.insert(id);
+                // Context indices change on insertion/reordering; updating them
+                // through this accessor preserves Taffy's measurement cache.
+                *tree.get_node_context_mut(id).expect("live layout context") = i;
+                if tree.style(id).expect("live layout node") != &style {
+                    tree.set_style(id, style).expect("update layout style");
+                }
+                if measurement_changed(old, node) {
+                    tree.mark_dirty(id).expect("invalidate measurement");
+                }
+                node.rect = old.rect;
+                node.content = old.content;
+                self.layout_dirty |= old.desc.anchor != node.desc.anchor
+                    || old.desc.start_at_end != node.desc.start_at_end;
+                id
+            } else {
+                self.layout_dirty = true;
+                tree.new_leaf_with_context(style, i)
+                    .expect("create layout node")
+            };
+            node.layout_id = Some(id);
+            if tree.dirty(id).expect("live layout node") {
+                self.layout_dirty = true;
+            }
+        }
+        for node in self.nodes.iter().filter(|n| !n.in_ghost) {
+            let id = node.layout_id.expect("live layout node");
+            let children: Vec<_> = node
+                .children
+                .iter()
+                .filter_map(|&c| self.nodes[c].layout_id)
+                .collect();
+            if tree.children(id).expect("live layout node") != children {
+                tree.set_children(id, &children)
+                    .expect("update layout children");
+                self.layout_dirty = true;
+            }
+        }
+        for id in old
+            .iter()
+            .filter_map(|n| n.layout_id)
+            .filter(|id| !retained.contains(id))
+        {
+            // Taffy's remove() does not release the user context itself.
+            tree.set_node_context(id, None)
+                .expect("release layout context");
+            tree.remove(id).expect("remove layout node");
+            self.layout_dirty = true;
+        }
+    }
+
+    pub(super) fn invalidate_measurements(&mut self) {
+        for id in self.nodes.iter().filter_map(|n| n.layout_id) {
+            self.layout_tree
+                .mark_dirty(id)
+                .expect("invalidate measurement");
+        }
+    }
+
     pub(super) fn layout_if_needed(&mut self, assets: &mut Assets, now: Instant) {
         if !self.layout_dirty || self.nodes.is_empty() {
             return;
         }
-        self.layout_dirty = false;
         let (vw, vh) = self.virtual_size;
-        let mut tree: tf::TaffyTree<usize> = tf::TaffyTree::new();
-        let Some(root) = self.build_taffy(&mut tree, 0, true) else {
-            return;
-        };
+        let root = self.nodes[0].layout_id.expect("live layout root");
+        let style = layout_style(&self.nodes[0], Some(self.virtual_size));
+        if self.layout_tree.style(root).expect("live layout root") != &style {
+            self.layout_tree
+                .set_style(root, style)
+                .expect("update root size");
+        }
 
         let scale = self.scale;
         let nodes = &self.nodes;
         let reveals = &self.reveals;
         let videos = &self.videos;
         let text = &mut self.text;
-        let result = tree.compute_layout_with_measure(
+        let result = self.layout_tree.compute_layout_with_measure(
             root,
             tf::Size {
                 width: tf::AvailableSpace::Definite(vw),
@@ -63,7 +169,8 @@ impl Ui {
             error!("Layout failed: {err}");
             return;
         }
-        self.assign_rects(&tree, root, 0, 0.0, 0.0);
+        self.layout_dirty = false;
+        Self::assign_rects(&self.layout_tree, &mut self.nodes, root, 0, 0.0, 0.0);
 
         // Turn position changes of keyed `move` elements into animations.
         for (id, (old, spec)) in std::mem::take(&mut self.pending_moves) {
@@ -103,45 +210,9 @@ impl Ui {
         });
     }
 
-    fn build_taffy(
-        &self,
-        tree: &mut tf::TaffyTree<usize>,
-        i: usize,
-        is_root: bool,
-    ) -> Option<tf::NodeId> {
-        let node = &self.nodes[i];
-        let mut style = taffy_style(&node.desc.style);
-        if node.desc.kind() == NodeKind::Slider && node.desc.style.height.is_none() {
-            style.size.height =
-                tf::Dimension::length(node.desc.style.thumb_size.unwrap_or(SLIDER_HEIGHT));
-        }
-        if is_root {
-            style.position = tf::Position::Relative;
-            style.inset = tf::Rect::auto();
-            style.size = tf::Size {
-                width: tf::Dimension::length(self.virtual_size.0),
-                height: tf::Dimension::length(self.virtual_size.1),
-            };
-        }
-        let children: Vec<tf::NodeId> = node
-            .children
-            .iter()
-            .filter(|&&c| !self.nodes[c].in_ghost)
-            .filter_map(|&c| self.build_taffy(tree, c, false))
-            .collect();
-        let id = if children.is_empty() {
-            tree.new_leaf_with_context(style, i).ok()?
-        } else {
-            let id = tree.new_with_children(style, &children).ok()?;
-            tree.set_node_context(id, Some(i)).ok()?;
-            id
-        };
-        Some(id)
-    }
-
     fn assign_rects(
-        &mut self,
         tree: &tf::TaffyTree<usize>,
+        nodes: &mut [Node],
         tid: tf::NodeId,
         i: usize,
         px: f32,
@@ -154,28 +225,74 @@ impl Ui {
             w: layout.size.width,
             h: layout.size.height,
         };
-        if let Some([ax, ay]) = self.nodes[i].desc.anchor {
+        if let Some([ax, ay]) = nodes[i].desc.anchor {
             rect.x = f32::mul_add(ax, -rect.w, rect.x);
             rect.y = f32::mul_add(ay, -rect.h, rect.y);
         }
-        self.nodes[i].rect = rect;
+        nodes[i].rect = rect;
         // Content extent such that `content - size` is the maximum scroll offset.
-        self.nodes[i].content = (
+        nodes[i].content = (
             rect.w + layout.scroll_width(),
             rect.h + layout.scroll_height(),
         );
         // Snapshot indices before recursively mutating the nodes.
         #[allow(clippy::needless_collect)]
-        let live_children: Vec<usize> = self.nodes[i]
+        let live_children: Vec<usize> = nodes[i]
             .children
             .iter()
             .copied()
-            .filter(|&c| !self.nodes[c].in_ghost)
+            .filter(|&c| !nodes[c].in_ghost)
             .collect();
         let tchildren = tree.children(tid).unwrap_or_default();
         for (c, tc) in live_children.into_iter().zip(tchildren) {
-            self.assign_rects(tree, tc, c, rect.x, rect.y);
+            Self::assign_rects(tree, nodes, tc, c, rect.x, rect.y);
         }
+    }
+}
+
+fn layout_style(node: &Node, root_size: Option<(f32, f32)>) -> tf::Style {
+    let mut style = taffy_style(&node.desc.style);
+    if node.desc.kind() == NodeKind::Slider && node.desc.style.height.is_none() {
+        style.size.height =
+            tf::Dimension::length(node.desc.style.thumb_size.unwrap_or(SLIDER_HEIGHT));
+    }
+    if let Some((width, height)) = root_size {
+        style.position = tf::Position::Relative;
+        style.inset = tf::Rect::auto();
+        style.size = tf::Size {
+            width: tf::Dimension::length(width),
+            height: tf::Dimension::length(height),
+        };
+    }
+    if node.tooltip_hidden {
+        style.display = tf::Display::None;
+    }
+    style
+}
+
+fn measurement_changed(old: &Node, new: &Node) -> bool {
+    match new.desc.kind() {
+        NodeKind::Text => {
+            old.text_style != new.text_style
+                || old
+                    .spans
+                    .as_ref()
+                    .zip(new.spans.as_ref())
+                    .is_none_or(|(a, b)| {
+                        a.len() != b.len()
+                            || a.iter().zip(b.iter()).any(|(a, b)| {
+                                (&a.text, a.b, a.i, &a.font, a.size)
+                                    != (&b.text, b.b, b.i, &b.font, b.size)
+                            })
+                    })
+        }
+        NodeKind::Input => {
+            old.text_style != new.text_style
+                || old.desc.string_value() != new.desc.string_value()
+                || old.desc.placeholder != new.desc.placeholder
+        }
+        NodeKind::Image | NodeKind::Video => old.desc.src != new.desc.src,
+        NodeKind::Box | NodeKind::Slider => false,
     }
 }
 
@@ -421,3 +538,6 @@ fn taffy_style(s: &Style) -> tf::Style {
         ..Default::default()
     }
 }
+
+#[cfg(test)]
+mod tests;

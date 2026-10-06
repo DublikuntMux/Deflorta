@@ -11,8 +11,8 @@
 
 import {
   clearTimer,
-  command,
   config,
+  native,
   on,
   reportError,
   setTimer,
@@ -93,10 +93,10 @@ export function savePrefs() {
 }
 
 function applyPrefs() {
-  command("volume", { channel: "music", value: prefs.musicVolume });
-  command("volume", { channel: "sound", value: prefs.soundVolume });
-  command("volume", { channel: "voice", value: prefs.voiceVolume });
-  command("fullscreen", { on: prefs.fullscreen });
+  native.audio.volume("music", prefs.musicVolume);
+  native.audio.volume("sound", prefs.soundVolume);
+  native.audio.volume("voice", prefs.voiceVolume);
+  native.app.fullscreen(prefs.fullscreen);
   useLanguage(prefs.language);
   invalidate();
 }
@@ -501,9 +501,9 @@ export function say(who, what, options = {}) {
       });
     }
     if (voiceFile) {
-      command("voice", { file: voiceFile });
+      native.audio.voice(voiceFile);
       if (!prefs.voiceSustain)
-        addCleanup(pending, () => command("voice", { file: null }));
+        addCleanup(pending, () => native.audio.voice(null));
     }
     const wasSeen = !!seen[key];
     markSeen(key);
@@ -818,7 +818,7 @@ export function saveGame(slot, { thumbnail = true } = {}) {
     kinds: run.kinds.slice(0, target + 1),
     history: history.filter((h) => h.root < run.root.id).slice(-100),
   });
-  if (thumbnail) command("saveThumbnail", { name: `thumb-${slot}` });
+  if (thumbnail) native.ui.saveThumbnail(`thumb-${slot}`);
   savePersistent();
   flushSeen();
   console.info(
@@ -864,13 +864,13 @@ export function saveInfo(slot) {
 
 export function deleteSave(slot) {
   storage.remove(`save-${slot}`);
-  command("deleteThumbnail", { name: `thumb-${slot}` });
+  native.ui.deleteThumbnail(`thumb-${slot}`);
   console.info(`Deleted slot '${slot}'`);
 }
 
 /** Saves to the quick slot (F5). */
 export function quickSave() {
-  command("captureThumbnail");
+  native.ui.captureThumbnail(false);
   return saveGame("quick");
 }
 
@@ -889,7 +889,7 @@ export function autosave({ now = false } = {}) {
   if (!canSave()) return false;
   const index = ((persistent._autosave ?? 0) % AUTOSAVE_SLOTS) + 1;
   persistent._autosave = index;
-  command("captureThumbnail", { after: !now });
+  native.ui.captureThumbnail(!now);
   return saveGame(`auto-${index}`);
 }
 
@@ -919,7 +919,7 @@ export function setQuickNotice(fn) {
 
 export const actions = {
   advance(event) {
-    if (event?.revealing) command("revealSkip");
+    if (event?.revealing) native.ui.revealSkip();
     else advance();
   },
   rollback() {
@@ -932,7 +932,7 @@ export const actions = {
       return;
     }
     // Capture the game screen (without the menu) for save thumbnails.
-    command("captureThumbnail");
+    native.ui.captureThumbnail(false);
     showScreen("game_menu", { page: "main" });
   },
   history() {

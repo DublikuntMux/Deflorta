@@ -56,11 +56,33 @@ struct Shaped {
     color_override: Option<[u8; 4]>,
 }
 
+impl Shaped {
+    // A text-cache hit requires the exact shaping scale.
+    #[allow(clippy::float_cmp)]
+    fn matches(
+        &self,
+        spans: &[SpanDesc],
+        style: &TextStyle,
+        scale: f32,
+        revealed: usize,
+        alpha: u8,
+        color_override: Option<[u8; 4]>,
+    ) -> bool {
+        self.spans == spans
+            && self.style == *style
+            && self.scale == scale
+            && self.revealed == revealed
+            && self.alpha == alpha
+            && self.color_override == color_override
+    }
+}
+
 /// A shaped text buffer owned by one text node.
 pub struct TextEntry {
     pub buffer: Buffer,
     shaped: Option<Shaped>,
     width: Option<f32>,
+    size: (f32, f32),
     pub decorations: Vec<Decoration>,
     pub rubies: Vec<RubyPlacement>,
 }
@@ -111,10 +133,27 @@ impl TextSystem {
         self.entries.get(id)
     }
 
-    /// Drops buffers whose owner id (the part before '#') is not kept.
+    /// Drops buffers whose owner node is not kept, including shadow/ruby buffers.
     pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
-        self.entries
-            .retain(|id, _| keep(id.split('#').next().unwrap_or(id)));
+        self.entries.retain(|id, _| {
+            let mut owner = id.as_str();
+            loop {
+                if keep(owner) {
+                    return true;
+                }
+                let Some((parent, suffix)) = owner.rsplit_once('#') else {
+                    return false;
+                };
+                if suffix != "shadow"
+                    && !suffix.strip_prefix("ruby").is_some_and(|index| {
+                        !index.is_empty() && index.bytes().all(|b| b.is_ascii_digit())
+                    })
+                {
+                    return false;
+                }
+                owner = parent;
+            }
+        });
     }
 
     /// Shapes `spans` for `id` (reusing the previous result when nothing
@@ -140,40 +179,49 @@ impl TextSystem {
                 buffer,
                 shaped: None,
                 width: None,
+                size: (0.0, 0.0),
                 decorations: Vec::new(),
                 rubies: Vec::new(),
             }
         });
 
         let has_colors = color_override.is_some() || spans.iter().any(|s| s.color.is_some());
-        let wanted = Shaped {
-            spans: spans.to_vec(),
-            style: style.clone(),
-            scale,
-            revealed,
-            alpha: if has_colors { unit_to_u8(alpha) } else { 255 },
-            color_override: color_override.map(|c| c.with_alpha_mul(alpha).to_rgba8()),
-        };
+        let shaped_alpha = if has_colors { unit_to_u8(alpha) } else { 255 };
+        let shaped_color = color_override.map(|c| c.with_alpha_mul(alpha).to_rgba8());
+        let shape_changed = entry.shaped.as_ref().is_none_or(|shaped| {
+            !shaped.matches(spans, style, scale, revealed, shaped_alpha, shaped_color)
+        });
 
+        // The buffer width is in physical pixels, so a surface scale change
+        // must update it even when the virtual width remains the same.
+        let width = width.map(|w| w * scale);
         let width_changed = if entry.width == width {
             false
         } else {
-            entry.buffer.set_size(width.map(|w| w * scale), None);
+            entry.buffer.set_size(width, None);
             entry.width = width;
             true
         };
-        let shape_changed = if entry.shaped.as_ref() == Some(&wanted) {
-            false
-        } else {
+        if shape_changed {
+            let wanted = Shaped {
+                spans: spans.to_vec(),
+                style: style.clone(),
+                scale,
+                revealed,
+                alpha: shaped_alpha,
+                color_override: shaped_color,
+            };
             let size = (style.font_size * scale).max(1.0);
             entry
                 .buffer
                 .set_metrics(Metrics::new(size, size * style.line_height));
             set_spans(&mut entry.buffer, &wanted);
             entry.shaped = Some(wanted);
-            true
-        };
+        }
         let reshaped = width_changed || shape_changed;
+        if !reshaped {
+            return entry.size;
+        }
 
         entry.buffer.shape_until_scroll(font_system, false);
 
@@ -183,48 +231,47 @@ impl TextSystem {
             w = w.max(run.line_w);
             h = run.line_top + run.line_height;
         }
-        if reshaped {
-            let (decorations, rubies) = annotate(&entry.buffer, spans);
-            entry.decorations = decorations;
-            let ruby_jobs: Vec<_> = rubies
-                .into_iter()
-                .enumerate()
-                .map(|(k, (span, x0, x1, top))| (format!("{id}#ruby{k}"), span, x0, x1, top))
-                .collect();
-            let mut placements = Vec::new();
-            for (ruby_id, span, x0, x1, top) in ruby_jobs {
-                let source = &spans[span];
-                let ruby_size = source.size.unwrap_or(style.font_size) * 0.5;
-                let ruby_style = TextStyle {
-                    font_size: ruby_size,
-                    line_height: 1.0,
-                    align: None,
-                    ..style.clone()
-                };
-                let ruby_spans = [SpanDesc {
-                    text: source.ruby.clone().unwrap_or_default(),
-                    color: source.color,
-                    ..Default::default()
-                }];
-                let (rw, rh) = self.prepare(
-                    &ruby_id,
-                    &ruby_spans,
-                    &ruby_style,
-                    scale,
-                    None,
-                    usize::MAX,
-                    alpha,
-                    color_override,
-                );
-                placements.push(RubyPlacement {
-                    id: ruby_id,
-                    x: (x0 + x1 - rw) / 2.0,
-                    y: f32::mul_add(rh, -0.9, top),
-                });
-            }
-            if let Some(entry) = self.entries.get_mut(id) {
-                entry.rubies = placements;
-            }
+        entry.size = (w, h);
+        let (decorations, rubies) = annotate(&entry.buffer, spans);
+        entry.decorations = decorations;
+        let ruby_jobs: Vec<_> = rubies
+            .into_iter()
+            .enumerate()
+            .map(|(k, (span, x0, x1, top))| (format!("{id}#ruby{k}"), span, x0, x1, top))
+            .collect();
+        let mut placements = Vec::new();
+        for (ruby_id, span, x0, x1, top) in ruby_jobs {
+            let source = &spans[span];
+            let ruby_size = source.size.unwrap_or(style.font_size) * 0.5;
+            let ruby_style = TextStyle {
+                font_size: ruby_size,
+                line_height: 1.0,
+                align: None,
+                ..style.clone()
+            };
+            let ruby_spans = [SpanDesc {
+                text: source.ruby.clone().unwrap_or_default(),
+                color: source.color,
+                ..Default::default()
+            }];
+            let (rw, rh) = self.prepare(
+                &ruby_id,
+                &ruby_spans,
+                &ruby_style,
+                scale,
+                None,
+                usize::MAX,
+                alpha,
+                color_override,
+            );
+            placements.push(RubyPlacement {
+                id: ruby_id,
+                x: (x0 + x1 - rw) / 2.0,
+                y: f32::mul_add(rh, -0.9, top),
+            });
+        }
+        if let Some(entry) = self.entries.get_mut(id) {
+            entry.rubies = placements;
         }
         (w, h)
     }
@@ -355,3 +402,6 @@ fn annotate(buffer: &Buffer, spans: &[SpanDesc]) -> (Vec<Decoration>, Vec<RubyJo
     }
     (decorations, rubies)
 }
+
+#[cfg(test)]
+mod tests;
