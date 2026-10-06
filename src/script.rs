@@ -26,6 +26,7 @@ use mozjs::rust::{
     CompileOptionsWrapper, JSEngine, RealmOptions, Runtime, SIMPLE_GLOBAL_CLASS,
     transform_str_to_source_text,
 };
+use num_traits::ToPrimitive;
 
 use crate::assets::normalize_game_path;
 
@@ -708,7 +709,7 @@ unsafe extern "C" fn host_list_data(cx: *mut RawJSContext, argc: u32, vp: *mut V
                     .and_then(|m| m.modified())
                     .ok()
                     .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map_or(0, |d| d.as_millis() as u64);
+                    .map_or(0, |d| d.as_millis().to_u64().unwrap_or(u64::MAX));
                 entries.push(serde_json::json!({ "name": name, "modified": modified }));
             }
         }

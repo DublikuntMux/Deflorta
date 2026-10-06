@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use log::{info, warn};
+use num_traits::ToPrimitive;
 
 use glyphon::cosmic_text::Align as TextAlignment;
 use glyphon::{
@@ -71,7 +72,7 @@ pub struct TextSystem {
 
 /// Metadata layout: span index * 2 + 1 if the glyph is hidden by the typewriter.
 const fn metadata(span: usize, hidden: bool) -> usize {
-    span * 2 + hidden as usize
+    span * 2 + if hidden { 1 } else { 0 }
 }
 
 impl TextSystem {
@@ -151,7 +152,7 @@ impl TextSystem {
             scale,
             revealed,
             alpha: if has_colors {
-                (alpha.clamp(0.0, 1.0) * 255.0) as u8
+                (alpha.clamp(0.0, 1.0) * 255.0).to_u8().unwrap_or(0)
             } else {
                 255
             },

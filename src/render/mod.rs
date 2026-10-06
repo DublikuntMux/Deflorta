@@ -13,6 +13,7 @@ use glyphon::{
     Viewport,
 };
 use log::{debug, error, info, trace, warn};
+use num_traits::{AsPrimitive, ToPrimitive};
 use wgpu::util::DeviceExt;
 use wgpu::{CommandEncoderDescriptor, PipelineCompilationOptions, TextureViewDescriptor};
 use winit::window::Window;
@@ -184,7 +185,7 @@ impl Renderer {
     ) -> Self {
         let globals_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("globals"),
-            size: std::mem::size_of::<Globals>() as u64,
+            size: u64::try_from(std::mem::size_of::<Globals>()).expect("uniform size fits u64"),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -296,7 +297,8 @@ impl Renderer {
                 entry_point: Some("vs_main"),
                 compilation_options: PipelineCompilationOptions::default(),
                 buffers: &[Some(wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<QuadInstance>() as u64,
+                    array_stride: u64::try_from(std::mem::size_of::<QuadInstance>())
+                        .expect("quad stride fits u64"),
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &wgpu::vertex_attr_array![
                         0 => Float32x4, 1 => Float32x4, 2 => Float32x4,
@@ -349,7 +351,8 @@ impl Renderer {
     fn create_instance_buffer(device: &wgpu::Device, capacity: usize) -> wgpu::Buffer {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("quad instances"),
-            size: (capacity * std::mem::size_of::<QuadInstance>()) as u64,
+            size: u64::try_from(capacity * std::mem::size_of::<QuadInstance>())
+                .expect("instance buffer size fits u64"),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         })
@@ -501,8 +504,8 @@ impl Renderer {
         let full = Rect {
             x: 0.0,
             y: 0.0,
-            w: width as f32,
-            h: height as f32,
+            w: width.as_(),
+            h: height.as_(),
         };
 
         // The game area is cleared to the configured color; letterbox bars stay black.
@@ -546,12 +549,14 @@ impl Renderer {
                         mask,
                         clip,
                     };
-                    let index = instances.len() as u32;
+                    let index =
+                        u32::try_from(instances.len()).context("too many quad instances")?;
+                    let end = index.checked_add(1).context("too many quad instances")?;
                     instances.push(quad_instance(&quad));
                     let layer = layers.last_mut().unwrap();
                     match layer.batches.last_mut() {
-                        Some((k, range)) if *k == key && range.end == index => range.end += 1,
-                        _ => layer.batches.push((key, index..index + 1)),
+                        Some((k, range)) if *k == key && range.end == index => range.end = end,
+                        _ => layer.batches.push((key, index..end)),
                     }
                 }
                 DrawItem::Text(text) => layers.last_mut().unwrap().texts.push(text),
@@ -568,7 +573,7 @@ impl Renderer {
                 .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
         }
         let globals = Globals {
-            screen: [width as f32, height as f32],
+            screen: [width.as_(), height.as_()],
             _pad: [0.0; 2],
             viewport: [
                 viewport_rect.x,
@@ -618,10 +623,10 @@ impl Renderer {
                     top: t.y,
                     scale: t.scale,
                     bounds: TextBounds {
-                        left: clip.x.floor() as i32,
-                        top: clip.y.floor() as i32,
-                        right: (clip.x + clip.w).ceil() as i32,
-                        bottom: (clip.y + clip.h).ceil() as i32,
+                        left: text_bound(clip.x.floor()),
+                        top: text_bound(clip.y.floor()),
+                        right: text_bound((clip.x + clip.w).ceil()),
+                        bottom: text_bound((clip.y + clip.h).ceil()),
                     },
                     default_color: glyphon::Color::rgba(r, g, b, a),
                     custom_glyphs: &[],
@@ -836,7 +841,7 @@ impl Renderer {
             * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
         let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("readback"),
-            size: u64::from(padded * height),
+            size: u64::from(padded) * u64::from(height),
             usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
             mapped_at_creation: false,
         });
@@ -870,9 +875,14 @@ impl Renderer {
             texture.format(),
             wgpu::TextureFormat::Bgra8Unorm | wgpu::TextureFormat::Bgra8UnormSrgb
         );
-        let mut pixels = Vec::with_capacity((unpadded * height) as usize);
-        for row in data.chunks(padded as usize) {
-            let row = &row[..unpadded as usize];
+        let pixel_bytes = usize::try_from(u64::from(unpadded) * u64::from(height))
+            .context("readback pixel buffer exceeds addressable memory")?;
+        let padded = usize::try_from(padded).context("readback row exceeds addressable memory")?;
+        let unpadded =
+            usize::try_from(unpadded).context("readback row exceeds addressable memory")?;
+        let mut pixels = Vec::with_capacity(pixel_bytes);
+        for row in data.chunks(padded) {
+            let row = &row[..unpadded];
             if bgra {
                 for px in row.chunks(4) {
                     pixels.extend_from_slice(&[px[2], px[1], px[0], px[3]]);
@@ -945,19 +955,48 @@ async fn request_device(
 
 /// Integer scissor rectangle, or None when empty.
 fn scissor(rect: Rect, width: u32, height: u32) -> Option<[u32; 4]> {
-    let x = (rect.x.max(0.0).floor() as u32).min(width);
-    let y = (rect.y.max(0.0).floor() as u32).min(height);
-    let x1 = ((rect.x + rect.w).ceil().max(0.0) as u32).min(width);
-    let y1 = ((rect.y + rect.h).ceil().max(0.0) as u32).min(height);
+    let x = rect.x.max(0.0).floor().to_u32().unwrap_or(width).min(width);
+    let y = rect
+        .y
+        .max(0.0)
+        .floor()
+        .to_u32()
+        .unwrap_or(height)
+        .min(height);
+    let x1 = (rect.x + rect.w)
+        .ceil()
+        .max(0.0)
+        .to_u32()
+        .unwrap_or(width)
+        .min(width);
+    let y1 = (rect.y + rect.h)
+        .ceil()
+        .max(0.0)
+        .to_u32()
+        .unwrap_or(height)
+        .min(height);
     (x1 > x && y1 > y).then(|| [x, y, x1 - x, y1 - y])
+}
+
+/// Saturates glyph bounds to glyphon's coordinate range; NaN maps to zero.
+fn text_bound(value: f32) -> i32 {
+    value.to_i32().unwrap_or_else(|| {
+        if value.is_nan() {
+            0
+        } else if value.is_sign_negative() {
+            i32::MIN
+        } else {
+            i32::MAX
+        }
+    })
 }
 
 fn quad_instance(quad: &Quad) -> QuadInstance {
     let uv = quad.image.as_ref().map_or([0.0, 0.0, 1.0, 1.0], |i| i.uv);
     let (mask, invert) = quad.mask.as_ref().map_or(([0.0; 4], 0.0), |m| {
         (
-            [m.kind as f32, m.progress, m.param, 0.0],
-            u32::from(m.invert) as f32,
+            [m.kind.as_(), m.progress, m.param, 0.0],
+            f32::from(m.invert),
         )
     });
     QuadInstance {
@@ -967,5 +1006,65 @@ fn quad_instance(quad: &Quad) -> QuadInstance {
         border_color: quad.border_color.0,
         params: [quad.radius, quad.border_width, quad.rotation, invert],
         mask,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Rect, scissor, text_bound};
+
+    #[test]
+    fn scissor_rounds_outward_and_clips_to_surface() {
+        let rect = Rect {
+            x: -2.5,
+            y: 1.5,
+            w: 10.0,
+            h: 20.0,
+        };
+        assert_eq!(scissor(rect, 10, 10), Some([0, 1, 8, 9]));
+    }
+
+    #[test]
+    fn scissor_handles_coordinates_outside_integer_range() {
+        let rect = Rect {
+            x: 1.0,
+            y: 2.0,
+            w: f32::MAX,
+            h: f32::INFINITY,
+        };
+        assert_eq!(scissor(rect, 10, 10), Some([1, 2, 9, 8]));
+        assert_eq!(
+            scissor(
+                Rect {
+                    x: f32::MAX,
+                    ..rect
+                },
+                10,
+                10
+            ),
+            None
+        );
+        assert_eq!(
+            scissor(
+                Rect {
+                    w: f32::NAN,
+                    ..rect
+                },
+                10,
+                10
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn text_bounds_saturate_and_handle_nan() {
+        assert_eq!(text_bound(-12.0), -12);
+        assert_eq!(text_bound(12.0), 12);
+        assert_eq!(text_bound(f32::MAX), i32::MAX);
+        assert_eq!(text_bound(-f32::MAX), i32::MIN);
+        assert_eq!(text_bound(f32::INFINITY), i32::MAX);
+        assert_eq!(text_bound(f32::NEG_INFINITY), i32::MIN);
+        assert_eq!(text_bound(f32::NAN), 0);
     }
 }

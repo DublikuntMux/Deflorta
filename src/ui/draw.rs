@@ -2,6 +2,8 @@
 
 use std::time::Instant;
 
+use num_traits::AsPrimitive;
+
 use super::desc::{Color, Ease, Fit, MaskDesc, NodeKind, Overflow, SpanDesc, Style, WipeDir};
 use super::layout::input_display;
 use super::transform::{self, Similarity, Values};
@@ -251,7 +253,7 @@ impl Ui {
                     }),
                 };
                 if let Some((src, (iw, ih), frame)) = source {
-                    let (dest, uv) = fit_image(rect, iw as f32, ih as f32, node.desc.fit);
+                    let (dest, uv) = fit_image(rect, iw.as_(), ih.as_(), node.desc.fit);
                     let (dest, uv) = crop(dest, uv, crop_rect);
                     let mut q = quad(dest, Color::WHITE, 0.0);
                     q.radius = radius;

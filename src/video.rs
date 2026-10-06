@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use log::{debug, error, info, trace, warn};
+use num_traits::AsPrimitive;
 use openh264::decoder::Decoder;
 use openh264::formats::YUVSource;
 
@@ -167,7 +168,10 @@ fn probe_size(path: &Path) -> Result<(u32, u32)> {
 fn to_annex_b(sample: &[u8], out: &mut Vec<u8>) {
     let mut rest = sample;
     while rest.len() >= 4 {
-        let len = u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]) as usize;
+        let Ok(len) = usize::try_from(u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]))
+        else {
+            break;
+        };
         rest = &rest[4..];
         if len > rest.len() {
             break;
@@ -208,15 +212,17 @@ fn decode(path: &Path, looping: bool, sender: &SyncSender<Message>) -> Result<u6
                 packet.extend_from_slice(&header);
             }
             to_annex_b(&sample.bytes, &mut packet);
-            let pts = (sample.start_time as f64 + f64::from(sample.rendering_offset)) / timescale
-                + offset;
+            let start_time: f64 = sample.start_time.as_();
+            let pts = (start_time + f64::from(sample.rendering_offset)) / timescale + offset;
             let Some(yuv) = decoder.decode(&packet)? else {
                 continue;
             };
             let (w, h) = yuv.dimensions();
+            let width = u32::try_from(w).context("video frame width exceeds u32")?;
+            let height = u32::try_from(h).context("video frame height exceeds u32")?;
             let mut rgba = vec![0; w * h * 4];
             yuv.write_rgba8(&mut rgba);
-            let Some(image) = image::RgbaImage::from_raw(w as u32, h as u32, rgba) else {
+            let Some(image) = image::RgbaImage::from_raw(width, height, rgba) else {
                 bail!("frame size mismatch");
             };
             if sender

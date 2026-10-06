@@ -820,6 +820,7 @@ dependencies = [
  "log",
  "mozjs",
  "mp4",
+ "num-traits",
  "openh264",
  "pollster",
  "pretty_env_logger",

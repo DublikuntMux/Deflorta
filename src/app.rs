@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use gilrs::{Axis, Button, EventType, Gilrs};
 use log::{debug, error, info, warn};
+use num_traits::AsPrimitive;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
@@ -292,7 +293,7 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.redraw(),
             WindowEvent::CursorMoved { position, .. } => {
                 self.engine
-                    .pointer_moved(Some((position.x as f32, position.y as f32)));
+                    .pointer_moved(Some((position.x.as_(), position.y.as_())));
             }
             WindowEvent::CursorLeft { .. } => self.engine.pointer_moved(None),
             WindowEvent::MouseInput { state, button, .. } => {
@@ -310,7 +311,10 @@ impl ApplicationHandler for App {
             WindowEvent::MouseWheel { delta, .. } => {
                 let dy = match delta {
                     MouseScrollDelta::LineDelta(_, y) => -y,
-                    MouseScrollDelta::PixelDelta(p) => -(p.y as f32) / 40.0,
+                    MouseScrollDelta::PixelDelta(p) => {
+                        let pixels: f32 = p.y.as_();
+                        -pixels / 40.0
+                    }
                 };
                 if dy != 0.0 {
                     self.engine.wheel(dy);

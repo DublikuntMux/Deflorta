@@ -25,6 +25,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use log::{error, info, trace};
+use num_traits::ToPrimitive;
 use serde::Deserialize;
 
 use crate::engine::{Engine, KeyModifiers};
@@ -63,7 +64,18 @@ pub fn run(mut engine: Engine, script: &Path) -> Result<()> {
         steps.len()
     );
     let started = Instant::now();
-    let (width, height) = (engine.config().width as u32, engine.config().height as u32);
+    let width = engine
+        .config()
+        .width
+        .to_u32()
+        .filter(|&w| w > 0)
+        .context("game width must fit in a positive u32 pixel count")?;
+    let height = engine
+        .config()
+        .height
+        .to_u32()
+        .filter(|&h| h > 0)
+        .context("game height must fit in a positive u32 pixel count")?;
     let mut renderer = pollster::block_on(Renderer::offscreen(width, height))?;
     engine.resize(width, height);
     engine.boot();

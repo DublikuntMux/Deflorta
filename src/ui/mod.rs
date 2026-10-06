@@ -364,6 +364,7 @@ impl Ui {
         let live: HashSet<&str> = self.nodes.iter().map(|n| n.id.as_str()).collect();
         self.text.retain(|id| live.contains(id));
         self.hovered.clear();
+        self.hit_order.clear();
         self.layout_dirty = true;
     }
 
@@ -624,5 +625,77 @@ fn inherit_text(parent: &TextStyle, style: &Style) -> TextStyle {
         weight: style.font_weight.map_or(parent.weight, FontWeight::value),
         italic: style.italic.unwrap_or(parent.italic),
         align: style.text_align.or(parent.align),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use desc::Dim;
+    use std::path::Path;
+
+    #[test]
+    fn input_between_commit_and_draw_ignores_previous_tree() {
+        let game_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("game");
+        let mut assets = Assets::new(game_dir.clone());
+        let mut ui = Ui::new(TextSystem::new(&game_dir));
+        let now = Instant::now();
+        let exits = HashMap::new();
+        let button = NodeDesc {
+            on_click: Some(1),
+            style: Style {
+                width: Some(Dim::Px(100.0)),
+                height: Some(Dim::Px(100.0)),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        // Cover both an out-of-bounds old index and an index reused by a new node.
+        for child_count in [0, 1] {
+            ui.commit(
+                NodeDesc {
+                    children: vec![button.clone()],
+                    ..Default::default()
+                },
+                true,
+                &exits,
+                &assets,
+                now,
+            );
+            ui.draw(&mut assets, now);
+            ui.pointer_moved(Some((10.0, 10.0)));
+            assert_eq!(ui.click_target(), Some(1));
+
+            ui.commit(
+                NodeDesc {
+                    on_click: Some(2),
+                    children: vec![
+                        NodeDesc {
+                            on_click: Some(3),
+                            ..button.clone()
+                        };
+                        child_count
+                    ],
+                    ..Default::default()
+                },
+                true,
+                &exits,
+                &assets,
+                now,
+            );
+
+            ui.pointer_moved(Some((11.0, 11.0)));
+            assert_eq!(ui.click_target(), None);
+            assert_eq!(ui.mouse_down(), []);
+            assert!(!ui.scroll_at(1.0));
+            assert_eq!(ui.navigate(Nav::Down), (false, Vec::new()));
+
+            ui.draw(&mut assets, now);
+            ui.refresh_hover();
+            let expected = if child_count == 0 { 2 } else { 3 };
+            assert_eq!(ui.click_target(), Some(expected));
+            assert_eq!(ui.mouse_down(), vec![InputEvent::Click { h: expected }]);
+        }
     }
 }

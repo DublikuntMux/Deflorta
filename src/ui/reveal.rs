@@ -3,6 +3,8 @@
 
 use std::time::Instant;
 
+use num_traits::{AsPrimitive, ToPrimitive};
+
 use super::desc::SpanDesc;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -80,7 +82,7 @@ impl Reveal {
             if cps <= 0.0 {
                 usize::MAX
             } else {
-                pos + (t * cps) as usize
+                pos.saturating_add((t * cps).max(0.0).to_usize().unwrap_or(usize::MAX))
             }
         };
         for &(stop_pos, stop) in &self.script.stops[self.next_stop..] {
@@ -88,7 +90,8 @@ impl Reveal {
             let need = if self.cps <= 0.0 {
                 0.0
             } else {
-                chars as f32 / self.cps
+                let chars: f32 = chars.as_();
+                chars / self.cps
             };
             if t < need {
                 return (advance(pos, t, self.cps).min(stop_pos), false);
@@ -162,6 +165,22 @@ mod tests {
             text: text.into(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn extreme_speed_finishes_from_fast_forward_without_overflow() {
+        let spans = vec![
+            span("a"),
+            SpanDesc {
+                fast: true,
+                ..span("bc")
+            },
+        ];
+        let now = Instant::now();
+        let reveal = Reveal::new(spans, f32::MAX, now, false);
+        assert_eq!(reveal.shown(now), 1);
+        assert_eq!(reveal.shown(now + Duration::from_secs(2)), 3);
+        assert!(!reveal.is_revealing(now + Duration::from_secs(2)));
     }
 
     #[test]

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, trace, warn};
+use num_traits::{AsPrimitive, ToPrimitive};
 use serde_json::{Value, json};
 
 use crate::assets::Assets;
@@ -399,12 +400,34 @@ impl Engine {
         // Keep only the game area, without letterbox bars.
         let area = self.ui.viewport();
         self.thumbnail = image.map(|img| {
-            let x = (area.x.max(0.0) as u32).min(img.width().saturating_sub(1));
-            let y = (area.y.max(0.0) as u32).min(img.height().saturating_sub(1));
-            let w = (area.w as u32).clamp(1, img.width() - x);
-            let h = (area.h as u32).clamp(1, img.height() - y);
+            let x = area
+                .x
+                .max(0.0)
+                .to_u32()
+                .unwrap_or(u32::MAX)
+                .min(img.width().saturating_sub(1));
+            let y = area
+                .y
+                .max(0.0)
+                .to_u32()
+                .unwrap_or(u32::MAX)
+                .min(img.height().saturating_sub(1));
+            let w = area
+                .w
+                .max(0.0)
+                .to_u32()
+                .unwrap_or(u32::MAX)
+                .clamp(1, img.width() - x);
+            let h = area
+                .h
+                .max(0.0)
+                .to_u32()
+                .unwrap_or(u32::MAX)
+                .clamp(1, img.height() - y);
             let game = image::imageops::crop_imm(&img, x, y, w, h).to_image();
-            let height = (u64::from(h) * u64::from(THUMBNAIL_WIDTH) / u64::from(w)) as u32;
+            let height = (u64::from(h) * u64::from(THUMBNAIL_WIDTH) / u64::from(w))
+                .to_u32()
+                .unwrap_or(u32::MAX);
             image::imageops::thumbnail(&game, THUMBNAIL_WIDTH, height.max(1))
         });
         match &self.thumbnail {
@@ -478,7 +501,7 @@ impl Engine {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.ui.set_surface_size(width as f32, height as f32);
+        self.ui.set_surface_size(width.as_(), height.as_());
         self.requests.redraw = true;
     }
 

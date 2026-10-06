@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 use log::error;
+use num_traits::AsPrimitive;
 use taffy as tf;
 
 use super::desc::{
@@ -260,10 +261,10 @@ fn measure(
             let Some((iw, ih)) = node.desc.src.as_deref().and_then(|s| assets.image_size(s)) else {
                 return tf::Size::ZERO;
             };
-            natural(iw as f32, ih as f32)
+            natural(iw.as_(), ih.as_())
         }
         NodeKind::Video => match videos.get(&node.id).and_then(VideoPlayer::size) {
-            Some((w, h)) => natural(w as f32, h as f32),
+            Some((w, h)) => natural(w.as_(), h.as_()),
             None => tf::Size::ZERO,
         },
         NodeKind::Slider => tf::Size {

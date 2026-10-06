@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use num_traits::{AsPrimitive, ToPrimitive};
 use serde::Deserialize;
 
 /// Output of one `__deflorta_pump()` call.
@@ -194,7 +195,8 @@ impl NodeDesc {
         self.value
             .as_ref()
             .and_then(serde_json::Value::as_f64)
-            .unwrap_or(0.0) as f32
+            .unwrap_or(0.0)
+            .as_()
     }
 
     pub fn string_value(&self) -> &str {
@@ -469,7 +471,7 @@ impl Color {
         let hex = s.trim().strip_prefix('#')?;
         let digits: Vec<u8> = hex
             .chars()
-            .map(|c| c.to_digit(16).map(|d| d as u8))
+            .map(|c| c.to_digit(16).and_then(|d| d.to_u8()))
             .collect::<Option<_>>()?;
         let channels: Vec<u8> = match digits.len() {
             3 | 4 => digits.iter().map(|d| d * 17).collect(),
@@ -491,7 +493,25 @@ impl Color {
     }
 
     pub fn to_rgba8(self) -> [u8; 4] {
-        self.0.map(|c| (c.clamp(0.0, 1.0) * 255.0).round() as u8)
+        self.0
+            .map(|c| (c.clamp(0.0, 1.0) * 255.0).round().to_u8().unwrap_or(0))
+    }
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::Color;
+
+    #[test]
+    fn byte_channels_round_clamp_and_handle_nan() {
+        assert_eq!(
+            Color([-1.0, 0.5, 2.0, f32::NAN]).to_rgba8(),
+            [0, 128, 255, 0]
+        );
+        assert_eq!(
+            Color([f32::NEG_INFINITY, f32::INFINITY, 0.0, 1.0]).to_rgba8(),
+            [0, 255, 0, 255]
+        );
     }
 }
 

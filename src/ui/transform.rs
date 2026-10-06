@@ -1,5 +1,7 @@
 //! Geometry transforms and the ATL-style animation interpreter.
 
+use num_traits::AsPrimitive;
+
 use crate::math::lerp;
 
 use super::Rect;
@@ -225,7 +227,10 @@ pub fn duration(steps: &[TransformStep]) -> Option<f32> {
                         return None;
                     }
                 }
-                RepeatCount::Times(n) => duration(steps)? * *n as f32,
+                RepeatCount::Times(n) => {
+                    let count: f32 = n.as_();
+                    duration(steps)? * count
+                }
             },
         };
     }
@@ -279,7 +284,7 @@ pub fn evaluate(steps: &[TransformStep], time: f32, values: &mut Values) -> bool
                     continue;
                 };
                 let iteration = (time / period).floor();
-                if count.is_none_or(|n| iteration < n as f32) {
+                if count.is_none_or(|n| iteration < n.as_()) {
                     // Later iterations start from where the previous one ended.
                     if iteration >= 1.0 {
                         let mut end = *values;
@@ -289,7 +294,7 @@ pub fn evaluate(steps: &[TransformStep], time: f32, values: &mut Values) -> bool
                     evaluate(steps, iteration.mul_add(-period, time), values);
                     return false;
                 }
-                let n = count.unwrap_or(1) as f32;
+                let n: f32 = count.unwrap_or(1).as_();
                 if n >= 2.0 {
                     let mut end = *values;
                     evaluate(steps, period, &mut end);
