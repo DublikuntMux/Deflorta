@@ -1,15 +1,17 @@
-//! Font loading and shaped text buffers (cosmic-text via glyphon).
+//! Font loading and shaped rich-text buffers (cosmic-text via glyphon).
 
 use std::collections::HashMap;
 use std::path::Path;
 
+use log::{info, warn};
+
 use glyphon::cosmic_text::Align as TextAlignment;
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Shaping, Style as FontStyle,
-    Weight, fontdb,
+    Weight, Wrap, fontdb,
 };
 
-use super::desc::TextAlign;
+use super::desc::{Color, SpanDesc, TextAlign};
 
 /// Resolved (inherited) text properties of a text node.
 #[derive(Clone, Debug, PartialEq)]
@@ -22,19 +24,54 @@ pub struct TextStyle {
     pub align: Option<TextAlign>,
 }
 
+/// Underline or strikethrough, in physical pixels relative to the text origin.
+#[derive(Clone, Debug)]
+pub struct Decoration {
+    pub x: f32,
+    pub y: f32,
+    pub w: f32,
+    pub h: f32,
+    /// None uses the node's text color.
+    pub color: Option<Color>,
+}
+
+/// A ruby annotation buffer placed relative to the text origin.
+#[derive(Clone, Debug)]
+pub struct RubyPlacement {
+    pub id: String,
+    pub x: f32,
+    pub y: f32,
+}
+
+#[derive(PartialEq, Clone)]
+struct Shaped {
+    spans: Vec<SpanDesc>,
+    style: TextStyle,
+    scale: f32,
+    revealed: usize,
+    /// Alpha baked into explicitly colored spans, quantized.
+    alpha: u8,
+    /// Forces every glyph to this color (text shadows).
+    color_override: Option<[u8; 4]>,
+}
+
 /// A shaped text buffer owned by one text node.
 pub struct TextEntry {
     pub buffer: Buffer,
-    content: String,
-    style: TextStyle,
-    scale: f32,
+    shaped: Option<Shaped>,
     width: Option<f32>,
-    revealed: usize,
+    pub decorations: Vec<Decoration>,
+    pub rubies: Vec<RubyPlacement>,
 }
 
 pub struct TextSystem {
     pub font_system: FontSystem,
     entries: HashMap<String, TextEntry>,
+}
+
+/// Metadata layout: span index * 2 + 1 if the glyph is hidden by the typewriter.
+const fn metadata(span: usize, hidden: bool) -> usize {
+    span * 2 + hidden as usize
 }
 
 impl TextSystem {
@@ -43,106 +80,104 @@ impl TextSystem {
         let mut db = fontdb::Database::new();
         db.load_fonts_dir(game_dir.join("fonts"));
         let font_system = if db.is_empty() {
-            eprintln!(
-                "[deflorta] no fonts in {}/fonts, using system fonts",
+            warn!(
+                "No fonts in {}/fonts, using system fonts",
                 game_dir.display()
             );
             FontSystem::new()
         } else {
+            let mut families: Vec<&str> = db
+                .faces()
+                .filter_map(|f| f.families.first().map(|(name, _)| name.as_str()))
+                .collect();
+            families.sort_unstable();
+            families.dedup();
+            info!("Loaded {} font faces: {}", db.len(), families.join(", "));
             FontSystem::new_with_locale_and_db("en-US".into(), db)
         };
-        TextSystem {
+        Self {
             font_system,
             entries: HashMap::new(),
         }
     }
 
     /// Borrows the font system mutably alongside read access to the buffers (for rendering).
-    pub fn split(&mut self) -> (&mut FontSystem, &HashMap<String, TextEntry>) {
+    pub const fn split(&mut self) -> (&mut FontSystem, &HashMap<String, TextEntry>) {
         (&mut self.font_system, &self.entries)
     }
 
-    /// Drops buffers for nodes that no longer exist.
-    pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
-        self.entries.retain(|id, _| keep(id));
+    pub fn entry(&self, id: &str) -> Option<&TextEntry> {
+        self.entries.get(id)
     }
 
-    /// Ensures the buffer for `id` matches the given content, style and width,
-    /// with the first `revealed` characters visible, then returns its size in
-    /// physical pixels.
+    /// Drops buffers whose owner id (the part before '#') is not kept.
+    pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
+        self.entries
+            .retain(|id, _| keep(id.split('#').next().unwrap_or(id)));
+    }
+
+    /// Shapes `spans` for `id` (reusing the previous result when nothing
+    /// changed) and returns the text size in physical pixels.
+    #[allow(clippy::too_many_arguments)]
     pub fn prepare(
         &mut self,
         id: &str,
-        content: &str,
+        spans: &[SpanDesc],
         style: &TextStyle,
         scale: f32,
         width: Option<f32>,
         revealed: usize,
+        alpha: f32,
+        color_override: Option<Color>,
     ) -> (f32, f32) {
         let font_system = &mut self.font_system;
-        let entry = self
-            .entries
-            .entry(id.to_owned())
-            .or_insert_with(|| TextEntry {
-                buffer: Buffer::new(font_system, Metrics::new(16.0, 20.0)),
-                content: String::new(),
-                style: style.clone(),
-                scale: 0.0,
+        let entry = self.entries.entry(id.to_owned()).or_insert_with(|| {
+            // Like CSS, only break between words; min-content width is the longest word.
+            let mut buffer = Buffer::new(font_system, Metrics::new(16.0, 20.0));
+            buffer.set_wrap(Wrap::Word);
+            TextEntry {
+                buffer,
+                shaped: None,
                 width: None,
-                revealed: usize::MAX,
-            });
+                decorations: Vec::new(),
+                rubies: Vec::new(),
+            }
+        });
 
-        let metrics_changed = entry.scale != scale || entry.style != *style;
-        if metrics_changed {
+        let has_colors = color_override.is_some() || spans.iter().any(|s| s.color.is_some());
+        let wanted = Shaped {
+            spans: spans.to_vec(),
+            style: style.clone(),
+            scale,
+            revealed,
+            alpha: if has_colors {
+                (alpha.clamp(0.0, 1.0) * 255.0) as u8
+            } else {
+                255
+            },
+            color_override: color_override.map(|c| c.with_alpha_mul(alpha).to_rgba8()),
+        };
+
+        let width_changed = if entry.width == width {
+            false
+        } else {
+            entry.buffer.set_size(width.map(|w| w * scale), None);
+            entry.width = width;
+            true
+        };
+        let shape_changed = if entry.shaped.as_ref() == Some(&wanted) {
+            false
+        } else {
             let size = (style.font_size * scale).max(1.0);
             entry
                 .buffer
                 .set_metrics(Metrics::new(size, size * style.line_height));
-        }
-        if entry.width != width {
-            entry.buffer.set_size(width.map(|w| w * scale), None);
-            entry.width = width;
-        }
-        if metrics_changed || entry.content != content || entry.revealed != revealed {
-            let family = if style.family.is_empty() {
-                Family::SansSerif
-            } else {
-                Family::Name(&style.family)
-            };
-            let attrs = Attrs::new()
-                .family(family)
-                .weight(Weight(style.weight))
-                .style(if style.italic {
-                    FontStyle::Italic
-                } else {
-                    FontStyle::Normal
-                });
-            let alignment = style.align.map(|a| match a {
-                TextAlign::Left => TextAlignment::Left,
-                TextAlign::Center => TextAlignment::Center,
-                TextAlign::Right => TextAlignment::Right,
-                TextAlign::Justify => TextAlignment::Justified,
-            });
-            let split = content
-                .char_indices()
-                .nth(revealed)
-                .map_or(content.len(), |(i, _)| i);
-            let hidden = attrs.clone().color(GlyphColor::rgba(0, 0, 0, 0));
-            entry.buffer.set_rich_text(
-                [
-                    (&content[..split], attrs.clone()),
-                    (&content[split..], hidden),
-                ],
-                &attrs,
-                Shaping::Advanced,
-                alignment,
-            );
-            entry.content.clear();
-            entry.content.push_str(content);
-            entry.style = style.clone();
-            entry.scale = scale;
-            entry.revealed = revealed;
-        }
+            set_spans(&mut entry.buffer, &wanted);
+            entry.shaped = Some(wanted);
+            true
+        };
+        let reshaped = width_changed || shape_changed;
+
         entry.buffer.shape_until_scroll(font_system, false);
 
         let mut w: f32 = 0.0;
@@ -151,6 +186,175 @@ impl TextSystem {
             w = w.max(run.line_w);
             h = run.line_top + run.line_height;
         }
+        if reshaped {
+            let (decorations, rubies) = annotate(&entry.buffer, spans);
+            entry.decorations = decorations;
+            let ruby_jobs: Vec<_> = rubies
+                .into_iter()
+                .enumerate()
+                .map(|(k, (span, x0, x1, top))| (format!("{id}#ruby{k}"), span, x0, x1, top))
+                .collect();
+            let mut placements = Vec::new();
+            for (ruby_id, span, x0, x1, top) in ruby_jobs {
+                let source = &spans[span];
+                let ruby_size = source.size.unwrap_or(style.font_size) * 0.5;
+                let ruby_style = TextStyle {
+                    font_size: ruby_size,
+                    line_height: 1.0,
+                    align: None,
+                    ..style.clone()
+                };
+                let ruby_spans = [SpanDesc {
+                    text: source.ruby.clone().unwrap_or_default(),
+                    color: source.color,
+                    ..Default::default()
+                }];
+                let (rw, rh) = self.prepare(
+                    &ruby_id,
+                    &ruby_spans,
+                    &ruby_style,
+                    scale,
+                    None,
+                    usize::MAX,
+                    alpha,
+                    color_override,
+                );
+                placements.push(RubyPlacement {
+                    id: ruby_id,
+                    x: (x0 + x1 - rw) / 2.0,
+                    y: f32::mul_add(rh, -0.9, top),
+                });
+            }
+            if let Some(entry) = self.entries.get_mut(id) {
+                entry.rubies = placements;
+            }
+        }
         (w, h)
     }
+}
+
+fn set_spans(buffer: &mut Buffer, shaped: &Shaped) {
+    let style = &shaped.style;
+    let scale = shaped.scale;
+    let base_family = if style.family.is_empty() {
+        Family::SansSerif
+    } else {
+        Family::Name(&style.family)
+    };
+    let base = Attrs::new()
+        .family(base_family)
+        .weight(Weight(style.weight))
+        .style(if style.italic {
+            FontStyle::Italic
+        } else {
+            FontStyle::Normal
+        });
+    let alignment = style.align.map(|a| match a {
+        TextAlign::Left => TextAlignment::Left,
+        TextAlign::Center => TextAlignment::Center,
+        TextAlign::Right => TextAlignment::Right,
+        TextAlign::Justify => TextAlignment::Justified,
+    });
+    let alpha = f32::from(shaped.alpha) / 255.0;
+
+    let mut runs: Vec<(&str, Attrs)> = Vec::new();
+    let mut pos = 0;
+    for (index, span) in shaped.spans.iter().enumerate() {
+        if span.text.is_empty() {
+            continue;
+        }
+        let mut attrs = base.clone();
+        if let Some(font) = &span.font {
+            attrs = attrs.family(Family::Name(font));
+        }
+        if span.b {
+            attrs = attrs.weight(Weight::BOLD);
+        }
+        if span.i {
+            attrs = attrs.style(FontStyle::Italic);
+        }
+        if let Some(size) = span.size {
+            let px = (size * scale).max(1.0);
+            attrs = attrs.metrics(Metrics::new(px, px * style.line_height));
+        }
+        if let Some(rgba) = shaped.color_override {
+            attrs = attrs.color(GlyphColor::rgba(rgba[0], rgba[1], rgba[2], rgba[3]));
+        } else if let Some(color) = span.color {
+            let [r, g, b, a] = color.with_alpha_mul(alpha).to_rgba8();
+            attrs = attrs.color(GlyphColor::rgba(r, g, b, a));
+        }
+        let chars = span.text.chars().count();
+        let visible = shaped.revealed.saturating_sub(pos).min(chars);
+        let split = span
+            .text
+            .char_indices()
+            .nth(visible)
+            .map_or(span.text.len(), |(i, _)| i);
+        if split > 0 {
+            runs.push((
+                &span.text[..split],
+                attrs.clone().metadata(metadata(index, false)),
+            ));
+        }
+        if split < span.text.len() {
+            let hidden = attrs
+                .color(GlyphColor::rgba(0, 0, 0, 0))
+                .metadata(metadata(index, true));
+            runs.push((&span.text[split..], hidden));
+        }
+        pos += chars;
+    }
+    buffer.set_rich_text(runs, &base, Shaping::Advanced, alignment);
+}
+
+type RubyJob = (usize, f32, f32, f32);
+
+/// Computes decoration rectangles and ruby anchor ranges from the layout.
+fn annotate(buffer: &Buffer, spans: &[SpanDesc]) -> (Vec<Decoration>, Vec<RubyJob>) {
+    let mut decorations = Vec::new();
+    let mut rubies: Vec<RubyJob> = Vec::new();
+    let mut ruby_seen = vec![false; spans.len()];
+    for run in buffer.layout_runs() {
+        // Group consecutive visible glyphs by span.
+        let mut groups: Vec<(usize, f32, f32, f32)> = Vec::new();
+        for glyph in run.glyphs {
+            if glyph.metadata % 2 == 1 {
+                continue;
+            }
+            let span = glyph.metadata / 2;
+            match groups.last_mut() {
+                Some((s, _, x1, _)) if *s == span => *x1 = glyph.x + glyph.w,
+                _ => groups.push((span, glyph.x, glyph.x + glyph.w, glyph.font_size)),
+            }
+        }
+        for (span_index, x0, x1, font_size) in groups {
+            let Some(span) = spans.get(span_index) else {
+                continue;
+            };
+            let thickness = (font_size * 0.06).max(1.0);
+            if span.u {
+                decorations.push(Decoration {
+                    x: x0,
+                    y: f32::mul_add(font_size, 0.12, run.line_y),
+                    w: x1 - x0,
+                    h: thickness,
+                    color: span.color,
+                });
+            }
+            if span.s {
+                decorations.push(Decoration {
+                    x: x0,
+                    y: f32::mul_add(font_size, -0.3, run.line_y),
+                    w: x1 - x0,
+                    h: thickness,
+                    color: span.color,
+                });
+            }
+            if span.ruby.is_some() && !ruby_seen[span_index] {
+                ruby_seen[span_index] = true;
+                rubies.push((span_index, x0, x1, run.line_top));
+            }
+        }
+    }
+    (decorations, rubies)
 }

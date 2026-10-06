@@ -1,13 +1,16 @@
-//! SpiderMonkey host: ES module loading, the native `__host` API and the
+//! `SpiderMonkey` host: ES module loading, the native `__host` API and the
 //! dispatch/pump bridge between Rust and the JavaScript runtime.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull};
+use std::time::Instant;
 
 use anyhow::{Result, anyhow, bail};
+use log::{debug, error, info};
 use mozjs::context::{JSContext, RawJSContext};
 use mozjs::conversions::{
     ConversionResult, FromJSValConvertible, ToJSValConvertible, jsstr_to_string,
@@ -31,6 +34,8 @@ const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", include_str!("../runtime/deflorta.js")),
     ("deflorta/core", include_str!("../runtime/core.js")),
     ("deflorta/ui", include_str!("../runtime/ui.js")),
+    ("deflorta/text", include_str!("../runtime/text.js")),
+    ("deflorta/scene", include_str!("../runtime/scene.js")),
     ("deflorta/story", include_str!("../runtime/story.js")),
     ("deflorta/screens", include_str!("../runtime/screens.js")),
 ];
@@ -65,6 +70,7 @@ pub struct ScriptHost {
 
 impl ScriptHost {
     pub fn new(game_dir: PathBuf) -> Result<Self> {
+        debug!("Initializing SpiderMonkey");
         let engine = JSEngine::init().map_err(|e| anyhow!("failed to init SpiderMonkey: {e:?}"))?;
         let mut runtime = Runtime::new(engine.handle());
         let cx = unsafe { runtime.cx().raw_cx() };
@@ -75,23 +81,23 @@ impl ScriptHost {
                 data_dir: None,
                 modules: HashMap::new(),
                 load_error: None,
-            })
+            });
         });
 
         unsafe {
             // SpiderMonkey owns the microtask queue; we drain it in `run_jobs`.
             // The queue lives for the whole process, so it is intentionally leaked.
-            let queue = mozjs::glue::CreateJobQueue(&JOB_QUEUE_TRAPS);
-            jsapi::SetJobQueue(cx, queue as *mut jsapi::JobQueue);
+            let queue = mozjs::glue::CreateJobQueue(&raw const JOB_QUEUE_TRAPS);
+            jsapi::SetJobQueue(cx, queue.cast::<jsapi::JobQueue>());
             jsapi::SetModuleLoadHook(jsapi::JS_GetRuntime(cx), Some(module_load_hook));
 
             let options = RealmOptions::default();
             let global = jsapi::JS_NewGlobalObject(
                 cx,
-                &SIMPLE_GLOBAL_CLASS,
+                &raw const SIMPLE_GLOBAL_CLASS,
                 ptr::null_mut(),
                 OnNewGlobalHookOption::FireOnNewGlobalHook,
-                &*options,
+                &raw const *options,
             );
             if global.is_null() {
                 bail!("failed to create the global object");
@@ -103,8 +109,12 @@ impl ScriptHost {
                 bail!("failed to init standard classes");
             }
             define_host_object(cx, global.get())?;
+            info!(
+                "Script runtime ready (SpiderMonkey, {} built-in modules)",
+                BUILTIN_MODULES.len()
+            );
 
-            Ok(ScriptHost {
+            Ok(Self {
                 global,
                 runtime,
                 _engine: engine,
@@ -118,6 +128,7 @@ impl ScriptHost {
 
     /// Loads the runtime and `main.js`, evaluates the module graph and drains jobs.
     pub fn run_main(&mut self) -> Result<()> {
+        let started = Instant::now();
         let cx = self.cx();
         unsafe {
             let module = compile_module(cx, "__boot__.js", BOOT_MODULE)
@@ -157,6 +168,8 @@ impl ScriptHost {
                 }
             }
         }
+        let count = with_state(|s| s.modules.len());
+        info!("Loaded {count} script modules in {:.0?}", started.elapsed());
         Ok(())
     }
 
@@ -180,7 +193,8 @@ impl ScriptHost {
         unsafe { jsapi::JS_MaybeGC(cx) };
     }
 
-    pub fn set_data_dir(&mut self, dir: PathBuf) {
+    pub fn set_data_dir(dir: PathBuf) {
+        info!("User data directory: {}", dir.display());
         with_state(|s| s.data_dir = Some(dir));
     }
 
@@ -193,21 +207,16 @@ impl ScriptHost {
             rooted!(in(cx) let mut argv = UndefinedValue());
             rooted!(in(cx) let mut rval = UndefinedValue());
             let mut safe_cx = JSContext::from_ptr(NonNull::new_unchecked(cx));
-            let args = match arg {
-                Some(arg) => {
-                    arg.to_jsval(&mut safe_cx, argv.handle_mut());
-                    {
-                        let raw: jsapi::HandleValue = argv.handle().into();
-                        jsapi::HandleValueArray::from(raw)
-                    }
-                }
-                None => jsapi::HandleValueArray::empty(),
-            };
+            let args = arg.map_or_else(jsapi::HandleValueArray::empty, |arg| {
+                arg.to_jsval(&mut safe_cx, argv.handle_mut());
+                let raw: jsapi::HandleValue = argv.handle().into();
+                jsapi::HandleValueArray::from(raw)
+            });
             if !jsapi::JS_CallFunctionName(
                 cx,
                 global.handle().into(),
                 name.as_ptr(),
-                &args,
+                &raw const args,
                 rval.handle_mut().into(),
             ) {
                 return Err(pending_exception(cx));
@@ -225,6 +234,7 @@ impl Drop for ScriptHost {
     fn drop(&mut self) {
         // Module roots must be released while the runtime is still alive.
         STATE.with(|s| s.borrow_mut().take());
+        info!("Script runtime shut down");
     }
 }
 
@@ -263,7 +273,7 @@ unsafe extern "C" fn job_queue_run_jobs(cx: *mut RawJSContext) {
     unsafe { run_jobs(cx) };
 }
 
-unsafe extern "C" fn job_queue_trace_non_gc(_trc: *mut jsapi::JSTracer, _value: *mut Value) {}
+const unsafe extern "C" fn job_queue_trace_non_gc(_trc: *mut jsapi::JSTracer, _value: *mut Value) {}
 
 /// Drains the microtask queue. Errors thrown by individual jobs are logged so
 /// one failing promise reaction cannot stall the rest of the queue.
@@ -284,10 +294,7 @@ unsafe fn run_jobs(cx: *mut RawJSContext) {
                 continue;
             }
             if !jsapi::RunJSMicroTask(cx, job.handle().into()) {
-                eprintln!(
-                    "[deflorta] uncaught error in promise job: {}",
-                    pending_exception(cx)
-                );
+                error!("Uncaught error in promise job: {}", pending_exception(cx));
             }
         }
     }
@@ -298,13 +305,13 @@ unsafe fn run_jobs(cx: *mut RawJSContext) {
 // ---------------------------------------------------------------------------
 
 /// Compiles a module. On a syntax error the exception is left pending so the
-/// module loader can propagate the original SyntaxError.
+/// module loader can propagate the original `SyntaxError`.
 unsafe fn compile_module(cx: *mut RawJSContext, id: &str, source: &str) -> Result<*mut JSObject> {
     unsafe {
         let safe_cx = JSContext::from_ptr(NonNull::new_unchecked(cx));
         let options = CompileOptionsWrapper::new(&safe_cx, CString::new(id)?, 1);
         let mut text = transform_str_to_source_text(source);
-        let module = jsapi::CompileModule1(cx, options.ptr, &mut text);
+        let module = jsapi::CompileModule1(cx, options.ptr, &raw mut text);
         if module.is_null() {
             bail!("failed to compile module '{id}'");
         }
@@ -331,7 +338,7 @@ fn resolve_specifier(referrer: &str, specifier: &str) -> Result<String> {
         }
         Path::new(referrer)
             .parent()
-            .unwrap_or(Path::new(""))
+            .unwrap_or_else(|| Path::new(""))
             .join(specifier)
     } else {
         bail!("unknown module '{specifier}' (game modules must start with './', '../' or '/')");
@@ -408,6 +415,7 @@ unsafe fn load_module(
         return Ok(module);
     }
     let source = module_source(&id)?;
+    debug!("Compiling module '{id}' ({} bytes)", source.len());
     let module = unsafe { compile_module(cx, &id, &source)? };
     with_state(|s| {
         s.modules
@@ -416,7 +424,7 @@ unsafe fn load_module(
     Ok(module)
 }
 
-unsafe extern "C" fn on_modules_loaded(
+const unsafe extern "C" fn on_modules_loaded(
     _cx: *mut RawJSContext,
     _host_defined: jsapi::Handle<Value>,
 ) -> bool {
@@ -455,12 +463,11 @@ unsafe fn pending_exception(cx: *mut RawJSContext) -> anyhow::Error {
 
 unsafe fn value_to_string(cx: *mut RawJSContext, value: Handle<Value>) -> String {
     let mut safe_cx = unsafe { JSContext::from_ptr(NonNull::new_unchecked(cx)) };
-    match String::from_jsval(&mut safe_cx, value, ()) {
-        Ok(ConversionResult::Success(s)) => s,
-        _ => {
-            unsafe { jsapi::JS_ClearPendingException(cx) };
-            "<unprintable value>".to_owned()
-        }
+    if let Ok(ConversionResult::Success(s)) = String::from_jsval(&mut safe_cx, value, ()) {
+        s
+    } else {
+        unsafe { jsapi::JS_ClearPendingException(cx) };
+        "<unprintable value>".to_owned()
     }
 }
 
@@ -500,7 +507,7 @@ unsafe fn describe_error(cx: *mut RawJSContext, value: Handle<Value>) -> String 
                 && !file.is_empty()
                 && line != "0"
             {
-                text.push_str(&format!("\n    at {file}:{line}"));
+                let _ = write!(text, "\n    at {file}:{line}");
             }
             if let Some(stack) =
                 get_property_string(cx, obj, c"stack").filter(|s| !s.trim().is_empty())
@@ -602,43 +609,50 @@ fn data_path(name: &str) -> Option<PathBuf> {
 
 unsafe extern "C" fn host_log(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
-        let level = arg_string(cx, &args, 0).unwrap_or_default();
-        let message = arg_string(cx, &args, 1).unwrap_or_default();
-        eprintln!("[js:{level}] {message}");
-        args.rval().set(UndefinedValue());
+        let arguments = CallArgs::from_vp(vp, argc);
+        let level = arg_string(cx, &arguments, 0).unwrap_or_default();
+        let message = arg_string(cx, &arguments, 1).unwrap_or_default();
+        let level = match level.as_str() {
+            "error" => log::Level::Error,
+            "warn" => log::Level::Warn,
+            "debug" => log::Level::Debug,
+            "trace" => log::Level::Trace,
+            _ => log::Level::Info,
+        };
+        log::log!(target: "deflorta::js", level, "{message}");
+        arguments.rval().set(UndefinedValue());
         true
     }
 }
 
 unsafe extern "C" fn host_read_text(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
-        let text = arg_string(cx, &args, 0)
+        let arguments = CallArgs::from_vp(vp, argc);
+        let text = arg_string(cx, &arguments, 0)
             .and_then(|p| normalize_game_path(Path::new(&p)))
             .and_then(|p| std::fs::read_to_string(with_state(|s| s.game_dir.join(p))).ok());
-        return_string(cx, &args, text.as_deref());
+        return_string(cx, &arguments, text.as_deref());
         true
     }
 }
 
 unsafe extern "C" fn host_read_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
-        let text = arg_string(cx, &args, 0)
+        let arguments = CallArgs::from_vp(vp, argc);
+        let text = arg_string(cx, &arguments, 0)
             .and_then(|name| data_path(&name))
             .and_then(|path| std::fs::read_to_string(path).ok());
-        return_string(cx, &args, text.as_deref());
+        return_string(cx, &arguments, text.as_deref());
         true
     }
 }
 
 unsafe extern "C" fn host_write_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
+        let arguments = CallArgs::from_vp(vp, argc);
         let (Some(path), Some(text)) = (
-            arg_string(cx, &args, 0).and_then(|n| data_path(&n)),
-            arg_string(cx, &args, 1),
+            arg_string(cx, &arguments, 0).and_then(|n| data_path(&n)),
+            arg_string(cx, &arguments, 1),
         ) else {
             throw_error(
                 cx,
@@ -651,24 +665,24 @@ unsafe extern "C" fn host_write_data(cx: *mut RawJSContext, argc: u32, vp: *mut 
         let result = path
             .parent()
             .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|_| std::fs::write(&tmp, text))
-            .and_then(|_| std::fs::rename(&tmp, &path));
+            .and_then(|()| std::fs::write(&tmp, text))
+            .and_then(|()| std::fs::rename(&tmp, &path));
         if let Err(err) = result {
             throw_error(cx, &format!("writeData failed: {err}"));
             return false;
         }
-        args.rval().set(BooleanValue(true));
+        arguments.rval().set(BooleanValue(true));
         true
     }
 }
 
 unsafe extern "C" fn host_delete_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
-        let deleted = arg_string(cx, &args, 0)
+        let arguments = CallArgs::from_vp(vp, argc);
+        let deleted = arg_string(cx, &arguments, 0)
             .and_then(|name| data_path(&name))
             .is_some_and(|path| std::fs::remove_file(path).is_ok());
-        args.rval().set(BooleanValue(deleted));
+        arguments.rval().set(BooleanValue(deleted));
         true
     }
 }
@@ -676,7 +690,7 @@ unsafe extern "C" fn host_delete_data(cx: *mut RawJSContext, argc: u32, vp: *mut
 /// Returns a JSON array of `{name, modified}` for every stored data file.
 unsafe extern "C" fn host_list_data(cx: *mut RawJSContext, argc: u32, vp: *mut Value) -> bool {
     unsafe {
-        let args = CallArgs::from_vp(vp, argc);
+        let arguments = CallArgs::from_vp(vp, argc);
         let mut entries = Vec::new();
         if let Some(dir) = with_state(|s| s.data_dir.clone())
             && let Ok(read) = std::fs::read_dir(dir)
@@ -699,7 +713,7 @@ unsafe extern "C" fn host_list_data(cx: *mut RawJSContext, argc: u32, vp: *mut V
             }
         }
         let json = serde_json::Value::Array(entries).to_string();
-        return_string(cx, &args, Some(&json));
+        return_string(cx, &arguments, Some(&json));
         true
     }
 }

@@ -1,21 +1,41 @@
 //! Deflorta — a visual novel engine scripted in JavaScript.
 
+// wgpu's nested backend types need this depth for async Send/Sync checks.
+#![recursion_limit = "256"]
+
 mod app;
 mod assets;
 mod audio;
 mod engine;
 mod headless;
+mod math;
 mod render;
 mod script;
 mod ui;
+mod video;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
+use log::{error, info};
 use winit::event_loop::EventLoop;
 
 const USAGE: &str = "usage: deflorta [GAME_DIR] [--test SCRIPT.json]";
+
+/// Log filter used when `RUST_LOG` is not set: engine and script messages at
+/// info, third-party crates only when something goes wrong.
+const DEFAULT_LOG_FILTER: &str = "warn,deflorta=info";
+
+/// Logs go to stderr with timestamps. `RUST_LOG=deflorta=debug` (or `trace`)
+/// shows more detail; `RUST_LOG=debug` includes wgpu, winit and other crates.
+fn init_logging() {
+    let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| DEFAULT_LOG_FILTER.to_owned());
+    pretty_env_logger::formatted_timed_builder()
+        .parse_filters(&filter)
+        .init();
+}
 
 fn run() -> Result<()> {
     let mut game_dir = None;
@@ -39,7 +59,20 @@ fn run() -> Result<()> {
     if !game_dir.join("main.js").is_file() {
         bail!("'{}' has no main.js", game_dir.display());
     }
+    info!(
+        "Deflorta {} on {}/{}, game {}, {} mode",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        game_dir.display(),
+        if test_script.is_some() {
+            "headless test"
+        } else {
+            "windowed"
+        },
+    );
 
+    let started = Instant::now();
     let mut script = script::ScriptHost::new(game_dir.clone())?;
     script
         .run_main()
@@ -49,23 +82,27 @@ fn run() -> Result<()> {
 
     if let Some(test_script) = test_script {
         let engine = engine::Engine::new(script, assets, ui, None);
+        info!("Startup took {:.0?}", started.elapsed());
         return headless::run(engine, &test_script);
     }
 
     let engine = engine::Engine::new(script, assets, ui, audio::Audio::new());
+    info!("Startup took {:.0?}", started.elapsed());
     let mut app = app::App::new(engine);
     EventLoop::new()?.run_app(&mut app)?;
-    match app.take_error() {
-        Some(err) => Err(err),
-        None => Ok(()),
-    }
+    app.take_error().map_or_else(|| Ok(()), Err)
 }
 
 fn main() -> ExitCode {
-    match run() {
-        Ok(()) => ExitCode::SUCCESS,
+    init_logging();
+    let result = run();
+    match result {
+        Ok(()) => {
+            info!("Exited normally");
+            ExitCode::SUCCESS
+        }
         Err(err) => {
-            eprintln!("deflorta: {err:#}");
+            error!("{err:#}");
             ExitCode::FAILURE
         }
     }

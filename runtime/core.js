@@ -91,7 +91,8 @@ export function clearTimer(id) {
   if (timers.delete(id)) command("cancelTimer", { id });
 }
 
-globalThis.setTimeout = (fn, ms = 0, ...args) => setTimer(ms, () => fn(...args));
+globalThis.setTimeout = (fn, ms = 0, ...args) =>
+  setTimer(ms, () => fn(...args));
 globalThis.clearTimeout = clearTimer;
 
 // ---------------------------------------------------------------------------
@@ -157,7 +158,7 @@ export function emit(type, event) {
 /** Logs an error and notifies "error" listeners (the default error screen). */
 export function reportError(error) {
   console.error(error);
-  if (!(listeners.get("error")?.length)) return;
+  if (!listeners.get("error")?.length) return;
   for (const fn of listeners.get("error")) {
     try {
       fn(error);

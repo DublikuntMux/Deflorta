@@ -1,10 +1,33 @@
-// deflorta/ui — declarative UI elements and the screen stack.
+// deflorta/ui — declarative UI elements, widgets and the screen stack.
 //
 // Screens are functions returning an element tree. Whenever state changes,
 // call invalidate(); the whole tree is re-rendered and sent to the engine,
-// which lays it out (flexbox), animates and draws it.
+// which lays it out (flexbox/grid), animates and draws it. Keyboard and
+// gamepad focus moves between elements with handlers; focused elements use
+// their `hover` style.
 
 import { addFrameSource, emit, on } from "deflorta/core";
+import { parseMarkup } from "deflorta/text";
+
+// ---------------------------------------------------------------------------
+// Theme: shared look of all default screens
+// ---------------------------------------------------------------------------
+
+export const theme = {
+  font: null,
+  accent: "#e8a8c8",
+  text: "#f3f1f5",
+  mutedText: "#ffffffaa",
+  panel: "#10121bdd",
+  panelBorder: "#ffffff1f",
+  menuBackground: "#07070cec",
+  button: "#ffffff14",
+  buttonHover: "#ffffff30",
+  dialogueSize: 25,
+  nameSize: 27,
+  uiSize: 22,
+  radius: 12,
+};
 
 // ---------------------------------------------------------------------------
 // Elements
@@ -13,19 +36,57 @@ import { addFrameSource, emit, on } from "deflorta/core";
 function flatten(children, out = []) {
   for (const child of children) {
     if (Array.isArray(child)) flatten(child, out);
-    else if (child != null && child !== false && child !== true) out.push(child);
+    else if (child != null && child !== false && child !== true)
+      out.push(child);
   }
   return out;
 }
 
-/** A flexbox container. `box({ style, onClick, hover, key }, ...children)` */
+export const FILL = {
+  position: "absolute",
+  left: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+};
+
+/** A flexbox container. `box({ style, onClick, hover, tooltip, key }, ...children)` */
 export function box(props = {}, ...children) {
   return { t: "box", ...props, children: flatten(children) };
 }
 
-/** A text run. Style props: color, fontSize, fontFamily, fontWeight, italic, lineHeight, textAlign, textShadow. */
+/** A grid container with `columns` equal columns. */
+export function grid(columns, props = {}, ...children) {
+  return box(
+    { ...props, style: { gridColumns: columns, ...props.style } },
+    ...children,
+  );
+}
+
+/** A container that scrolls vertically with the mouse wheel and focus. */
+export function scroll(props = {}, ...children) {
+  return box(
+    {
+      ...props,
+      style: { overflow: "scroll", flexDirection: "column", ...props.style },
+    },
+    ...children,
+  );
+}
+
+/** Plain text. Style props: color, fontSize, fontFamily, fontWeight, italic, lineHeight, textAlign, textShadow. */
 export function text(content, props = {}) {
   return { t: "text", text: String(content ?? ""), ...props };
+}
+
+/** Text with text tags ({b}, {color=…}, {ruby=…}, …). */
+export function richText(markup, props = {}) {
+  const size = props.style?.fontSize;
+  return {
+    t: "text",
+    spans: parseMarkup(markup, { baseSize: size }).spans,
+    ...props,
+  };
 }
 
 /** An image from the game directory. `fit`: "cover" | "contain" | "fill". */
@@ -33,9 +94,52 @@ export function img(src, props = {}) {
   return { t: "image", src, ...props };
 }
 
-export const FILL = { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 };
+/** An image that swaps to `hoverSrc` while hovered or focused and acts as a button. */
+export function imageButton(src, hoverSrc, onClick, props = {}) {
+  return img(src, { hoverSrc, onClick, ...props });
+}
 
-/** A clickable box with a text label and hover feedback. */
+/** A video (H.264 MP4). `loop`, `onEnd`, `fit`. */
+export function video(src, props = {}) {
+  return { t: "video", src, ...props };
+}
+
+/** A horizontal slider. Calls `onChange(value)` while dragged or adjusted with arrow keys. */
+export function slider(
+  value,
+  onChange,
+  { min = 0, max = 1, step, ...props } = {},
+) {
+  return { t: "slider", value, onChange, min, max, step, ...props };
+}
+
+/** A single-line text field. Calls `onInput(text)` on edits and `onSubmit(text)` on Enter. */
+export function input(
+  value,
+  onInput,
+  { onSubmit, placeholder, maxLength, ...props } = {},
+) {
+  return {
+    t: "input",
+    value: String(value ?? ""),
+    onInput,
+    onSubmit,
+    placeholder,
+    maxLength,
+    ...props,
+    style: {
+      padding: [8, 12],
+      radius: 8,
+      background: "#00000066",
+      borderWidth: 1,
+      borderColor: "#ffffff33",
+      ...props.style,
+    },
+    hover: { borderColor: theme.accent, ...props.hover },
+  };
+}
+
+/** A clickable box with a text label and hover/focus feedback. */
 export function button(label, onClick, props = {}) {
   const { style, hover, textStyle, disabled, ...rest } = props;
   return box(
@@ -43,14 +147,17 @@ export function button(label, onClick, props = {}) {
       style: {
         padding: [10, 24],
         radius: 8,
-        background: "#ffffff14",
+        background: theme.button,
         justifyContent: "center",
         alignItems: "center",
-        color: disabled ? "#ffffff55" : "#f2f2f2",
+        color: disabled ? "#ffffff55" : theme.text,
         ...style,
       },
-      hover: disabled ? undefined : { background: "#ffffff30", color: "#ffffff", ...hover },
+      hover: disabled
+        ? undefined
+        : { background: theme.buttonHover, color: "#ffffff", ...hover },
       onClick: disabled ? undefined : onClick,
+      focusable: !disabled,
       ...rest,
     },
     text(label, { style: textStyle }),
@@ -66,6 +173,8 @@ let shown = [];
 let showSeq = 0;
 let dirty = true;
 let instant = false;
+let hidden = false;
+let tooltipText = null;
 let sceneLayer = () => null;
 const exits = {};
 
@@ -76,14 +185,23 @@ const exits = {};
  * options.keys   { [key]: (event) => void } handled while the screen is shown
  */
 export function screen(name, render, options = {}) {
-  screens.set(name, { render, z: options.z ?? 0, modal: !!options.modal, keys: options.keys ?? {} });
+  screens.set(name, {
+    render,
+    z: options.z ?? 0,
+    modal: !!options.modal,
+    keys: options.keys ?? {},
+  });
   invalidate();
 }
 
 export function showScreen(name, props = {}) {
   shown = shown.filter((s) => s.name !== name);
   shown.push({ name, props, seq: ++showSeq });
-  shown.sort((a, b) => (screens.get(a.name)?.z ?? 0) - (screens.get(b.name)?.z ?? 0) || a.seq - b.seq);
+  shown.sort(
+    (a, b) =>
+      (screens.get(a.name)?.z ?? 0) - (screens.get(b.name)?.z ?? 0) ||
+      a.seq - b.seq,
+  );
   invalidate();
 }
 
@@ -99,7 +217,9 @@ export function isShown(name) {
 
 /** Names and props of shown screens accepted by `filter`, bottom to top. */
 export function shownScreens(filter = () => true) {
-  return shown.filter((s) => filter(s.name)).map(({ name, props }) => ({ name, props }));
+  return shown
+    .filter((s) => filter(s.name))
+    .map(({ name, props }) => ({ name, props }));
 }
 
 /** Replaces every shown screen accepted by `filter` with `list`. */
@@ -135,36 +255,81 @@ export function setSceneLayer(fn) {
   invalidate();
 }
 
+/** Hides every screen to show the scene alone; any click or key brings them back. */
+export function setUiHidden(value) {
+  hidden = value;
+  invalidate();
+}
+
+export function isUiHidden() {
+  return hidden;
+}
+
+/** The tooltip of the hovered or focused element, or null. */
+export function tooltip() {
+  return tooltipText;
+}
+
 // ---------------------------------------------------------------------------
 // Rendering and event routing
 // ---------------------------------------------------------------------------
 
 let handlers = [];
+const HANDLER_PROPS = new Set([
+  "onClick",
+  "onChange",
+  "onInput",
+  "onSubmit",
+  "onEnd",
+]);
 
 function renderRoot() {
   const children = [sceneLayer()];
-  for (const entry of shown) {
-    const def = screens.get(entry.name);
-    if (!def) continue;
-    const content = def.render(entry.props);
-    if (def.modal) {
-      children.push(box({ key: `screen:${entry.name}`, style: FILL, onClick: () => {} }, content));
-    } else if (content) {
-      children.push({ ...content, key: content.key ?? `screen:${entry.name}` });
+  if (!hidden) {
+    for (const entry of shown) {
+      const def = screens.get(entry.name);
+      if (!def) continue;
+      const content = def.render(entry.props);
+      if (def.modal) {
+        children.push(
+          box(
+            {
+              key: `screen:${entry.name}`,
+              style: FILL,
+              onClick: () => {},
+              focusable: false,
+            },
+            content,
+          ),
+        );
+      } else if (content) {
+        children.push({
+          ...content,
+          key: content.key ?? `screen:${entry.name}`,
+        });
+      }
     }
   }
-  return box({ key: "root", style: FILL, onClick: (event) => emit("backgroundClick", event) }, children);
+  return box(
+    {
+      key: "root",
+      style: { ...FILL, fontFamily: theme.font ?? undefined },
+      onClick: (e) => emit("backgroundClick", e),
+      focusable: false,
+    },
+    children,
+  );
 }
 
-// Copies the tree, replacing click handlers with indices into `handlers`.
+// Copies the tree, replacing handlers with indices into `handlers`.
 function serialize(node) {
   const out = {};
   for (const key in node) {
     const value = node[key];
     if (key === "children") {
       out.children = value.map(serialize);
-    } else if (key === "onClick") {
-      if (typeof value === "function") out.onClick = handlers.push(value) - 1;
+    } else if (HANDLER_PROPS.has(key)) {
+      if (typeof value === "function") out[key] = handlers.push(value) - 1;
     } else if (typeof value !== "function" && value !== undefined) {
       out[key] = value;
     }
@@ -187,11 +352,31 @@ addFrameSource(() => {
 });
 
 on("click", (event) => {
-  if (event.h != null) handlers[event.h]?.(event);
+  if (hidden) {
+    setUiHidden(false);
+    return;
+  }
+  // Only the primary button activates elements; others go to the game (menus).
+  if (event.button !== "left") emit("backgroundClick", event);
+  else if (event.h != null) handlers[event.h]?.(event);
+});
+
+on("handler", (event) => {
+  handlers[event.h]?.(event.value);
+  invalidate();
+});
+
+on("tooltip", (event) => {
+  tooltipText = event.text ?? null;
+  invalidate();
 });
 
 on("key", (event) => {
   if (!event.down) return;
+  if (hidden) {
+    setUiHidden(false);
+    return true;
+  }
   for (let i = shown.length - 1; i >= 0; i--) {
     const def = screens.get(shown[i].name);
     if (!def) continue;

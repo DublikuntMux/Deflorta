@@ -1,16 +1,15 @@
 # Deflorta
 
-A cross-platform visual novel engine written in Rust and scripted entirely in
-JavaScript, from the story to the menus. See
-[DESIGN.md](DESIGN.md) for the architecture.
+A cross-platform visual novel engine written in pure Rust and scripted entirely in JavaScript, 
+from the story to the menus. See [DESIGN.md](DESIGN.md) for the architecture.
 
 ```sh
 cargo run --release -- game          # play the demo
 cargo run --release -- path/to/game  # play your game
 ```
 
-Building needs a Rust toolchain and clang (bindgen). A prebuilt SpiderMonkey is
-downloaded automatically for common targets.
+Building needs a Rust toolchain and clang (bindgen). 
+A prebuilt SpiderMonkey is downloaded automatically for common targets.
 
 ## A game
 
@@ -19,7 +18,9 @@ mygame/
   main.js        entry module
   images/        "bg room" → images/bg room.png unless declared with image()
   audio/
+  movies/        H.264 MP4 (AAC audio)
   fonts/         all fonts in here are loaded; pick one with configure({ font })
+  tl/            translations: tl/<language>.json = { "source": "translation" }
 ```
 
 ```js
@@ -33,12 +34,14 @@ const eileen = character("Eileen", { color: "#f4b6d2" });
 label("start", async () => {
   scene("bg room", { with: dissolve(1) });
   show("eileen happy");
-  await eileen`Hi there!`;
+  await eileen`Hi there! {w}Nice to {b}meet{/b} you.`;
   const answer = await menu("Well?", [["Hello!", "hi"], ["...", "silent"]]);
   if (answer === "hi") store.trust += 1;
   jump("next");
 });
 ```
+
+`game/main.js` is a complete demo using most features.
 
 ## Scripting API (`import … from "deflorta"`)
 
@@ -48,51 +51,81 @@ label("start", async () => {
 |---|---|
 | `label(name, async fn)` | declare a label; `"start"` begins a new game, `"splashscreen"` runs at boot |
 | `jump(name)` / `await call(name)` | transfer control / run and return |
-| `await say(text)`, `await say(who, text)` | dialogue; `character(name, opts)` returns a speaker usable as `await e("…")` or ``await e`…` `` |
+| `await say(text)`, `await say(who, text, { voice })` | dialogue; `character(name, { color, nvl })` returns a speaker usable as `await e("…")` or ``await e`…` `` |
+| `voice(file)` | play a voice file with the next line |
+| `nvlNarrator`, `character(name, { nvl: true })`, `nvlClear()` | NVL mode: lines accumulate on a full-screen page |
 | `await menu(prompt?, choices)` | choices: `"Text"`, `["Text", value]` or `{ text, value, if }` |
+| `await prompt(question, { default, maxLength })` | text input |
 | `await pause(seconds?)` | wait for time or a click |
-| `checkpoint(kind, present, { record })` | build your own interactions (text input, minigames) |
+| `await playMovie(src, { skippable })` | full-screen video |
+| `checkpoint(kind, present, { record, rollback })` | build your own interactions (minigames) |
 | `store`, `defaults({...})` | saved game state (JSON-serializable) |
+| `persistent`, `savePersistent()` | data shared by all playthroughs (unlocked endings, gallery) |
 | `random()`, `randInt(a, b)` | deterministic randomness, safe across load/rollback |
+| `history` | the dialogue backlog |
+
+**Text tags** (in dialogue, menus, `richText`): `{b}`, `{i}`, `{u}`, `{s}`,
+`{color=#f88}`, `{size=32}` / `{size=+4}` / `{size=*1.5}`, `{font=Name}`,
+`{ruby=furigana}base{/ruby}`, close with `{/b}` etc. Typewriter control:
+`{w}` (wait for click), `{w=0.5}` (pause), `{p}` (wait, then line break),
+`{nw}` (advance automatically), `{fast}` (show the text before it instantly).
+`{{` writes a literal brace.
 
 **Scene**
 
 | | |
 |---|---|
 | `image(name, src, { zoom })` | declare an image; the first word of the name is its *tag* |
+| `layeredImage(tag, layers)` | compose from attribute groups: `show("eileen sad blush")`, `show("eileen -blush")` (see `game/main.js`) |
 | `scene(name?, { with })` | clear the scene and set a background |
-| `show(name, { at, with, zorder })` / `hide(tag, { with })` | sprites; showing `eileen sad` replaces `eileen happy` |
-| `left`, `center`, `right`, `truecenter`, `at(x, y, { zoom })` | positions (anchor-based, like Ren'Py's xalign/yalign) |
-| `dissolve(s)`, `fade`, `moveinleft`, `moveinright`, `moveoutleft`, `moveoutright`, `zoomin` | transitions; make your own as `{ dur, in: {opacity, x, y, scale}, out: {...} }` |
+| `show(name, { at, with, zorder, transform })` / `hide(tag, { with })` | sprites; showing `eileen sad` replaces `eileen happy` |
+| `left`, `center`, `right`, `truecenter`, `offscreenleft/right`, `at(x, y, { zoom, rotate })` | positions (anchor-based, like Ren'Py's xalign/yalign) |
+| `dissolve`, `fade`, `moveinleft/right`, `moveoutleft/right`, `zoomin` | transitions; custom: `{ dur, ease, in: {opacity, x, y, scale, rotate}, out: {...} }` |
+| `move(dur)` | slide a shown image to its new position: `show("eileen", { at: left, with: move() })` |
+| `imageDissolve(mask, dur, ramp)`, `wipeleft/right/up/down`, `pixellate(dur, size)` | mask transitions |
+| `atl().linear(1, {x: 50}).ease(1, {y: -10}).pause(0.5).repeat()`, `parallel(a, b)`, `shake()`, `bob()` | ATL-style transforms: `x`, `y`, `opacity`, `scale`, `rotate`, `crop`; easings `linear`, `ease`, `easeIn`, `easeOut`, `bounce` |
+| `preload(...names)` | decode images ahead of time |
 | `music.play(file, { loop, fadeIn, fadeOut, volume })`, `music.stop()`, `sound.play(file)` | audio |
 
-**UI** — screens are functions returning elements; call `invalidate()` after
+**UI.** Screens are functions returning elements. Call `invalidate()` after
 changing state they read (story functions do this for you).
 
 | | |
 |---|---|
-| `box(props, ...children)`, `text(str, props)`, `img(src, props)`, `button(label, onClick, props)` | elements |
-| `screen(name, render, { z, modal, keys })` | define/replace a screen; overriding `"say"`, `"choice"`, `"main_menu"`, `"game_menu"` restyles the game |
+| `box`, `grid(columns, …)`, `scroll`, `text`, `richText`, `img`, `imageButton(src, hoverSrc, onClick)`, `button(label, onClick)`, `slider(value, onChange, { min, max, step })`, `input(value, onInput, { onSubmit, placeholder, maxLength })`, `video(src, { loop, onEnd })` | elements |
+| `screen(name, render, { z, modal, keys })` | define/replace a screen; overriding `say`, `nvl`, `choice`, `input`, `history`, `quick_menu`, `main_menu`, `game_menu` restyles the game |
 | `showScreen(name, props)`, `hideScreen(name)`, `isShown(name)` | screen stack (game screens are saved and rolled back) |
-| `notify(message)` | toast |
+| `theme` | colors and sizes used by the default screens |
+| `tooltip()`, `notify(message)` | current tooltip text, toast |
 
-Element props: `key`, `style`, `hover` (style overrides), `onClick`,
-`enter`/`exit` (`{ dur, opacity, x, y, scale }`), images: `fit`
-(`fill`/`cover`/`contain`), `anchor: [x, y]`; text: `cps` (typewriter speed).
-Style follows CSS flexbox naming: `position`, `left/top/right/bottom`,
+Element props: `key`, `style`, `hover` (style overrides while hovered *or
+focused*), `onClick`, `tooltip`, `focusable`, `autofocus`, `enter`/`exit`
+(`{ dur, ease, opacity, x, y, scale, rotate, mask }`), `move`, `transform`;
+images: `fit` (`fill`/`cover`/`contain`), `anchor: [x, y]`; text: `cps`
+(typewriter speed); scroll containers: `startAtEnd`.
+Style follows CSS naming: `position`, `left/top/right/bottom`,
 `width/height` (px or `"50%"`), `min*/max*`, `padding`/`margin` (n, [v, h] or
 [t, r, b, l]), `gap`, `flexDirection`, `flexWrap`, `flexGrow`, `flexShrink`,
-`justifyContent`, `alignItems`, `alignSelf`, `display: "none"`, `background`,
-`radius`, `borderWidth`, `borderColor`, `opacity`, `scale`, and inherited text
-props `color`, `fontSize`, `fontFamily`, `fontWeight`, `italic`, `lineHeight`,
-`textAlign`, `textShadow: { color, x, y }`. Colors are `#rgb[a]`/`#rrggbb[aa]`.
+`justifyContent`, `alignItems`, `alignSelf`, `gridColumns`, `gridRows`,
+`display: "none"`, `overflow: "hidden" | "scroll"`, `background`, `radius`,
+`borderWidth`, `borderColor`, `opacity`, `scale`, `rotate`, slider
+`fillColor`/`thumbColor`/`thumbSize`, and inherited text props `color`,
+`fontSize`, `fontFamily`, `fontWeight`, `italic`, `lineHeight`, `textAlign`,
+`textShadow: { color, x, y }`. Colors are `#rgb[a]`/`#rrggbb[aa]`.
 
 **Engine**
 
-`saveGame(slot)`, `loadGame(slot)`, `saveInfo(slot)`, `rollback()`,
-`newGame()`, `endGame()`, `prefs` + `savePrefs()`, `keymap`/`actions`,
+`saveGame(slot)`, `loadGame(slot)`, `saveInfo(slot)`, `quickSave()`,
+`quickLoad()`, `autosave()`, `rollback()`, `rollbackTo(historyEntry)`,
+`newGame()`, `endGame()`, `prefs` + `savePrefs()`, `setLanguage(id)`,
+`translations(language, table)`, `_(text)`, `keymap`/`actions`,
 `on(event, fn)`, `setTimer`/`setTimeout`, `storage`, `readText(path)`,
-`config`/`configure()`.
+`config`/`configure()` (`id`, `title`, `version`, `width`, `height`, `font`,
+`textSpeed`, `autosave`, `languages`, `menuBackground`, `menuVideo`).
+
+Saves include a thumbnail, there are 9 pages of slots plus autosave and
+quick-save pages, and saves made with an older version of the script resume
+at the start of the scene instead of failing.
 
 ### Rules for story code
 
@@ -105,19 +138,47 @@ inputs, so story code must be deterministic:
 
 ### Controls
 
-Click, Enter or Space advances; mouse wheel up or Page Up rolls back; hold
-Ctrl to skip; Esc or right click opens the game menu; F11 toggles fullscreen.
+| Action | Keyboard / mouse | Gamepad |
+|---|---|---|
+| Advance | click, Enter, Space, wheel down | A |
+| Roll back | wheel up, Page Up | LB |
+| Skip | hold Ctrl, Tab toggles | hold RT |
+| History | H | Y |
+| Game menu | Esc, right click | B, Start |
+| Hide the interface | middle click | |
+| Navigate menus | arrow keys + Enter | D-pad / left stick + A |
+| Quick save / load | F5 / F9 | |
+| Fullscreen | F11 | |
+
+## Logs
+
+Deflorta logs to stderr with timestamps: engine start-up, the GPU and window,
+audio, fonts, script modules, saves and loads, videos, warnings and errors.
+Messages from game scripts (`console.log`, `console.warn`, …) appear under
+`deflorta::js`. GPU validation errors are logged instead of crashing the game.
+
+```sh
+deflorta game 2> deflorta.log                    # default: engine info, warnings, errors
+RUST_LOG=deflorta=debug deflorta game 2> deflorta.log   # details for bug reports
+RUST_LOG=deflorta=trace,wgpu=warn deflorta game  # everything, including per-frame work
+```
+
+When reporting a problem, attach a `RUST_LOG=deflorta=debug` log.
 
 ## Automated tests and screenshots
 
 ```sh
-deflorta game --test steps.json
+deflorta game --test tests/demo.json
 ```
 
-`steps.json` is a list of `{ "wait": ms }`, `{ "click": [x, y], "button": "right" }`,
-`{ "key": "Enter" }`, `{ "key": "Control", "down": true }`, `{ "wheel": -1 }` and
-`{ "shot": "out.png" }`. Coordinates are in the game's virtual resolution, and
-rendering is offscreen (no window). See `tests/demo.json`.
+The script is a list of `{ "wait": ms }`, `{ "move": [x, y] }`,
+`{ "click": [x, y], "button": "right", "release": false }`, `{ "release": true }`,
+`{ "key": "Enter" }`, `{ "key": "Control", "down": true }`, `{ "type": "text" }`,
+`{ "wheel": -1 }` and `{ "shot": "out.png" }` steps. Coordinates are in the
+game's virtual resolution, and rendering is offscreen (no window).
+`tests/demo.json` plays the whole demo and writes 20 screenshots to
+`target/shots/`. Run it with a fresh data directory
+(`~/.local/share/deflorta/deflorta-demo`) for identical results.
 
 ## License
 

@@ -1,29 +1,42 @@
-// deflorta/story — labels, dialogue, choices, scene state, saves and rollback.
+// deflorta/story — labels, dialogue, choices, history, saves and rollback.
 //
 // Story code is ordinary async JavaScript. Every interaction (say, menu,
-// pause, input) is a numbered *checkpoint*. Saving records the state at the
-// start of the current label (the *root*) plus the inputs given at each
-// checkpoint since then. Loading or rolling back restores the root state
-// and re-runs the label, resolving checkpoints instantly until the target
-// is reached. Story code must therefore be deterministic: keep game state in
-// `store`, use `random()` instead of Math.random(), and only await engine
-// functions.
+// pause, prompt, movie) is a numbered *checkpoint*. Saving records the state
+// at the start of the current label (the *root*) plus the inputs given at
+// each checkpoint since then. Loading or rolling back restores the root
+// state and re-runs the label, resolving checkpoints instantly until the
+// target is reached. Story code must therefore be deterministic: keep game
+// state in `store`, use `random()` instead of Math.random(), and only await
+// engine functions.
 
-import { addFrameSource, clearTimer, command, config, on, reportError, setTimer, storage } from "deflorta/core";
 import {
-  FILL,
-  box,
-  exitWith,
+  clearTimer,
+  command,
+  config,
+  on,
+  reportError,
+  setTimer,
+  storage,
+} from "deflorta/core";
+import {
   hideScreen,
-  img,
   invalidate,
   isShown,
   markInstant,
   replaceScreens,
-  setSceneLayer,
+  screenProps,
+  setUiHidden,
   showScreen,
   shownScreens,
 } from "deflorta/ui";
+import { _, parseMarkup, plainText, useLanguage } from "deflorta/text";
+import {
+  resetScene,
+  restoreScene,
+  scene,
+  setReplayCheck,
+  setScene,
+} from "deflorta/scene";
 
 // ---------------------------------------------------------------------------
 // Game state
@@ -35,11 +48,12 @@ const storeDefaults = {};
 
 /** Declares default store values, applied when a new game starts. */
 export function defaults(values) {
-  Object.assign(storeDefaults, structuredCloneJson(values));
-  for (const [k, v] of Object.entries(values)) if (!(k in store)) store[k] = structuredCloneJson(v);
+  Object.assign(storeDefaults, clone(values));
+  for (const [k, v] of Object.entries(values))
+    if (!(k in store)) store[k] = clone(v);
 }
 
-function structuredCloneJson(value) {
+function clone(value) {
   return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 }
 
@@ -48,14 +62,29 @@ function replaceContents(target, source) {
   Object.assign(target, source);
 }
 
+/** Data shared by all playthroughs (unlocked endings, gallery…). Not rolled back. */
+export const persistent = {};
+let persistentJson = "{}";
+
+export function savePersistent() {
+  const json = JSON.stringify(persistent);
+  if (json === persistentJson) return;
+  persistentJson = json;
+  storage.write("persistent", persistent);
+}
+
 /** Preferences persist across games and are not rolled back. */
 export const prefs = {
   textSpeed: null,
-  musicVolume: 0.8,
-  soundVolume: 0.8,
-  fullscreen: false,
   autoForward: false,
   autoDelay: 1.5,
+  musicVolume: 0.8,
+  soundVolume: 0.8,
+  voiceVolume: 1,
+  voiceSustain: false,
+  skipUnseen: false,
+  fullscreen: false,
+  language: null,
 };
 
 export function savePrefs() {
@@ -66,23 +95,38 @@ export function savePrefs() {
 function applyPrefs() {
   command("volume", { channel: "music", value: prefs.musicVolume });
   command("volume", { channel: "sound", value: prefs.soundVolume });
+  command("volume", { channel: "voice", value: prefs.voiceVolume });
   command("fullscreen", { on: prefs.fullscreen });
+  useLanguage(prefs.language);
+  invalidate();
 }
 
+/** Switches the game language (null = the language the script is written in). */
+export function setLanguage(language) {
+  console.info(`Language: ${language ?? "source"}`);
+  prefs.language = language;
+  savePrefs();
+}
+
+/** Text speed slider maximum; at this value text appears instantly. */
+export const INSTANT_SPEED = 200;
+
+/** Characters per second for dialogue (0 = instant). */
 export function textSpeed() {
-  return prefs.textSpeed ?? config.textSpeed;
+  const speed = prefs.textSpeed ?? config.textSpeed;
+  return speed >= INSTANT_SPEED ? 0 : speed;
 }
 
 // Deterministic random numbers (mulberry32), part of the saved state.
-let rngState = 1;
+let rngState = 1 >>> 0;
 
 /** Returns a random number in [0, 1) that replays identically after load/rollback. */
 export function random() {
-  rngState = (rngState + 0x6d2b79f5) | 0;
+  rngState = (rngState + 0x6d2b79f5) >>> 0;
   let t = rngState;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
 }
 
 /** Returns a random integer in [min, max]. */
@@ -91,155 +135,34 @@ export function randInt(min, max) {
 }
 
 // ---------------------------------------------------------------------------
-// Images, positions and transitions
+// Seen text (for skipping only what was already read)
 // ---------------------------------------------------------------------------
 
-const images = new Map();
+let seen = {};
+let seenDirty = 0;
 
-/**
- * Declares an image. The first word of the name is its tag: showing
- * "eileen happy" replaces any shown "eileen ..." image.
- * Undeclared names resolve to `images/<name>.png`.
- */
-export function image(name, src, options = {}) {
-  images.set(name, { src, ...options });
-}
-
-function imageSpec(name) {
-  return images.get(name) ?? { src: `images/${name}.png` };
-}
-
-const tagOf = (name) => name.split(" ")[0];
-
-/** Positions: xalign/yalign place the image's anchor point relative to the screen. */
-export const left = { xalign: 0.2, yalign: 1 };
-export const center = { xalign: 0.5, yalign: 1 };
-export const right = { xalign: 0.8, yalign: 1 };
-export const truecenter = { xalign: 0.5, yalign: 0.5 };
-export const at = (xalign, yalign = 1, extra = {}) => ({ xalign, yalign, ...extra });
-
-/**
- * Transitions describe how elements enter and leave.
- * `in` gives the starting values, `out` the final values (opacity, x, y, scale).
- */
-export const dissolve = (dur = 0.5) => ({ dur, in: { opacity: 0 }, out: { opacity: 0 } });
-export const fade = dissolve;
-export const moveinleft = (dur = 0.5) => ({ dur, in: { x: -400, opacity: 0 }, out: { opacity: 0 } });
-export const moveinright = (dur = 0.5) => ({ dur, in: { x: 400, opacity: 0 }, out: { opacity: 0 } });
-export const moveoutleft = (dur = 0.5) => ({ dur, in: { opacity: 0 }, out: { x: -400, opacity: 0 } });
-export const moveoutright = (dur = 0.5) => ({ dur, in: { opacity: 0 }, out: { x: 400, opacity: 0 } });
-export const zoomin = (dur = 0.5) => ({ dur, in: { scale: 0.6, opacity: 0 }, out: { scale: 0.6, opacity: 0 } });
-
-const enterSpec = (t) => t && { dur: t.dur, ...t.in };
-const exitSpec = (t, hold = false) => t && (hold ? { dur: t.dur, opacity: 1 } : { dur: t.dur, ...t.out });
-
-// ---------------------------------------------------------------------------
-// Scene
-// ---------------------------------------------------------------------------
-
-// Serializable scene state; saved and rolled back with the store.
-const scene = { bg: null, sprites: [], music: null };
-const pendingEnters = new Map();
-let musicFade = { fadeIn: 0, fadeOut: 0 };
-let sentMusic = "null";
-
-function replaying() {
-  return run.target >= 0;
-}
-
-/** Clears the screen and optionally shows a background. Hides the dialogue window. */
-export function scene_(name = null, options = {}) {
-  const t = options.with;
-  if (scene.bg) exitWith(`bg:${scene.bg}`, exitSpec(t, true));
-  for (const s of scene.sprites) exitWith(`sprite:${s.tag}:${s.name}`, exitSpec(t));
-  scene.sprites = [];
-  scene.bg = name;
-  if (name) pendingEnters.set(`bg:${name}`, enterSpec(t));
-  hideScreen("say");
-  invalidate();
-}
-export { scene_ as scene };
-
-/** Shows an image, replacing any image with the same tag. */
-export function show(name, options = {}) {
-  const tag = tagOf(name);
-  const t = options.with;
-  const index = scene.sprites.findIndex((s) => s.tag === tag);
-  const previous = scene.sprites[index];
-  const entry = { tag, name, at: options.at ?? previous?.at ?? center, zorder: options.zorder ?? previous?.zorder ?? 0 };
-  if (previous && previous.name !== name) exitWith(`sprite:${tag}:${previous.name}`, exitSpec(t));
-  if (!previous || previous.name !== name) pendingEnters.set(`sprite:${tag}:${name}`, enterSpec(t));
-  if (index >= 0) scene.sprites[index] = entry;
-  else scene.sprites.push(entry);
-  scene.sprites.sort((a, b) => a.zorder - b.zorder);
-  invalidate();
-}
-
-/** Hides the image with the given tag (or full name). */
-export function hide(name, options = {}) {
-  const tag = tagOf(name);
-  const previous = scene.sprites.find((s) => s.tag === tag);
-  if (!previous) return;
-  exitWith(`sprite:${tag}:${previous.name}`, exitSpec(options.with));
-  scene.sprites = scene.sprites.filter((s) => s.tag !== tag);
-  invalidate();
-}
-
-function renderScene() {
-  const children = [];
-  if (scene.bg) {
-    const key = `bg:${scene.bg}`;
-    children.push(img(imageSpec(scene.bg).src, { key, fit: "cover", style: FILL, enter: pendingEnters.get(key) }));
+function lineKey(label, text) {
+  // FNV-1a over label and text.
+  let h = 0x811c9dc5;
+  const s = `${label}\u0000${text}`;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
   }
-  for (const s of scene.sprites) {
-    const key = `sprite:${s.tag}:${s.name}`;
-    const spec = imageSpec(s.name);
-    children.push(
-      img(spec.src, {
-        key,
-        anchor: [s.at.xalign, s.at.yalign],
-        style: {
-          position: "absolute",
-          left: `${s.at.xalign * 100}%`,
-          top: `${s.at.yalign * 100}%`,
-          scale: (s.at.zoom ?? 1) * (spec.zoom ?? 1),
-        },
-        enter: pendingEnters.get(key),
-      }),
-    );
-  }
-  return box({ key: "scene", style: FILL }, children);
+  return (h >>> 0).toString(36);
 }
 
-setSceneLayer(renderScene);
+function markSeen(key) {
+  if (seen[key]) return;
+  seen[key] = 1;
+  if (++seenDirty >= 10) flushSeen();
+}
 
-addFrameSource(() => {
-  pendingEnters.clear();
-  const music = JSON.stringify(scene.music);
-  if (music === sentMusic) return;
-  sentMusic = music;
-  command("music", { ...(scene.music ?? { file: null }), ...musicFade });
-  musicFade = { fadeIn: 0, fadeOut: 0 };
-});
-
-/** Background music. State is part of the scene, so it survives save/load. */
-export const music = {
-  play(file, { loop = true, fadeIn = 0, fadeOut = 0.5, volume = 1 } = {}) {
-    scene.music = { file, loop, volume };
-    musicFade = { fadeIn, fadeOut };
-  },
-  stop({ fadeOut = 0.5 } = {}) {
-    scene.music = null;
-    musicFade = { fadeIn: 0, fadeOut };
-  },
-};
-
-/** One-shot sound effects. Skipped while fast-forwarding a load or rollback. */
-export const sound = {
-  play(file, { volume = 1 } = {}) {
-    if (!replaying()) command("sound", { file, volume });
-  },
-};
+function flushSeen() {
+  if (!seenDirty) return;
+  seenDirty = 0;
+  storage.write("seen", seen);
+}
 
 // ---------------------------------------------------------------------------
 // Labels and the story runner
@@ -258,6 +181,9 @@ class Jump {
   }
 }
 
+/** Raised when a save no longer matches the script it was made with. */
+class ReplayMismatch extends Error {}
+
 /** Transfers control to another label. Ends the current label (and any calls). */
 export function jump(name) {
   throw new Jump(name);
@@ -270,73 +196,145 @@ export async function call(name, ...args) {
   return fn(...args);
 }
 
-const MAX_HISTORY = 64;
+const MAX_ROOTS = 64;
+const MAX_LINES = 250;
 
 const run = {
   gen: 0,
-  root: null, // { label, snapshot } at the start of the current label
+  nextRootId: 1,
+  root: null, // { id, label, snapshot } at the start of the current label
   count: 0, // checkpoints reached since the root
   inputs: {}, // checkpoint index -> recorded input
   stops: [], // checkpoint index -> true if rollback may stop there
+  kinds: [], // checkpoint index -> kind, to detect saves from other script versions
+  expected: null, // kinds recorded in the save being loaded
   target: -1, // when >= 0, fast-forward until this checkpoint
+  recovering: false,
   pending: null, // the checkpoint waiting for the player
-  history: [], // earlier roots, for rolling back across jumps
+  roots: [], // earlier roots, for rolling back across jumps
+  autosaveDue: false,
 };
 
-// Engine screens are managed by the runtime; every other shown screen is game
-// state and is saved, restored and rolled back with the scene.
-const SYSTEM_SCREENS = new Set(["say", "choice", "game_menu", "main_menu", "notify", "error"]);
+const replaying = () => run.target >= 0;
+setReplayCheck(replaying);
+
+/** Dialogue history (backlog): { who, what, voice, root, index }. */
+export const history = [];
+
+// Screens managed by the runtime; every other shown screen is game state and
+// is saved, restored and rolled back with the scene.
+export const SYSTEM_SCREENS = new Set([
+  "say",
+  "nvl",
+  "choice",
+  "input",
+  "movie",
+  "quick_menu",
+  "history",
+  "game_menu",
+  "main_menu",
+  "confirm",
+  "notify",
+  "tooltip",
+  "error",
+]);
 const isGameScreen = (name) => !SYSTEM_SCREENS.has(name);
 
 function snapshot() {
-  return JSON.stringify({ store, scene, screens: shownScreens(isGameScreen), rng: rngState });
+  return JSON.stringify({
+    store,
+    scene,
+    screens: shownScreens(isGameScreen),
+    rng: rngState,
+  });
 }
 
 function restore(snap) {
   const data = JSON.parse(snap);
   replaceContents(store, data.store);
-  scene.bg = data.scene.bg;
-  scene.sprites = data.scene.sprites;
-  scene.music = data.scene.music;
+  restoreScene(data.scene);
   replaceScreens(data.screens ?? [], isGameScreen);
   rngState = data.rng;
 }
 
 function beginRoot(name) {
+  if (replaying())
+    throw new ReplayMismatch(`jumped to '${name}' while restoring`);
   if (run.root) {
-    run.history.push({ root: run.root, inputs: run.inputs, stops: run.stops });
-    if (run.history.length > MAX_HISTORY) run.history.shift();
+    run.roots.push({ root: run.root, inputs: run.inputs, stops: run.stops });
+    if (run.roots.length > MAX_ROOTS) run.roots.shift();
   }
-  run.root = { label: name, snapshot: snapshot() };
+  run.root = { id: run.nextRootId++, label: name, snapshot: snapshot() };
+  console.debug(`Entering label '${name}'`);
   run.count = 0;
   run.inputs = {};
   run.stops = [];
+  run.kinds = [];
+  run.autosaveDue = true;
 }
 
 async function runStory(start, resume = false) {
   const gen = ++run.gen;
   let name = start;
-  while (name != null) {
-    if (!resume) beginRoot(name);
-    resume = false;
-    const fn = labels.get(name);
-    if (!fn) throw new Error(`unknown label '${name}'`);
-    try {
-      await fn();
-      name = null;
-    } catch (e) {
-      if (run.gen !== gen) return;
-      if (!(e instanceof Jump)) throw e;
-      name = e.target;
+  try {
+    while (name != null) {
+      if (!resume) beginRoot(name);
+      resume = false;
+      const fn = labels.get(name);
+      if (!fn) throw new Error(`unknown label '${name}'`);
+      try {
+        await fn();
+        name = null;
+      } catch (e) {
+        if (run.gen !== gen) return;
+        if (!(e instanceof Jump)) throw e;
+        name = e.target;
+      }
     }
+    if (run.gen !== gen) return;
+    if (replaying())
+      throw new ReplayMismatch("the scene ended while restoring");
+    endGame();
+  } catch (e) {
+    if (run.gen !== gen) return;
+    if (replaying() && !run.recovering) {
+      recover(e);
+      return;
+    }
+    throw e;
   }
-  if (run.gen === gen) endGame();
+}
+
+/**
+ * A save or rollback no longer matches the script (the game was updated):
+ * restart the scene from its beginning instead of failing.
+ */
+function recover(error) {
+  console.warn(
+    `cannot restore position (${error?.message ?? error}); restarting the scene`,
+  );
+  emitNotice(
+    _("The game was updated since this save. Restarting the current scene."),
+  );
+  const root = run.root;
+  history.splice(0, history.length, ...history.filter((h) => h.root < root.id));
+  run.recovering = true;
+  restart(root, {}, -1, null);
+}
+
+let noticeFn = () => {};
+
+/** Installed by the default screens to show recovery notices. */
+export function setNoticeHandler(fn) {
+  noticeFn = fn;
+}
+
+function emitNotice(message) {
+  noticeFn(message);
 }
 
 function startRun(start, resume) {
-  runStory(start, resume).catch((e) => {
-    reportError(e);
-  });
+  runStory(start, resume).catch((e) => reportError(e));
 }
 
 /** True while a game is in progress. */
@@ -347,15 +345,37 @@ export function inGame() {
 /**
  * Suspends the story until the player responds. `present` shows the UI and
  * receives the pending checkpoint; call `pending.resolve(value)` to continue.
+ * options.record    the resolved value is saved and replayed (choices, text input)
+ * options.rollback  rollback may stop here
  */
-export function checkpoint(kind, present, { record = false, rollback = true } = {}) {
+export function checkpoint(
+  kind,
+  present,
+  { record = false, rollback = true } = {},
+) {
   const index = run.count++;
   run.stops[index] = rollback;
-  if (index < run.target) return Promise.resolve(record ? run.inputs[index] : undefined);
+  run.kinds[index] = kind;
+  if (
+    run.expected &&
+    run.expected[index] &&
+    run.expected[index] !== kind &&
+    index <= run.target
+  ) {
+    return Promise.reject(
+      new ReplayMismatch(
+        `expected ${run.expected[index]} at ${index}, found ${kind}`,
+      ),
+    );
+  }
+  if (index < run.target)
+    return Promise.resolve(record ? run.inputs[index] : undefined);
   if (index === run.target) {
     run.target = -1;
+    run.expected = null;
     markInstant();
   }
+  run.recovering = false;
   const gen = run.gen;
   return new Promise((resolve) => {
     const pending = {
@@ -372,47 +392,144 @@ export function checkpoint(kind, present, { record = false, rollback = true } = 
     };
     run.pending = pending;
     present(pending);
+    if (run.autosaveDue && config.autosave !== false) {
+      run.autosaveDue = false;
+      autosave();
+    }
   });
 }
 
+function addCleanup(pending, fn) {
+  const previous = pending.cleanup;
+  pending.cleanup = () => {
+    previous?.();
+    fn();
+  };
+}
+
 // ---------------------------------------------------------------------------
-// Dialogue, choices, pauses
+// Dialogue
 // ---------------------------------------------------------------------------
 
-let skipping = false;
+let skipHeld = false;
+let skipToggled = false;
 let currentLine = "";
+let nextVoice = null;
 
-/** Creates a speaking character. Call it with text: `await eileen("Hi!")` or eileen`Hi!`. */
+export const isSkipping = () => skipHeld || skipToggled;
+
+/** Starts or stops skip mode (Tab / the quick menu). */
+export function toggleSkip(on = !skipToggled) {
+  skipToggled = on;
+  if (on) advance();
+  invalidate();
+}
+
+/**
+ * Creates a speaking character. Call it with text: `await eileen("Hi!")` or eileen`Hi!`.
+ * options: color, nvl (lines go to the full-screen NVL page), any extra props for custom say screens.
+ */
 export function character(name, options = {}) {
   const who = { name, color: "#ffffff", ...options };
   const speak = (first, ...rest) =>
-    Array.isArray(first) && first.raw ? say(who, String.raw(first, ...rest)) : say(who, first, rest[0]);
+    Array.isArray(first) && first.raw
+      ? say(who, String.raw(first, ...rest))
+      : say(who, first, rest[0]);
   speak.who = who;
   return speak;
 }
 
-/** Shows a line of dialogue and waits for the player. `say("text")` narrates. */
+/** The narrator on the NVL page. */
+export const nvlNarrator = character(null, { nvl: true });
+
+/** Plays a voice file with the next line of dialogue. */
+export function voice(file) {
+  nextVoice = file;
+}
+
+/** Clears the NVL page. */
+export function nvlClear() {
+  scene.nvl = [];
+  invalidate();
+}
+
+/**
+ * Shows a line of dialogue (with text tags) and waits for the player.
+ * `say("text")` narrates. options.voice plays a voice file with the line.
+ */
 export function say(who, what, options = {}) {
   if (what === undefined) {
     what = who;
     who = null;
   }
   if (typeof who === "string") who = { name: who };
+  const markup = String(what);
+  const speaker =
+    who?.name != null ? { name: who.name, color: who.color } : null;
+  const voiceFile = options.voice ?? nextVoice;
+  nextVoice = null;
+  const nvl = !!who?.nvl;
+  const key = lineKey(run.root?.label ?? "", markup);
+  if (nvl) scene.nvl = [...scene.nvl, { who: speaker, what: markup }];
+
+  history.push({
+    who: speaker,
+    what: markup,
+    voice: voiceFile,
+    root: run.root?.id,
+    index: run.count,
+  });
+  if (history.length > MAX_LINES) history.shift();
+
   return checkpoint("say", (pending) => {
-    currentLine = who ? `${who.name}: ${what}` : String(what);
-    showScreen("say", { who, what: String(what), cps: textSpeed(), ...options });
-    if (skipping) pending.cleanup = cancelOnResolve(setTimer(config.skipDelay, advance));
+    const translated = _(markup);
+    const { noWait } = parseMarkup(translated);
+    currentLine = speaker
+      ? `${_(speaker.name)}: ${plainText(translated)}`
+      : plainText(translated);
+    pending.noWait = noWait;
+    if (nvl) {
+      hideScreen("say");
+      showScreen("nvl", { lines: scene.nvl, cps: textSpeed(), ...options });
+    } else {
+      hideScreen("nvl");
+      showScreen("say", {
+        who,
+        what: translated,
+        cps: textSpeed(),
+        ...options,
+      });
+    }
+    if (voiceFile) {
+      command("voice", { file: voiceFile });
+      if (!prefs.voiceSustain)
+        addCleanup(pending, () => command("voice", { file: null }));
+    }
+    const wasSeen = !!seen[key];
+    markSeen(key);
+    if (isSkipping()) {
+      if (wasSeen || prefs.skipUnseen) {
+        const timer = setTimer(config.skipDelay, advance);
+        addCleanup(pending, () => clearTimer(timer));
+      } else {
+        skipToggled = false;
+      }
+    }
   });
 }
 
-function cancelOnResolve(timerId) {
-  return () => clearTimer(timerId);
-}
-
-/** Continues past the current line or pause. */
+/** Continues past the current line, pause or movie. */
 export function advance() {
   const pending = run.pending;
-  if (pending && (pending.kind === "say" || pending.kind === "pause")) pending.resolve();
+  if (
+    pending &&
+    (pending.kind === "say" ||
+      pending.kind === "pause" ||
+      pending.kind === "movie")
+  ) {
+    if (pending.kind === "movie" && !pending.skippable) return;
+    pending.resolve();
+  }
 }
 
 /** Waits for `seconds` (or until click when omitted). */
@@ -420,7 +537,10 @@ export function pause(seconds) {
   return checkpoint(
     "pause",
     (pending) => {
-      if (seconds != null) pending.cleanup = cancelOnResolve(setTimer(seconds * 1000, () => pending.resolve()));
+      if (seconds != null) {
+        const timer = setTimer(seconds * 1000, () => pending.resolve());
+        addCleanup(pending, () => clearTimer(timer));
+      }
     },
     { rollback: false },
   );
@@ -428,7 +548,8 @@ export function pause(seconds) {
 
 function normalizeChoice(choice) {
   if (typeof choice === "string") return { text: choice, value: choice };
-  if (Array.isArray(choice)) return { text: choice[0], value: choice[1] ?? choice[0] };
+  if (Array.isArray(choice))
+    return { text: choice[0], value: choice[1] ?? choice[0] };
   return { value: choice.text, ...choice };
 }
 
@@ -441,24 +562,103 @@ export async function menu(prompt, choices) {
     choices = prompt;
     prompt = null;
   }
-  const items = choices.map(normalizeChoice).filter((c) => c.if === undefined || c.if);
+  const items = choices
+    .map(normalizeChoice)
+    .filter((c) => c.if === undefined || c.if);
+  if (prompt)
+    history.push({
+      who: null,
+      what: String(prompt),
+      root: run.root?.id,
+      index: run.count,
+    });
   const index = await checkpoint(
     "menu",
     (pending) => {
-      if (prompt) showScreen("say", { who: null, what: String(prompt), cps: textSpeed() });
+      if (scene.nvl.length) showScreen("nvl", { lines: scene.nvl, cps: 0 });
+      else if (prompt)
+        showScreen("say", {
+          who: null,
+          what: _(String(prompt)),
+          cps: textSpeed(),
+        });
       else hideScreen("say");
-      showScreen("choice", { items: items.map((c, i) => ({ text: c.text, select: () => pending.resolve(i) })) });
+      skipToggled = false;
+      showScreen("choice", {
+        items: items.map((c, i) => ({
+          text: _(c.text),
+          select: () => pending.resolve(i),
+        })),
+      });
     },
     { record: true },
   );
   hideScreen("choice");
-  if (!(index in items)) throw new Error(`saved choice ${index} no longer exists in this menu`);
+  if (!(index in items))
+    throw new ReplayMismatch(
+      `saved choice ${index} no longer exists in this menu`,
+    );
+  history.push({
+    who: null,
+    what: `» ${items[index].text}`,
+    choice: true,
+    root: run.root?.id,
+    index: run.count - 1,
+  });
   return items[index].value;
+}
+
+/**
+ * Asks the player to type text. Resolves with the (trimmed) answer.
+ *   const name = await prompt("What is your name?", { default: "Alex", maxLength: 16 })
+ */
+export function prompt(
+  question,
+  { default: initial = "", maxLength = 32, allowEmpty = false } = {},
+) {
+  return checkpoint(
+    "input",
+    (pending) => {
+      showScreen("input", {
+        question: _(question),
+        value: initial,
+        maxLength,
+        submit(value) {
+          const answer = String(value ?? "").trim();
+          if (!answer && !allowEmpty) return;
+          pending.resolve(answer);
+        },
+      });
+      addCleanup(pending, () => hideScreen("input"));
+    },
+    { record: true },
+  );
+}
+
+/** Plays a full-screen video and waits until it ends (or the player clicks, if skippable). */
+export function playMovie(src, { skippable = true } = {}) {
+  return checkpoint(
+    "movie",
+    (pending) => {
+      pending.skippable = skippable;
+      showScreen("movie", { src, end: () => pending.resolve() });
+      addCleanup(pending, () => hideScreen("movie"));
+    },
+    { rollback: false },
+  );
+}
+
+/** Clears the screen and optionally shows a background; hides the dialogue window. */
+export function sceneStatement(name = null, options = {}) {
+  setScene(name, options);
+  hideScreen("say");
+  hideScreen("nvl");
 }
 
 /** Hides the dialogue window until the next line. */
 export function windowHide() {
   hideScreen("say");
+  hideScreen("nvl");
 }
 
 // ---------------------------------------------------------------------------
@@ -466,70 +666,106 @@ export function windowHide() {
 // ---------------------------------------------------------------------------
 
 function resetPresentation() {
-  hideScreen("say");
-  hideScreen("choice");
-  hideScreen("game_menu");
+  for (const name of [
+    "say",
+    "nvl",
+    "choice",
+    "input",
+    "movie",
+    "history",
+    "game_menu",
+    "confirm",
+  ])
+    hideScreen(name);
+  setUiHidden(false);
   invalidate();
 }
 
 /** Starts a new game at `start`. */
 export function newGame(start = "start") {
-  replaceContents(store, structuredCloneJson(storeDefaults));
-  scene.bg = null;
-  scene.sprites = [];
-  scene.music = null;
+  console.info(`New game at label '${start}'`);
+  replaceContents(store, clone(storeDefaults));
+  resetScene();
   replaceScreens([], isGameScreen);
   rngState = (Date.now() ^ 0x9e3779b9) | 0;
-  run.root = null;
-  run.history = [];
-  run.target = -1;
-  run.pending = null;
+  history.length = 0;
+  Object.assign(run, {
+    root: null,
+    roots: [],
+    target: -1,
+    expected: null,
+    pending: null,
+    recovering: false,
+  });
+  skipToggled = false;
   hideScreen("main_menu");
   resetPresentation();
+  showScreen("quick_menu");
   startRun(start);
 }
 
 /** Leaves the current game and returns to the main menu. */
 export function endGame() {
+  console.info("Returning to the main menu");
   run.gen++;
-  run.root = null;
-  run.pending = null;
-  run.history = [];
-  scene.bg = null;
-  scene.sprites = [];
-  scene.music = null;
+  Object.assign(run, {
+    root: null,
+    pending: null,
+    roots: [],
+    target: -1,
+    expected: null,
+  });
+  resetScene();
+  history.length = 0;
   replaceScreens([], isGameScreen);
   resetPresentation();
+  hideScreen("quick_menu");
   showScreen("main_menu");
+  savePersistent();
+  flushSeen();
 }
 
-function restart(root, inputs, target) {
+function restart(root, inputs, target, expected) {
+  console.debug(`Restoring label '${root.label}' at checkpoint ${target}`);
   restore(root.snapshot);
   run.root = root;
-  run.inputs = Object.fromEntries(Object.entries(inputs).filter(([k]) => Number(k) < target));
+  run.nextRootId = Math.max(run.nextRootId, root.id + 1);
+  run.inputs = Object.fromEntries(
+    Object.entries(inputs).filter(([k]) => Number(k) < target),
+  );
   run.stops = [];
+  run.kinds = [];
+  run.expected = expected;
   run.count = 0;
   run.target = target;
   run.pending = null;
+  run.autosaveDue = false;
+  skipToggled = false;
+  // Lines from this root on are re-added while replaying.
+  const kept = history.filter((h) => h.root < root.id);
+  history.splice(0, history.length, ...kept);
   resetPresentation();
   hideScreen("main_menu");
+  showScreen("quick_menu");
+  markInstant();
   startRun(root.label, true);
 }
 
 /** Steps back to the previous line or choice. Returns false if there is nothing to roll back to. */
 export function rollback() {
   if (!run.pending || !run.root) return false;
+  console.debug("Rolling back");
   for (let i = run.pending.index - 1; i >= 0; i--) {
     if (run.stops[i]) {
-      restart(run.root, run.inputs, i);
+      restart(run.root, run.inputs, i, null);
       return true;
     }
   }
-  while (run.history.length) {
-    const previous = run.history.pop();
+  while (run.roots.length) {
+    const previous = run.roots.pop();
     for (let i = previous.stops.length - 1; i >= 0; i--) {
       if (previous.stops[i]) {
-        restart(previous.root, previous.inputs, i);
+        restart(previous.root, previous.inputs, i, null);
         return true;
       }
     }
@@ -537,50 +773,124 @@ export function rollback() {
   return false;
 }
 
+/** Rolls back to a history entry (clicking a line in the backlog). */
+export function rollbackTo(entry) {
+  if (!run.root || entry.root == null) return false;
+  console.debug("Rolling back to a history entry");
+  if (entry.root === run.root.id) {
+    if (run.pending && entry.index >= run.pending.index) return false;
+    restart(run.root, run.inputs, entry.index, null);
+    return true;
+  }
+  const i = run.roots.findIndex((r) => r.root.id === entry.root);
+  if (i < 0) return false;
+  const [target] = run.roots.splice(i);
+  restart(target.root, target.inputs, entry.index, null);
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // Saving and loading
 // ---------------------------------------------------------------------------
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 /** True when the game can be saved (the story is waiting for the player). */
 export function canSave() {
   return !!(run.pending && run.root);
 }
 
-export function saveGame(slot) {
+/**
+ * Saves to a slot name (letters, digits, "-" and "_"): "1-1", "quick", "auto-2"…
+ * A thumbnail of the game screen is stored alongside.
+ */
+export function saveGame(slot, { thumbnail = true } = {}) {
   if (!canSave()) return false;
+  const target = run.pending.index;
   storage.write(`save-${slot}`, {
     version: SAVE_VERSION,
+    gameVersion: config.version ?? null,
     time: Date.now(),
     preview: currentLine.slice(0, 120),
     root: run.root,
     inputs: run.inputs,
-    target: run.pending.index,
+    target,
+    kinds: run.kinds.slice(0, target + 1),
+    history: history.filter((h) => h.root < run.root.id).slice(-100),
   });
+  if (thumbnail) command("saveThumbnail", { name: `thumb-${slot}` });
+  savePersistent();
+  flushSeen();
+  console.info(
+    `Saved slot '${slot}' (label '${run.root.label}', checkpoint ${target})`,
+  );
   return true;
 }
 
 export function loadGame(slot) {
   const data = storage.read(`save-${slot}`);
-  if (!data || data.version !== SAVE_VERSION) return false;
+  if (!data || data.version !== SAVE_VERSION) {
+    console.warn(
+      `Cannot load slot '${slot}': ${data ? `save format ${data.version}` : "no save"}`,
+    );
+    return false;
+  }
   if (!labels.has(data.root.label)) {
     reportError(new Error(`save refers to missing label '${data.root.label}'`));
     return false;
   }
-  run.history = [];
-  restart(data.root, data.inputs, data.target);
+  run.gen++;
+  run.roots = [];
+  run.recovering = false;
+  history.splice(0, history.length, ...(data.history ?? []));
+  console.info(
+    `Loading slot '${slot}' (label '${data.root.label}', game version ${data.gameVersion ?? "unset"})`,
+  );
+  restart(data.root, data.inputs, data.target, data.kinds ?? null);
   return true;
 }
 
-/** Returns save metadata for `slot`, or null. */
+/** Save metadata for `slot`: { time, preview, thumbnail } or null. */
 export function saveInfo(slot) {
   const data = storage.read(`save-${slot}`);
-  return data && { time: data.time, preview: data.preview };
+  return (
+    data && {
+      time: data.time,
+      preview: data.preview,
+      thumbnail: `user:thumb-${slot}.png?${data.time}`,
+    }
+  );
 }
 
 export function deleteSave(slot) {
   storage.remove(`save-${slot}`);
+  command("deleteThumbnail", { name: `thumb-${slot}` });
+  console.info(`Deleted slot '${slot}'`);
+}
+
+/** Saves to the quick slot (F5). */
+export function quickSave() {
+  command("captureThumbnail");
+  return saveGame("quick");
+}
+
+/** Loads the quick slot (F9). */
+export function quickLoad() {
+  return loadGame("quick");
+}
+
+export const AUTOSAVE_SLOTS = 6;
+
+/**
+ * Saves to the oldest of the autosave slots. The thumbnail shows the screen
+ * once it settles (a scene that is starting), or with `now`, as it is.
+ */
+export function autosave({ now = false } = {}) {
+  if (!canSave()) return false;
+  const index = ((persistent._autosave ?? 0) % AUTOSAVE_SLOTS) + 1;
+  persistent._autosave = index;
+  command("captureThumbnail", { after: !now });
+  return saveGame(`auto-${index}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -593,12 +903,23 @@ export const keymap = {
   " ": "advance",
   Escape: "menu",
   PageUp: "rollback",
+  Tab: "skip",
+  h: "history",
+  F5: "quickSave",
+  F9: "quickLoad",
   F11: "fullscreen",
 };
 
+let gameMenuNotice = () => {};
+
+/** Installed by the default screens to report quick save/load results. */
+export function setQuickNotice(fn) {
+  gameMenuNotice = fn;
+}
+
 export const actions = {
   advance(event) {
-    if (event?.revealing) command("revealAll");
+    if (event?.revealing) command("revealSkip");
     else advance();
   },
   rollback() {
@@ -606,8 +927,35 @@ export const actions = {
   },
   menu() {
     if (!inGame()) return;
-    if (isShown("game_menu")) hideScreen("game_menu");
-    else showScreen("game_menu", { page: "main" });
+    if (isShown("game_menu")) {
+      hideScreen("game_menu");
+      return;
+    }
+    // Capture the game screen (without the menu) for save thumbnails.
+    command("captureThumbnail");
+    showScreen("game_menu", { page: "main" });
+  },
+  history() {
+    if (!inGame()) return;
+    if (isShown("history")) hideScreen("history");
+    else showScreen("history");
+  },
+  skip() {
+    toggleSkip();
+  },
+  auto() {
+    prefs.autoForward = !prefs.autoForward;
+    savePrefs();
+    if (prefs.autoForward && run.pending?.kind === "say") advance();
+  },
+  hideUi() {
+    setUiHidden(true);
+  },
+  quickSave() {
+    if (quickSave()) gameMenuNotice(_("Quick saved"));
+  },
+  quickLoad() {
+    if (!quickLoad()) gameMenuNotice(_("No quick save"));
   },
   fullscreen() {
     prefs.fullscreen = !prefs.fullscreen;
@@ -615,24 +963,29 @@ export const actions = {
   },
 };
 
+const GLOBAL_ACTIONS = new Set(["fullscreen"]);
+
 on("backgroundClick", (event) => {
   if (event.button === "right") actions.menu(event);
+  else if (event.button === "middle") inGame() && actions.hideUi();
   else if (inGame()) actions.advance(event);
 });
 
 on("key", (event) => {
   if (event.key === "Control") {
-    skipping = event.down;
-    if (skipping && inGame()) advance();
+    skipHeld = event.down;
+    if (skipHeld && inGame()) advance();
+    invalidate();
     return;
   }
   if (!event.down) return;
   const action = keymap[event.key];
-  if (action === "fullscreen" || (action && inGame())) actions[action]?.(event);
+  if (action && (GLOBAL_ACTIONS.has(action) || inGame()))
+    actions[action]?.(event);
 });
 
 on("wheel", (event) => {
-  if (!inGame() || isShown("game_menu")) return;
+  if (!inGame() || isShown("game_menu") || isShown("history")) return;
   // Wheel up rolls back, wheel down advances.
   if (event.dy < 0) rollback();
   else if (event.dy > 0) actions.advance(event);
@@ -640,23 +993,43 @@ on("wheel", (event) => {
 
 on("revealed", () => {
   const pending = run.pending;
-  if (!pending || pending.kind !== "say" || !prefs.autoForward || skipping) return;
+  if (!pending || pending.kind !== "say" || isSkipping()) return;
+  if (pending.noWait) {
+    advance();
+    return;
+  }
+  if (!prefs.autoForward) return;
   const timer = setTimer(prefs.autoDelay * 1000, advance);
-  const previous = pending.cleanup;
-  pending.cleanup = () => {
-    previous?.();
-    clearTimer(timer);
-  };
+  addCleanup(pending, () => clearTimer(timer));
 });
 
 on("boot", () => {
   Object.assign(prefs, storage.read("prefs") ?? {});
+  Object.assign(persistent, storage.read("persistent") ?? {});
+  persistentJson = JSON.stringify(persistent);
+  seen = storage.read("seen") ?? {};
+  console.info(
+    `Story runtime ready: ${labels.size} labels, ${Object.keys(seen).length} lines seen`,
+  );
   applyPrefs();
   if (labels.has("splashscreen")) startRun("splashscreen");
   else showScreen("main_menu");
+});
+
+on("quit", () => {
+  console.info("Saving persistent data before quitting");
+  if (canSave() && config.autosave !== false) autosave({ now: true });
+  savePersistent();
+  flushSeen();
 });
 
 on("error", () => {
   run.gen++;
   run.pending = null;
 });
+
+// The input screen edits its value through screen props.
+export function updatePromptValue(value) {
+  const props = screenProps("input");
+  if (props) props.value = value;
+}

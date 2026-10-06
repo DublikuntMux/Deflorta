@@ -13,25 +13,28 @@ screens, preferences — is written in JavaScript** and executed by SpiderMonkey
 | Small footprint | One binary plus the game directory. Only the needed codecs/backends are compiled in. Small saves (~0.5 KB) due to replay-based state. |
 | Everything in JS | The native API is a handful of functions. The story runtime, screen system and all default screens are JS modules shipped inside the binary, and games can replace any of them. |
 
-Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D.
+Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (probably make own competing standard).
 
 ## Architecture
 
 ```
-            ┌─────────────────────── game/ (JS, images, audio, fonts) ───────────────────────┐
-            │  main.js  ──import──▶  "deflorta" (runtime, embedded in binary)                │
-            └────────────────────────────────────────────────────────────────────────────────┘
-                     ▲ __deflorta_dispatch(event)          │ __deflorta_pump() → {tree, cmds}
-                     │                                     ▼
-┌──────────── Rust ──┴─────────────────────────────────────┴──────────────────────────────────┐
+    ┌─────────────────────── game/ (JS, images, audio, fonts) ───────────────────────┐
+    │  main.js  ──import──▶  "deflorta" (runtime, embedded in binary)                │
+    └────────────────────────────────────────────────────────────────────────────────┘
+                     ▲ __deflorta_dispatch(event)          ▼ __deflorta_pump() → {tree, cmds}
+                     │                                     │
+┌──────────── Rust ──┴─────────────────────────────────────┴─────────────────────────────────┐
 │ script.rs   SpiderMonkey host: ES module loader, microtask queue, native __host API        │
-│ engine.rs   Engine core: routes input → JS, applies commands, owns timers/UI/audio          │
-│ ui/         Retained tree: diff, enter/exit animations, typewriter, taffy flexbox layout,   │
-│             hover + click bubbling, draw-list generation                                    │
-│ render/     wgpu: instanced SDF quads (rects, rounded corners, borders, images) + glyphon   │
-│ audio.rs    kira: music track (streaming, crossfades), sound track                          │
-│ assets.rs   sandboxed file access (no path may escape the game dir)                         │
-│ app.rs      winit front end          headless.rs  scripted front end (tests, screenshots)    │
+│ engine.rs   Engine core: routes input → JS, applies commands, owns timers/UI/audio,        │
+│             gates commits on image decoding, captures save thumbnails                      │
+│ ui/         Retained tree: diff, enter/exit/move animations, ATL interpreter, typewriter,  │
+│             rich text, taffy flex/grid layout, scrolling, focus navigation, widgets        │
+│ render/     wgpu: instanced SDF quads (rounded, bordered, rotated, masked, image/video)    │
+│             + glyphon text, offscreen capture                                              │
+│ video.rs    MP4 demux (mp4) + H.264 decode (OpenH264) on a background thread               │
+│ audio.rs    kira: music, sound, voice tracks; video soundtracks                            │
+│ assets.rs   sandboxed file access; background image decoding pool                          │
+│ app.rs      winit + gilrs front end   headless.rs  scripted front end (tests, screenshots) │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,13 +68,17 @@ The native API is deliberately tiny (`script.rs`):
 Everything else is message passing in JSON:
 
 - **Events** (Rust → JS): `boot`, `click {h, button, revealing}`,
+  `handler {h, value}` (slider changes, text input, video end),
   `key {key, down, repeat, ctrl, shift, alt, revealing}`, `wheel {dy}`,
-  `timer {id}`, `revealed`, `quit`.
+  `tooltip {text}`, `timer {id}`, `revealed`, `quit`.
 - **Commands** (JS → Rust): `config`, `timer`, `cancelTimer`, `music`,
-  `sound`, `volume`, `revealAll`, `fullscreen`, `quit`.
-- **UI tree**: nested `{t: "box"|"text"|"image", key, style, hover, onClick,
-  children, text, cps, src, fit, anchor, enter, exit}`. Click handlers are
-  replaced by indices when serialized; Rust reports the index back.
+  `sound`, `voice`, `volume`, `revealSkip`, `preload`, `captureThumbnail`,
+  `saveThumbnail`, `fullscreen`, `quit`.
+- **UI tree**: nested `{t: "box"|"text"|"image"|"slider"|"input"|"video",
+  key, style, hover, onClick/onChange/onInput/onSubmit/onEnd, tooltip,
+  focusable, autofocus, children, text | spans, cps, src, hoverSrc, fit,
+  anchor, enter, exit, move, transform, …}`. Handlers are replaced by indices
+  when serialized; Rust reports the index back.
 
 JSON was chosen over building JS objects through JSAPI: the trees are small,
 SpiderMonkey's `JSON.stringify` and serde are fast, and the boundary stays
@@ -85,9 +92,11 @@ relative imports load other game files. Modules are layered:
 | Module | Responsibility |
 |---|---|
 | `deflorta/core` | host bridge, timers (`setTimeout`), config, storage, event bus, error reporting |
-| `deflorta/ui` | elements (`box`, `text`, `img`, `button`), screen stack (z-order, modal, per-screen keys), serialization |
-| `deflorta/story` | images/tags, scene state, labels, `say`/`menu`/`pause`, store, rollback, save/load, input bindings, preferences |
-| `deflorta/screens` | default screens: dialogue window, choices, main menu, game menu (save/load/prefs), notifications, error screen |
+| `deflorta/text` | text-tag parser (`{b}`, `{w}`, `{ruby=…}` → spans), translations (`_()`, `tl/*.json`) |
+| `deflorta/ui` | elements and widgets, theme, screen stack (z-order, modal, per-screen keys), tooltips, serialization |
+| `deflorta/scene` | images, layered images, positions, transitions, ATL builder, scene state, music/sound |
+| `deflorta/story` | labels, `say`/`menu`/`prompt`/`pause`/`playMovie`, NVL, voice, history, store, persistent data, seen text, rollback, save/load/autosave, input bindings, preferences |
+| `deflorta/screens` | default screens: dialogue, NVL, quick menu, choices, input, movie, history, main menu, game menu (paged saves with thumbnails, sliders in preferences), confirm, notifications, tooltips, errors |
 | `deflorta` | public re-exports |
 
 Any default screen is replaced by calling `screen(name, render, options)` with
@@ -100,7 +109,7 @@ Story code is plain `async` JavaScript:
 ```js
 label("start", async () => {
   scene("bg room", { with: dissolve(1) });
-  await eileen`Hello!`;
+  await eileen("Hello!");
   if ((await menu(["Stay", "Leave"])) === "Leave") jump("outside");
 });
 ```
@@ -124,26 +133,62 @@ Requirements this places on story code (documented in the README): keep state
 in `store`, use `random()`/`randInt()` (seeded, saved), and await only engine
 functions. In return, saves are tiny and robust, and rollback is exact.
 
+The same model gives several Ren'Py features almost for free:
+
+- **History** entries remember their root and checkpoint, so clicking a line in
+  the backlog is a rollback to that checkpoint. A save stores the history from
+  before its root; replay re-adds the rest.
+- **NVL pages** are part of the scene snapshot, and each `say` appends to them
+  even while fast-forwarding, so pages rebuild themselves on load.
+- **Script updates**: a save records the *kind* of each checkpoint. If the
+  replayed script asks for something different (or jumps away early), the
+  engine notices the mismatch, restarts the scene from its root snapshot and
+  tells the player, instead of failing.
+- **Autosave** happens at the first interaction of every label and on quit,
+  rotating through six slots. Quick save/load use their own slot.
+- **Seen text** is a set of hashes of (label, line) in a separate file, so
+  skipping can stop at unread text.
+
 ### UI system
 
-- **Layout**: CSS flexbox through `taffy` (`position`, insets, sizes, padding,
-  margin, gap, flex direction/wrap/grow/shrink, justify/align). Text nodes are
-  measured with cosmic-text; words never break (CSS `overflow-wrap: normal`).
+- **Layout**: CSS flexbox and grid through `taffy` (`position`, insets, sizes,
+  padding, margin, gap, flex direction/wrap/grow/shrink, justify/align, equal
+  grid tracks, `overflow`). Text nodes are measured with cosmic-text; words
+  never break (CSS `overflow-wrap: normal`).
 - **Virtual resolution**: games lay out at a fixed size (e.g. 1280×720). The
   engine letterboxes and scales, and shapes text at the physical size so it
   stays crisp at any window size.
 - **Text**: inherited `color`, `fontSize`, `fontFamily`, `fontWeight`,
   `italic`, `lineHeight`, `textAlign`, `textShadow`. Fonts come from
-  `game/fonts`, so rendering is identical on every machine.
+  `game/fonts`, so rendering is identical on every machine. Rich text arrives
+  as spans (bold, italic, size, color, font, underline, strikethrough, ruby);
+  decorations and ruby annotations are placed from the shaped glyph layout.
+- **Typewriter**: spans carry timed waits, click-waits and a fast-forward
+  point. A click while typing shows text up to the next click-wait; a click at
+  a click-wait resumes typing. The current line is re-shaped only when its
+  visible length changes.
 - **Identity**: a node's id is its parent's id plus its `key` (or child index).
   Ids drive animation and typewriter state across re-renders.
 - **Animations**: `enter` (from-values) runs when a keyed node appears. When a
   keyed node disappears, its subtree is kept as a *ghost* at its old z-position
   with frozen layout while its `exit` animation plays. The story layer uses this
   for `dissolve`, `moveinright` and friends; the outgoing background is held
-  opaque underneath the incoming one for a true crossfade.
+  opaque underneath the incoming one for a true crossfade. Keyed nodes with
+  `move` animate from their previous layout position when it changes.
+- **Transforms**: an ATL-style program (`set`, tweens with easing, `pause`,
+  `parallel`, `repeat`) is interpreted in Rust each frame. It restarts only when
+  the program itself changes, so re-renders don't reset it. Transforms compose
+  as similarity transforms (scale, rotation, translation) down the tree.
+- **Masks**: transitions can reveal through an image (dark first), a wipe or
+  pixellation, evaluated in screen space in the quad shader. Exiting elements
+  use the inverted mask.
 - **Input**: hover styles are applied in Rust with no JS round trip; clicks
-  bubble from the topmost element to the nearest `onClick`.
+  bubble from the topmost element to the nearest handler. Arrow keys and
+  gamepads move focus spatially between focusable elements (nearest in the
+  direction pressed), and the focused element uses its `hover` style. Sliders
+  drag and step in Rust, text fields edit in Rust (IME commits included), and
+  both report changes to their handlers. Scroll containers clip their children
+  and scroll with the wheel and focus. Tooltips follow hover and focus.
 
 ### Rendering
 
@@ -154,15 +199,25 @@ functions. In return, saves are tiny and robust, and rollback is exact.
   follows text, which preserves painter's order with few draw calls.
 - Blending happens in sRGB space (non-sRGB targets, glyphon `ColorMode::Web`),
   so translucent UI matches CSS designs.
-- Textures load on first use and are evicted after 60 s unused. The adapter is
-  requested with `LowPower` and downlevel limits, so it runs on integrated GPUs
-  and GL-only hardware.
+- Images decode on a background pool. A new UI tree is held back (up to 1.5 s)
+  until its images are decoded, so a transition never starts with missing
+  pictures. `preload()` decodes ahead of time. Textures are evicted after 60 s
+  unused. The adapter is requested with `LowPower` and downlevel limits, so it
+  runs on integrated GPUs and GL-only hardware.
+- Clipping (overflow containers, letterbox) uses per-batch scissor rectangles.
+- **Video** frames come from a background decoding thread a few frames ahead,
+  paced by the wall clock, and are uploaded into a reused texture. The file's
+  AAC soundtrack plays on the music track through kira.
+- **Save thumbnails**: opening the game menu or quick-saving asks the front end
+  to render the current tree offscreen *before* the menu appears. The capture
+  is downscaled and written next to the save when the save happens.
 
 ### Headless mode
 
-`deflorta GAME --test steps.json` plays scripted input (`wait`, `click`, `key`,
-`wheel`) against an offscreen renderer and saves screenshots (`shot`). It's
-used for regression tests, CI, and store/press screenshots.
+`deflorta GAME --test steps.json` plays scripted input (`wait`, `move`,
+`click`, `release`, `key`, `type`, `wheel`) against an offscreen renderer and
+saves screenshots (`shot`). It's used for regression tests, CI, and store/press
+screenshots. `tests/demo.json` covers every feature of the demo.
 
 ## Footprint and performance (measured)
 
@@ -187,15 +242,11 @@ dominated by SpiderMonkey with JIT and Intl.
 
 Next steps, roughly in priority order:
 
-1. **Position tweens** (`move` transition) for keyed nodes whose layout changes.
-2. **Image prediction**: decode upcoming images on a worker thread (Ren'Py-style
-   lookahead), so large backgrounds never hitch.
-3. **Packaging**: `deflorta pack` into a single archive (zip/stored) read via
-   `Assets`, plus bytecode/stencil caching for faster startup.
-4. **TypeScript declarations** (`deflorta.d.ts`) for editor completion and type
+1. **Tooling**: a `deflorta` CLI (`new`, `pack` into a single archive,
+   per-platform builds), hot reload that replays to the current line, a
+   developer console, and lint (missing labels/images, unserializable state).
+2. **TypeScript declarations** (`deflorta.d.ts`) for editor completion and type
    checking.
-5. **Rich text tags** in dialogue (`{b}`, `{color}`, `{w}` pauses) mapped to
-   cosmic-text spans.
-6. Save thumbnails (offscreen capture already exists), seen-text tracking for
-   skip-unread, voice channel, text input, scroll containers with clipping,
-   gamepad navigation, hot reload of scripts during development.
+3. **More video codecs** (VP9/AV1 in WebM) and hardware decoding.
+4. Self-voicing (text to speech) and other accessibility options, plus
+   Steam/Discord integrations.
