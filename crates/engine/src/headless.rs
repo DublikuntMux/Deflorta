@@ -176,6 +176,7 @@ fn handle_requests(engine: &mut Engine, renderer: &mut Renderer) -> bool {
 fn tick(engine: &mut Engine, renderer: &mut Renderer) {
     engine.fire_timers();
     engine.poll();
+    engine.collect_unused_resources(renderer, Instant::now());
     handle_requests(engine, renderer);
     let now = Instant::now();
     engine.frame(now);

@@ -183,15 +183,21 @@ impl App {
     fn redraw(&mut self) {
         #[cfg(feature = "dev-console")]
         let frame_started = Instant::now();
+        let Some(renderer) = &mut self.renderer else {
+            return;
+        };
         #[cfg(feature = "dev-console")]
         if let (Some(console), Some(window)) = (&mut self.console, &self.window)
             && let Some(source) = console.show(window)
         {
             crate::dev_console::DevConsole::result(self.engine.evaluate_console(&source));
         }
-        let Some(renderer) = &mut self.renderer else {
-            return;
-        };
+        #[cfg(feature = "dev-console")]
+        if let Some(console) = &mut self.console {
+            for source in console.take_unloads() {
+                crate::dev_console::DevConsole::result(self.engine.unload_asset(renderer, &source));
+            }
+        }
         let now = Instant::now();
         let items = self.engine.frame(now);
         #[cfg(feature = "dev-console")]
@@ -518,6 +524,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         self.poll_gamepads();
         self.engine.fire_timers();
         self.engine.poll();
+        if let Some(renderer) = &mut self.renderer {
+            self.engine
+                .collect_unused_resources(renderer, Instant::now());
+        }
         self.handle_requests(event_loop);
         self.engine.idle();
         let polling = (self.engine.is_loading() || self.has_gamepads())
@@ -531,6 +541,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             };
         match [
             self.engine.next_timer(),
+            Some(self.engine.next_resource_cleanup()),
             polling,
             #[cfg(feature = "dev-console")]
             console_refresh,

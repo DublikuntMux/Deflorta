@@ -254,6 +254,66 @@ impl Audio {
         track.set_volume(decibels(volume), tween(0.1));
     }
 
+    /// Release handles once the mixer has finished their playback.
+    pub fn collect_finished(&mut self) {
+        use kira::sound::PlaybackState;
+        if self
+            .music
+            .as_ref()
+            .is_some_and(|(_, handle)| handle.state() == PlaybackState::Stopped)
+        {
+            self.music = None;
+        }
+        if self
+            .voice
+            .as_ref()
+            .is_some_and(|handle| handle.state() == PlaybackState::Stopped)
+        {
+            self.voice = None;
+            #[cfg(feature = "dev-console")]
+            {
+                self.voice_source = None;
+            }
+        }
+        // Keep stopped video IDs until their UI node leaves, so sync_videos does
+        // not restart a soundtrack that already reached its end.
+        #[cfg(feature = "dev-console")]
+        self.sounds
+            .retain(|(_, sound)| sound.state() != PlaybackState::Stopped);
+    }
+
+    /// Stops every playback allocation with this source ID.
+    #[cfg(feature = "dev-console")]
+    pub fn unload(&mut self, source: &str) -> bool {
+        let mut released = if self.music.as_ref().is_some_and(|(src, _)| src == source) {
+            let (_, mut handle) = self.music.take().unwrap();
+            handle.stop(tween(0.0));
+            true
+        } else {
+            false
+        };
+        if self.voice_source.as_deref() == Some(source) {
+            if let Some(mut handle) = self.voice.take() {
+                handle.stop(tween(0.0));
+                released = true;
+            }
+            self.voice_source = None;
+        }
+        if let Some(mut handle) = self.videos.remove(source) {
+            handle.stop(tween(0.0));
+            released = true;
+        }
+        self.sounds.retain_mut(|(src, handle)| {
+            if src != source {
+                return true;
+            }
+            handle.stop(tween(0.0));
+            released = true;
+            false
+        });
+        released
+    }
+
     #[cfg(feature = "dev-console")]
     pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
         use crate::dev_console::diagnostics::LoadedAsset;

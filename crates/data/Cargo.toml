@@ -8,14 +8,11 @@ license.workspace = true
 [lints]
 workspace = true
 
-[features]
-media = ["dep:symphonia-core"]
-
 [dependencies]
 anyhow.workspace = true
 serde.workspace = true
 log.workspace = true
+lz4r.workspace = true
 # Same version as for cosmic-text
-fontdb = { version = "0.23.0", default-features = false, features = ["std"] }
-symphonia-core = { version = "0.6.1", optional = true }
-lz4.workspace = true
+fontdb = "0.23.0"
+symphonia-core = "0.6.1"

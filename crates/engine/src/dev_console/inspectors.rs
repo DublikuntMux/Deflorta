@@ -75,6 +75,11 @@ impl Inspectors {
         self.dirty[index] = true;
     }
 
+    pub const fn invalidate_resources(&mut self) {
+        self.dirty[Inspector::Assets.index()] = true;
+        self.dirty[Inspector::Stats.index()] = true;
+    }
+
     pub fn record_frame(&mut self, elapsed: Duration) {
         self.frames.count += 1;
         self.frames.total += elapsed;
@@ -195,7 +200,7 @@ impl Inspectors {
         ]);
     }
 
-    pub fn show(&mut self, context: &egui::Context) {
+    pub fn show(&mut self, context: &egui::Context, unloads: &mut Vec<String>) {
         for kind in Inspector::ALL {
             let mut open = self.open[kind.index()];
             if !open {
@@ -215,7 +220,9 @@ impl Inspectors {
                     ui.separator();
                     match kind {
                         Inspector::Accessibility => show_tree(ui, self.tree.as_ref()),
-                        Inspector::Assets => show_assets(ui, &self.assets, &mut self.asset_filter),
+                        Inspector::Assets => {
+                            show_assets(ui, &self.assets, &mut self.asset_filter, unloads);
+                        }
                         Inspector::Stats => show_stats(ui, &self.stats),
                     }
                 });
@@ -241,7 +248,12 @@ fn show_stats(ui: &mut egui::Ui, values: &[(String, String)]) {
         });
 }
 
-fn show_assets(ui: &mut egui::Ui, assets: &[LoadedAsset], filter: &mut String) {
+fn show_assets(
+    ui: &mut egui::Ui,
+    assets: &[LoadedAsset],
+    filter: &mut String,
+    unloads: &mut Vec<String>,
+) {
     ui.add(egui::TextEdit::singleline(filter).hint_text("Filter source, kind or state"));
     let needle = filter.to_lowercase();
     let visible = assets
@@ -257,6 +269,9 @@ fn show_assets(ui: &mut egui::Ui, assets: &[LoadedAsset], filter: &mut String) {
         visible.len(),
         assets.len()
     ));
+    ui.small(
+        "Source = asset ID · referenced images reload on draw · unloading media stops playback",
+    );
     egui::ScrollArea::both()
         .auto_shrink([false, false])
         .show_rows(
@@ -266,6 +281,16 @@ fn show_assets(ui: &mut egui::Ui, assets: &[LoadedAsset], filter: &mut String) {
             |ui, range| {
                 for &asset in &visible[range] {
                     ui.horizontal(|ui| {
+                        let unload =
+                            ui.add_enabled(asset.can_unload(), egui::Button::new("Unload"));
+                        if unload
+                            .on_disabled_hover_text(
+                                "Fonts and JavaScript modules stay loaded for the game session.",
+                            )
+                            .clicked()
+                        {
+                            unloads.push(asset.source.clone());
+                        }
                         ui.strong(asset.kind);
                         ui.monospace(&asset.source);
                         ui.label(&asset.state);
@@ -342,6 +367,71 @@ mod tests {
     use super::*;
 
     #[test]
+    fn force_unload_button_queues_the_asset_id_and_pinned_assets_are_disabled() {
+        let context = egui::Context::default();
+        let assets = vec![
+            LoadedAsset {
+                kind: "Image",
+                source: "images/title screen.png?2".into(),
+                state: "Uploaded".into(),
+                detail: String::new(),
+                bytes: None,
+            },
+            LoadedAsset {
+                kind: "Font",
+                source: "ExampleFont".into(),
+                state: "Loaded face".into(),
+                detail: String::new(),
+                bytes: None,
+            },
+        ];
+        let mut filter = String::new();
+        let mut unloads = Vec::new();
+        let mut draw = |events| {
+            context.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    show_assets(ui, &assets, &mut filter, &mut unloads);
+                },
+            )
+        };
+        let mut output = draw(Vec::new());
+        let buttons = output
+            .shapes
+            .iter()
+            .filter_map(|shape| {
+                if let egui::epaint::Shape::Text(text) = &shape.shape
+                    && text.galley.text() == "Unload"
+                {
+                    Some(text.visual_bounding_rect().center())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(buttons.len(), 2);
+        output.textures_delta.clear();
+        for position in buttons {
+            for pressed in [true, false] {
+                let mut output = draw(vec![
+                    egui::Event::PointerMoved(position),
+                    egui::Event::PointerButton {
+                        pos: position,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ]);
+                output.textures_delta.clear();
+            }
+        }
+        assert_eq!(unloads, ["images/title screen.png?2"]);
+    }
+
+    #[test]
     fn windows_and_reports_are_independent_and_egui_can_draw_them() {
         let mut inspectors = Inspectors::default();
         assert!(!inspectors.any_open());
@@ -355,7 +445,7 @@ mod tests {
         assert!(inspectors.open.into_iter().all(|open| open));
         let context = egui::Context::default();
         let mut output = context.run_ui(egui::RawInput::default(), |root| {
-            inspectors.show(root.ctx());
+            inspectors.show(root.ctx(), &mut Vec::new());
         });
         assert_ne!(output.shapes.len(), 0);
         output.textures_delta.clear();
@@ -439,5 +529,42 @@ mod tests {
         assert!(diagnostics::tree_report(inspectors.tree.as_ref().unwrap()).contains("Closed"));
         assert!(!inspectors.any_open());
         assert!(!inspectors.requested[Inspector::Accessibility.index()]);
+
+        assert_resource_unloading(&mut engine, &mut renderer);
+    }
+
+    fn assert_resource_unloading(engine: &mut Engine, renderer: &mut Renderer) {
+        assert!(
+            engine
+                .unload_asset(renderer, "main.js")
+                .unwrap_err()
+                .to_string()
+                .contains("stay loaded")
+        );
+        assert!(
+            engine
+                .unload_asset(renderer, "unknown.png")
+                .unwrap_err()
+                .to_string()
+                .contains("not loaded")
+        );
+        engine.assets.request("unused.png");
+        engine.take_requests();
+        engine.unload_asset(renderer, "unused.png").unwrap();
+        assert!(
+            !engine
+                .loaded_assets()
+                .iter()
+                .any(|asset| asset.source == "unused.png")
+        );
+        assert!(engine.take_requests().redraw);
+        engine.assets.request("expired-preload.png");
+        engine.collect_unused_resources(renderer, Instant::now() + crate::assets::ASSET_IDLE_LIMIT);
+        assert!(
+            !engine
+                .loaded_assets()
+                .iter()
+                .any(|asset| asset.source == "expired-preload.png")
+        );
     }
 }

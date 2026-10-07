@@ -11,6 +11,7 @@ use num_traits::{AsPrimitive, ToPrimitive};
 
 use crate::assets::Assets;
 use crate::audio::Audio;
+use crate::render::Renderer;
 use crate::script::{Command, Event, GameConfig, HandlerValue, ScriptHost, UiCommit};
 use crate::ui::desc::{AnimDesc, Color, NodeDesc};
 use crate::ui::{DrawItem, InputEvent, Nav, Ui};
@@ -22,6 +23,9 @@ const MAX_TIMERS_PER_TICK: usize = 64;
 
 /// Longest a new screen waits for its images to finish decoding.
 const IMAGE_WAIT_LIMIT: Duration = Duration::from_millis(1500);
+
+/// Maintenance also runs when the event-driven renderer is asleep.
+const RESOURCE_CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Width of save thumbnails in pixels.
 const THUMBNAIL_WIDTH: u32 = 384;
@@ -86,6 +90,7 @@ pub struct Engine {
     /// Thumbnails to write once the pending capture arrives.
     thumbnail_names: Vec<String>,
     text_input: bool,
+    next_resource_cleanup: Instant,
 }
 
 impl Engine {
@@ -112,6 +117,7 @@ impl Engine {
             thumbnail: None,
             thumbnail_names: Vec::new(),
             text_input: false,
+            next_resource_cleanup: Instant::now() + RESOURCE_CLEANUP_INTERVAL,
         };
         engine.flush();
         engine
@@ -151,6 +157,39 @@ impl Engine {
             assets.extend(audio.loaded_assets());
         }
         assets
+    }
+
+    /// Releases all allocations associated with a developer-visible asset ID.
+    #[cfg(feature = "dev-console")]
+    pub fn unload_asset(
+        &mut self,
+        renderer: &mut Renderer,
+        source: &str,
+    ) -> anyhow::Result<String> {
+        let mut released = self.assets.forget(source);
+        released |= renderer.unload_texture(source);
+        for (texture, video_source) in self.ui.unload_video(source) {
+            renderer.unload_texture(&texture);
+            if let Some(audio) = &mut self.audio {
+                audio.unload(&video_source);
+            }
+            released = true;
+        }
+        if let Some(audio) = &mut self.audio {
+            released |= audio.unload(source);
+        }
+        if !released {
+            if let Some(asset) = self
+                .loaded_assets()
+                .iter()
+                .find(|asset| asset.source == source)
+            {
+                anyhow::bail!("{} assets stay loaded for the game session.", asset.kind);
+            }
+            anyhow::bail!("Asset '{source}' is not loaded. Use assets to list asset IDs.");
+        }
+        self.requests.redraw = true;
+        Ok(format!("Unloaded asset '{source}'."))
     }
 
     #[cfg(feature = "dev-console")]
@@ -399,12 +438,17 @@ impl Engine {
     }
 
     /// True while background work (image decoding) may change what is shown.
-    pub const fn is_loading(&self) -> bool {
-        self.pending.is_some() || matches!(self.capture, Some(CaptureTiming::Settling(_)))
+    pub fn is_loading(&self) -> bool {
+        self.assets.has_pending()
+            || self.pending.is_some()
+            || matches!(self.capture, Some(CaptureTiming::Settling(_)))
     }
 
     /// Advances background work; call regularly while `is_loading`.
     pub fn poll(&mut self) {
+        if self.assets.poll() {
+            self.requests.redraw = true;
+        }
         self.try_commit();
         self.check_settled();
     }
@@ -695,6 +739,27 @@ impl Engine {
 
     pub fn next_timer(&self) -> Option<Instant> {
         self.timers.iter().map(|(due, _)| *due).min()
+    }
+
+    pub const fn next_resource_cleanup(&self) -> Instant {
+        self.next_resource_cleanup
+    }
+
+    pub fn collect_unused_resources(&mut self, renderer: &mut Renderer, now: Instant) {
+        if now < self.next_resource_cleanup {
+            return;
+        }
+        self.next_resource_cleanup = now + RESOURCE_CLEANUP_INTERVAL;
+        let mut retained = self.ui.retained_assets(now);
+        if let Some(pending) = &self.pending {
+            let mut images = Vec::new();
+            Ui::collect_images(&pending.tree, &mut images);
+            retained.extend(images);
+        }
+        renderer.collect_unused(&mut self.assets, &retained, now);
+        if let Some(audio) = &mut self.audio {
+            audio.collect_finished();
+        }
     }
 
     /// Lets the JS engine collect garbage while idle.

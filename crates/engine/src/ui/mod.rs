@@ -327,6 +327,53 @@ impl Ui {
         }
     }
 
+    /// Sources the current tree may draw, including hover images and live exit masks.
+    pub fn retained_assets(&self, now: Instant) -> HashSet<String> {
+        let mut sources = Vec::new();
+        for (index, node) in self.nodes.iter().enumerate() {
+            if self.ancestors(index).any(|i| {
+                self.nodes[i]
+                    .ghost
+                    .as_ref()
+                    .is_some_and(|ghost| ghost.finished(now))
+            }) {
+                continue;
+            }
+            Self::collect_images(&node.desc, &mut sources);
+            for animation in [node.ghost.as_ref(), self.enters.get(&node.id)]
+                .into_iter()
+                .flatten()
+            {
+                if let Some(desc::MaskDesc::Image { src, .. }) = &animation.spec.mask {
+                    sources.push(src.clone());
+                }
+            }
+            if self.videos.contains_key(&node.id) {
+                sources.push(format!("video:{}", node.id));
+            }
+        }
+        sources.into_iter().collect()
+    }
+
+    /// Stops video decoders by source or by their GPU asset ID.
+    #[cfg(feature = "dev-console")]
+    pub fn unload_video(&mut self, source: &str) -> Vec<(String, String)> {
+        let video_source = self.videos.iter().find_map(|(id, video)| {
+            (format!("video:{id}") == source).then(|| video.src().to_owned())
+        });
+        let source = video_source.as_deref().unwrap_or(source);
+        let mut released = Vec::new();
+        self.videos.retain(|id, video| {
+            let texture = format!("video:{id}");
+            if video.src() != source {
+                return true;
+            }
+            released.push((texture, video.src().to_owned()));
+            false
+        });
+        released
+    }
+
     // -----------------------------------------------------------------------
     // Commit
     // -----------------------------------------------------------------------
@@ -707,6 +754,55 @@ fn inherit_text(parent: &TextStyle, style: &Style) -> TextStyle {
 mod tests {
     use super::*;
     use desc::Dim;
+
+    #[test]
+    fn retained_assets_preserve_hover_and_exit_masks_until_the_ghost_finishes() {
+        let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut ui = Ui::new(TextSystem::new(&files));
+        let assets = Assets::new(files);
+        let now = Instant::now();
+        let old: NodeDesc = serde_json::from_value(serde_json::json!({
+            "children": [{
+                "key": "old", "t": "image", "src": "old.png", "hoverSrc": "old-hover.png",
+                "children": [{ "t": "image", "src": "ghost-child.png" }]
+            }]
+        }))
+        .unwrap();
+        ui.commit(old, true, &HashMap::new(), &assets, now);
+        let transition: AnimDesc = serde_json::from_value(serde_json::json!({
+            "dur": 2.0, "mask": {"kind": "image", "src": "exit-mask.png"}
+        }))
+        .unwrap();
+        let new: NodeDesc = serde_json::from_value(serde_json::json!({
+            "children": [{ "t": "image", "src": "current.png", "hoverSrc": "hover.png" }]
+        }))
+        .unwrap();
+        ui.commit(
+            new,
+            false,
+            &HashMap::from([("old".into(), Some(transition))]),
+            &assets,
+            now,
+        );
+        assert_eq!(
+            ui.retained_assets(now),
+            HashSet::from(
+                [
+                    "old.png",
+                    "old-hover.png",
+                    "ghost-child.png",
+                    "exit-mask.png",
+                    "current.png",
+                    "hover.png"
+                ]
+                .map(str::to_owned)
+            )
+        );
+        assert_eq!(
+            ui.retained_assets(now + std::time::Duration::from_secs(2)),
+            HashSet::from(["current.png".to_owned(), "hover.png".to_owned()])
+        );
+    }
 
     #[test]
     fn input_between_commit_and_draw_ignores_previous_tree() {

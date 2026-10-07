@@ -12,7 +12,7 @@ workspace = true
 dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu", "dep:sysinfo", "wgpu/counters"]
 
 [dependencies]
-deflorta-data = { workspace = true, features = ["media"] }
+deflorta-data.workspace = true
 egui = { version = "0.36.2", optional = true }
 egui-winit = { version = "0.36.2", default-features = false, features = ["clipboard", "wayland", "x11"], optional = true }
 egui-wgpu = { version = "0.36.2", default-features = false, optional = true }

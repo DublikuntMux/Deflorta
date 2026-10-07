@@ -216,7 +216,6 @@ impl Seek for GameReader {
     }
 }
 
-#[cfg(feature = "media")]
 impl symphonia_core::io::MediaSource for GameReader {
     fn is_seekable(&self) -> bool {
         true

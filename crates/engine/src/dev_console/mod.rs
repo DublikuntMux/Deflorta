@@ -120,6 +120,7 @@ pub struct DevConsole {
     pixels_per_point: f32,
     next_repaint: Option<Instant>,
     inspectors: inspectors::Inspectors,
+    unloads: Vec<String>,
 }
 
 impl DevConsole {
@@ -156,6 +157,7 @@ impl DevConsole {
             pixels_per_point: 1.0,
             next_repaint: None,
             inspectors: inspectors::Inspectors::default(),
+            unloads: Vec::new(),
         }
     }
 
@@ -281,7 +283,7 @@ impl DevConsole {
                                     egui::Modifiers::SHIFT,
                                     Key::Enter,
                                 )))
-                                .hint_text("help · accessibility · assets · stats · JavaScript…"),
+                                .hint_text("help · accessibility · assets · unload <asset id> · stats · JavaScript…"),
                         );
                         if self.focus_prompt {
                             prompt.request_focus();
@@ -300,7 +302,7 @@ impl DevConsole {
                         });
                     });
             }
-            self.inspectors.show(root.ctx());
+            self.inspectors.show(root.ctx(), &mut self.unloads);
         });
         self.open = open;
         self.next_repaint = output
@@ -327,6 +329,8 @@ impl DevConsole {
         if let Some(parsed) = command.as_deref().and_then(commands::parse) {
             match parsed {
                 Ok(commands::Command::Help(kind)) => print_report(&commands::help(kind)),
+                Ok(commands::Command::HelpUnload) => print_report(commands::UNLOAD_HELP),
+                Ok(commands::Command::Unload { source }) => self.unloads.push(source),
                 Ok(commands::Command::Inspect { kind, window }) => {
                     self.inspectors.request(kind, window);
                 }
@@ -335,6 +339,13 @@ impl DevConsole {
             command = None;
         }
         command
+    }
+
+    pub fn take_unloads(&mut self) -> Vec<String> {
+        if !self.unloads.is_empty() {
+            self.inspectors.invalidate_resources();
+        }
+        std::mem::take(&mut self.unloads)
     }
 
     fn show_logs(&mut self, ui: &mut egui::Ui) {

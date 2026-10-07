@@ -83,7 +83,7 @@ become one `main.js`, minified with oxc; engine imports refer to the runtime
 embedded in the launcher. Use `--no-minify` for a readable bundle,
 `--emit-js FILE` to inspect it, and `-o FILE` to choose the archive path.
 Packing and reading use the pure Rust `lz4r` implementation. `bundle` and
-`publish` use LZ4HC at level 9 by default; `--level 2` through `--level 12` select
+`publish` use LZ4HC at level 12 by default; `--level 2` through `--level 12` select
 the HC compression effort, while `--level 1` selects fast compression.
 
 The version 2 `.dm` format has an LZ4-framed index of paths, file sizes and chunk
@@ -93,8 +93,6 @@ compressed media and blocks that do not shrink are stored verbatim. The engine
 reads and seeks through the archive directly, including streaming movies and
 audio. Tooling files and the `build/`, `dist/`, and `node_modules/` directories
 are excluded from game assets.
-Version 1 archives used raw LZ4 blocks and must be rebuilt with `bundle` or
-`publish`; version 2 launchers reject that old format.
 
 `publish` checks the project, bundles it, boots the bundle, and copies the
 runtime beside `game.dm`. Players run the named executable; it locates the
@@ -341,13 +339,25 @@ exceptions appear in the log. The console has these diagnostic commands:
 | `help [command]` | List commands and descriptions, or explain one command. |
 | `accessibility [--window]` | Inspect the current AccessKit tree, including node IDs, roles, labels, properties and focus. |
 | `assets [--window]` | List cached images and their decode/upload states, resident GPU textures, active audio/video, fonts and JavaScript modules. |
+| `unload <asset id>` | Unload an image, GPU texture or audio/video playback using its source/ID from `assets`. Also accepts `assets unload <asset id>`. |
 | `stats [--window]` | Show process CPU, memory, disk I/O, redraw timings, GPU resources and engine counts. |
 
 Diagnostics print a snapshot by default. For example, `accessibility --window`,
 `assets --window` and `stats --window` each open a separate floating egui window
 that refreshes every 500 ms. These windows remain open when **F12** hides the
-console; close them individually with **×**. The asset window supports filtering,
-and the accessibility window shows an expandable tree with node properties.
+console; close them individually with **×**. The asset window supports filtering
+and **Unload** buttons, and the accessibility window shows an expandable
+tree with node properties.
+
+Unreferenced images, preloads, failed loads, cached dimensions and GPU textures
+expire after 60 seconds, checked every 5 seconds even while the game is idle.
+Current and incoming scenes, hover images and live transition masks stay loaded.
+Finished audio handles are also cleaned up. Forced unload releases the CPU and GPU
+allocations together; late decoder results are discarded. Images still referenced
+by the UI reload on the next draw, and forced audio/video unload stops playback.
+Fonts and JavaScript modules stay loaded for the game session and have disabled
+unload buttons. Asset IDs preserve spaces and `?query` suffixes, for example
+`unload images/background.png` or `assets unload "images/title screen.png?2"`.
 
 CPU measurements cover the game process (100% means one CPU core) and need a
 second sample after warm-up. Redraw timings include the inspectors. GPU memory

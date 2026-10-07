@@ -15,6 +15,15 @@ pub struct LoadedAsset {
     pub bytes: Option<u64>,
 }
 
+impl LoadedAsset {
+    pub fn can_unload(&self) -> bool {
+        matches!(
+            self.kind,
+            "Image" | "GPU texture" | "Video" | "Music" | "Voice" | "Sound" | "Video audio"
+        )
+    }
+}
+
 #[derive(Default)]
 pub struct GpuStats {
     pub adapter: String,
@@ -110,7 +119,7 @@ pub fn bytes(value: u64) -> String {
 
 pub fn asset_report(assets: &[LoadedAsset]) -> String {
     let mut report = format!(
-        "{} loaded asset records (streamed media has no full-file memory estimate):\n",
+        "{} loaded asset records (source = asset ID; streamed media has no full-file memory estimate):\n",
         assets.len()
     );
     for asset in assets {

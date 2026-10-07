@@ -3,9 +3,9 @@
 //! keep their painter's order. Colors are blended in sRGB space like browsers.
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use bytemuck::{Pod, Zeroable};
@@ -19,13 +19,10 @@ use wgpu::util::DeviceExt;
 use wgpu::{CommandEncoderDescriptor, PipelineCompilationOptions, TextureViewDescriptor};
 use winit::window::Window;
 
-use crate::assets::Assets;
+use crate::assets::{ASSET_IDLE_LIMIT, Assets};
 use crate::ui::desc::Color;
 use crate::ui::{DrawItem, ImageRef, Quad, Rect, TextDraw, Ui};
 use crate::util::math::{clamp_to_u32, saturating_i32};
-
-/// Textures unused for this long are released.
-const TEXTURE_IDLE_LIMIT: Duration = Duration::from_secs(60);
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -49,9 +46,13 @@ struct Globals {
 struct Texture {
     raw: wgpu::Texture,
     bind_group: wgpu::BindGroup,
-    last_used: Instant,
     /// Video frame serial last uploaded.
     serial: u64,
+}
+
+struct CachedTexture {
+    texture: Option<Texture>,
+    last_used: Instant,
 }
 
 /// Draw batches share a texture, a mask texture and a clip rectangle.
@@ -97,7 +98,7 @@ pub struct Renderer {
     texture_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
     white: wgpu::BindGroup,
-    textures: HashMap<String, Option<Texture>>,
+    textures: HashMap<String, CachedTexture>,
     instance_buffer: wgpu::Buffer,
     instance_capacity: usize,
     atlas: TextAtlas,
@@ -112,7 +113,7 @@ impl Renderer {
         self.textures
             .iter()
             .filter_map(|(source, texture)| {
-                let texture = texture.as_ref()?;
+                let texture = texture.texture.as_ref()?;
                 let (w, h) = (texture.raw.width(), texture.raw.height());
                 Some(crate::dev_console::diagnostics::LoadedAsset {
                     kind: "GPU texture",
@@ -458,12 +459,7 @@ impl Renderer {
         (texture, bind_group)
     }
 
-    fn texture_from_pixels(
-        &self,
-        img: &image::RgbaImage,
-        now: Instant,
-        serial: u64,
-    ) -> Option<Texture> {
+    fn texture_from_pixels(&self, img: &image::RgbaImage, serial: u64) -> Option<Texture> {
         let (w, h) = img.dimensions();
         let limit = self.device.limits().max_texture_dimension_2d;
         if w == 0 || h == 0 || w > limit || h > limit {
@@ -483,7 +479,6 @@ impl Renderer {
         Some(Texture {
             raw: texture,
             bind_group,
-            last_used: now,
             serial,
         })
     }
@@ -494,18 +489,30 @@ impl Renderer {
         let Some((serial, frame)) = &image.frame else {
             return self.ensure_image(&image.src, assets, now);
         };
-        let reusable = matches!(
-            self.textures.get(&image.src),
-            Some(Some(t)) if t.raw.width() == frame.width() && t.raw.height() == frame.height()
-        );
+        let reusable = self
+            .textures
+            .get(&image.src)
+            .and_then(|cached| cached.texture.as_ref())
+            .is_some_and(|texture| {
+                texture.raw.width() == frame.width() && texture.raw.height() == frame.height()
+            });
         if !reusable {
-            let texture = self.texture_from_pixels(frame, now, *serial);
-            self.textures.insert(image.src.clone(), texture);
+            let texture = self.texture_from_pixels(frame, *serial);
+            self.textures.insert(
+                image.src.clone(),
+                CachedTexture {
+                    texture,
+                    last_used: now,
+                },
+            );
         }
-        let Some(Some(texture)) = self.textures.get_mut(&image.src) else {
+        let Some(cached) = self.textures.get_mut(&image.src) else {
             return false;
         };
-        texture.last_used = now;
+        cached.last_used = now;
+        let Some(texture) = cached.texture.as_mut() else {
+            return false;
+        };
         if texture.serial != *serial {
             texture.serial = *serial;
             self.queue.write_texture(
@@ -523,22 +530,35 @@ impl Renderer {
     }
 
     fn ensure_image(&mut self, src: &str, assets: &mut Assets, now: Instant) -> bool {
+        assets.request(src);
         if !self.textures.contains_key(src) {
             match assets.take_pixels(src) {
                 Some(img) => {
-                    let texture = self.texture_from_pixels(&img, now, 0);
-                    self.textures.insert(src.to_owned(), texture);
+                    let texture = self.texture_from_pixels(&img, 0);
+                    self.textures.insert(
+                        src.to_owned(),
+                        CachedTexture {
+                            texture,
+                            last_used: now,
+                        },
+                    );
                 }
                 None if assets.is_settled(src) => {
-                    self.textures.insert(src.to_owned(), None);
+                    self.textures.insert(
+                        src.to_owned(),
+                        CachedTexture {
+                            texture: None,
+                            last_used: now,
+                        },
+                    );
                 }
                 None => return false,
             }
         }
         match self.textures.get_mut(src) {
-            Some(Some(texture)) => {
-                texture.last_used = now;
-                true
+            Some(cached) => {
+                cached.last_used = now;
+                cached.texture.is_some()
             }
             _ => false,
         }
@@ -727,7 +747,7 @@ impl Renderer {
                 key.as_ref().map_or(Some(&self.white), |src| {
                     self.textures
                         .get(src)
-                        .and_then(|t| t.as_ref())
+                        .and_then(|t| t.texture.as_ref())
                         .map(|t| &t.bind_group)
                 })
             };
@@ -762,13 +782,24 @@ impl Renderer {
         Ok(encoder.finish())
     }
 
-    fn finish_frame(&mut self, assets: &mut Assets) {
-        self.atlas.trim();
-        let now = Instant::now();
+    /// Drops both successful and failed GPU cache entries for an asset ID.
+    pub fn unload_texture(&mut self, src: &str) -> bool {
+        self.textures.remove(src).is_some()
+    }
+
+    /// Coordinated CPU/GPU cleanup, also callable without rendering a frame.
+    pub fn collect_unused(
+        &mut self,
+        assets: &mut Assets,
+        retained: &HashSet<String>,
+        now: Instant,
+    ) {
+        for src in assets.collect_unused(retained, now) {
+            self.unload_texture(&src);
+        }
         self.textures.retain(|src, t| {
-            let keep = t
-                .as_ref()
-                .is_none_or(|t| now.duration_since(t.last_used) < TEXTURE_IDLE_LIMIT);
+            let keep = retained.contains(src)
+                || now.saturating_duration_since(t.last_used) < ASSET_IDLE_LIMIT;
             if !keep {
                 assets.forget(src);
             }
@@ -867,7 +898,7 @@ impl Renderer {
                 surface.configure(&self.device, config);
             }
         }
-        self.finish_frame(assets);
+        self.atlas.trim();
         Ok(())
     }
 
@@ -1048,6 +1079,55 @@ fn quad_instance(quad: &Quad) -> QuadInstance {
 #[cfg(test)]
 mod tests {
     use super::{Rect, scissor};
+
+    #[test]
+    #[ignore = "Requires a native GPU adapter"]
+    fn cleanup_releases_cpu_gpu_and_failed_video_entries_and_images_reload() {
+        use super::*;
+        use std::time::Duration;
+
+        let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut assets = Assets::new(files);
+        let mut renderer = pollster::block_on(Renderer::offscreen(32, 32)).unwrap();
+        let source = "images/masks/clouds.png";
+        let wait_for_image = |assets: &mut Assets| {
+            assets.request(source);
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !assets.is_settled(source) {
+                assert!(Instant::now() < deadline, "image decoding timed out");
+                assets.poll();
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+        wait_for_image(&mut assets);
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+        let now = Instant::now();
+        let retained = HashSet::from([source.to_owned()]);
+        renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
+        assert!(renderer.textures.contains_key(source));
+        assert!(assets.is_settled(source));
+        renderer.collect_unused(&mut assets, &HashSet::new(), now + ASSET_IDLE_LIMIT * 2);
+        assert!(!renderer.textures.contains_key(source));
+        assert!(!assets.is_settled(source));
+
+        wait_for_image(&mut assets);
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+        assert!(renderer.unload_texture(source));
+        assert!(assets.forget(source));
+        wait_for_image(&mut assets);
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+
+        let invalid = ImageRef {
+            src: "video:/invalid".into(),
+            uv: [0.0; 4],
+            frame: Some((1, Arc::new(image::RgbaImage::new(0, 0)))),
+        };
+        assert!(!renderer.ensure_texture(&invalid, &mut assets, now));
+        assert!(renderer.textures.contains_key(&invalid.src));
+        renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
+        assert!(!renderer.textures.contains_key(&invalid.src));
+        assert!(renderer.textures.contains_key(source));
+    }
 
     #[test]
     fn scissor_rounds_outward_and_clips_to_surface() {
