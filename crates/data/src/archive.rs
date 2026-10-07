@@ -4,14 +4,15 @@
 //! ```text
 //! header   magic "DEFLORTA" | version u32 | block size u32
 //!          | stored index size u32 | index size u32
-//! index    LZ4 block (written with LZ4HC):
+//! index    LZ4 frame:
 //!          block count u32, then per block: stored size u32, flags u8
 //!          entry count u32, then per entry: path length u16, UTF-8 path,
 //!          size u64, first block u32
-//! blocks   each file is split into `block size` chunks, compressed independently
+//! blocks   each file is split into `block size` chunks, each compressed chunk
+//!          is an independent LZ4 frame with a content checksum
 //! ```
 //!
-//! All integers are little-endian. A block is LZ4-compressed when its flags
+//! All integers are little-endian. A block is an LZ4 frame when its flags
 //! have [`BLOCK_COMPRESSED`] set and stored verbatim otherwise. Blocks of one
 //! file are consecutive, so any byte of a file can be read by decompressing a
 //! single block; media streams straight from the archive.
@@ -25,13 +26,13 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result, bail, ensure};
 
 pub const MAGIC: [u8; 8] = *b"DEFLORTA";
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 /// Uncompressed size of every block except the last block of a file.
 pub const BLOCK_SIZE: u32 = 128 * 1024;
 pub const HEADER_SIZE: usize = 24;
 /// Maximum decoded index size; prevents corrupt headers from allocating gigabytes.
 pub const MAX_INDEX_SIZE: u32 = 64 * 1024 * 1024;
-/// Block flag: the block is LZ4-compressed.
+/// Block flag: the block contains an LZ4 frame.
 pub const BLOCK_COMPRESSED: u8 = 1;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -135,6 +136,40 @@ fn decode_header_field(header: &[u8; HEADER_SIZE], offset: usize) -> Result<u32>
     Ok(u32::from_le_bytes(bytes.try_into()?))
 }
 
+/// Decode one complete frame into an exactly sized buffer, checking its footer
+/// and rejecting trailing bytes or decoded data beyond the archive's size.
+pub fn decompress_frame(stored: &[u8], size: usize) -> Result<Vec<u8>> {
+    use lz4::frame::types::LZ4F_VERSION;
+    use lz4::frame::{lz4f_create_decompression_context, lz4f_decompress};
+
+    let mut context = lz4f_create_decompression_context(LZ4F_VERSION)?;
+    let mut output = vec![0; size];
+    let mut source_pos = 0;
+    let mut output_pos = 0;
+    loop {
+        let (consumed, written, hint) = lz4f_decompress(
+            &mut context,
+            Some(&mut output[output_pos..]),
+            &stored[source_pos..],
+            None,
+        )?;
+        source_pos += consumed;
+        output_pos += written;
+        if hint == 0 {
+            ensure!(source_pos == stored.len(), "LZ4 frame has trailing data");
+            ensure!(
+                output_pos == size,
+                "LZ4 frame size does not match the archive"
+            );
+            return Ok(output);
+        }
+        ensure!(
+            consumed > 0 || written > 0,
+            "LZ4 frame is truncated or exceeds the archive size"
+        );
+    }
+}
+
 struct BlockInfo {
     offset: u64,
     stored_size: u32,
@@ -198,12 +233,8 @@ impl Archive {
         let mut stored = vec![0; usize::try_from(stored_index_size)?];
         file.read_exact(&mut stored)
             .context("archive index is truncated")?;
-        let index = lz4_flex::block::decompress(&stored, usize::try_from(index_size)?)
+        let index = decompress_frame(&stored, usize::try_from(index_size)?)
             .context("archive index is corrupt")?;
-        ensure!(
-            index.len() == usize::try_from(index_size)?,
-            "archive index size does not match the header"
-        );
         let index = Index::decode(&index)?;
 
         let mut offset = u64::try_from(HEADER_SIZE + stored.len())?;
@@ -342,11 +373,7 @@ impl Archive {
             }
             return Ok(stored);
         }
-        let data = lz4_flex::block::decompress(&stored, len).map_err(|_| corrupt(index))?;
-        if data.len() != len {
-            return Err(corrupt(index));
-        }
-        Ok(data)
+        decompress_frame(&stored, len).map_err(|_| corrupt(index))
     }
 }
 

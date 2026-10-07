@@ -1,21 +1,52 @@
 # Deflorta
 
-A cross-platform visual novel engine written in pure Rust and scripted entirely in JavaScript, 
+A cross-platform visual novel engine written in Rust and scripted entirely in JavaScript,
 from the story to the menus. See [DESIGN.md](DESIGN.md) for the architecture.
 
 ```sh
-cargo build --release --workspace
-target/release/deflorta run game          # play the demo
-target/release/deflorta run path/to/game  # play your game
+python3 scripts/build-dist.py
+dist/deflorta run game          # play the demo
+dist/deflorta run path/to/game  # play your game
 ```
 
 Building needs a Rust toolchain and clang (bindgen). 
 A prebuilt SpiderMonkey is downloaded automatically for common targets.
 
-The workspace has three crates: `crates/engine` (the `deflorta` library),
-`crates/cli` (the `deflorta` command), and `crates/launcher`
-(`deflorta-launcher`, shipped to players). Keep the CLI and launcher together
-in your PATH, or pass `--launcher` when publishing.
+The workspace has four crates: `crates/data` (shared file/archive and module
+resolution code), `crates/engine` (the `deflorta` library), `crates/cli` (the
+`deflorta` command), and `crates/launcher` (`deflorta-launcher`, shipped to
+players). The CLI does not link the engine, renderer or JavaScript VM.
+
+The distribution script builds the CLI in release mode and the game launcher
+in both debug and release modes. The release launcher excludes the developer
+console and its dependencies; the debug launcher includes it. It assembles this
+layout (Windows binaries have an `.exe` suffix):
+
+```text
+dist/
+  deflorta
+  target/
+    linux-x86_64/              platform name: <os>-<arch>
+      debug/deflorta-launcher
+      release/deflorta-launcher
+  template/
+    game/                     starter files, fonts, license and editor declarations
+    runtime/                  JavaScript sources used by analysis and translation tools
+```
+
+Keep the whole distribution together; add its root to PATH or move it anywhere.
+Templates and runtimes are resolved relative to the CLI executable, independently
+of the working directory. `run` and startup checks use the host's debug runtime;
+`publish` ships the release runtime. Runtime folders currently hold one executable
+and can also hold libraries and engine resources; publishing copies their complete
+contents beside `game.dm` and renames the launcher to the game's id.
+
+Use `--output DIR` to choose the distribution folder (an existing folder is
+replaced after successful compilation), or `--target RUST_TRIPLE` to build the
+distribution for another target with the required Rust target and linker installed.
+Cross builds produce a CLI for that target as well. The script requires Python 3.9+
+and honors Cargo's target directory. Building individual Cargo binaries does not
+assemble their adjacent runtime or template folders.
 
 ## CLI workflow
 
@@ -48,22 +79,29 @@ named and namespace imports and re-exports. Paths name files exactly:
 dynamic `import()` and TypeScript compilation are not supported. Game scripts
 become one `main.js`, minified with oxc; engine imports refer to the runtime
 embedded in the launcher. Use `--no-minify` for a readable bundle,
-`--emit-js FILE` to inspect it, `-o FILE` to choose the archive path, and
-`--level 1..12` to set the LZ4HC compression level (default 9).
+`--emit-js FILE` to inspect it, and `-o FILE` to choose the archive path.
+Packing and reading use the pure Rust `lz4r` implementation. `bundle` and
+`publish` use LZ4HC at level 9 by default; `--level 2` through `--level 12` select
+the HC compression effort, while `--level 1` selects fast compression.
 
-The `.dm` format has an LZ4HC-compressed index of paths, file sizes and block
-locations, followed by independently compressed 128 KiB blocks. Already
+The version 2 `.dm` format has an LZ4-framed index of paths, file sizes and chunk
+locations, followed by independent 128 KiB chunks. Each compressed chunk is a
+standard LZ4 frame with its decoded size and a content checksum. Already
 compressed media and blocks that do not shrink are stored verbatim. The engine
 reads and seeks through the archive directly, including streaming movies and
 audio. Tooling files and the `build/`, `dist/`, and `node_modules/` directories
 are excluded from game assets.
+Version 1 archives used raw LZ4 blocks and must be rebuilt with `bundle` or
+`publish`; version 2 launchers reject that old format.
 
 `publish` checks the project, bundles it, boots the bundle, and copies the
-launcher beside `game.dm`. Players run the named executable; it locates the
+runtime beside `game.dm`. Players run the named executable; it locates the
 archive next to itself, independently of the working directory. Publishing
-targets the supplied launcher: build one for each target OS/architecture and
-pass `--launcher FILE`. Use `-o DIR` and `--name NAME` to choose the folder
-and executable name. Distribute the whole folder.
+selects `target/<platform>/release/` next to the CLI. Use `--platform <os>-<arch>`
+to select another installed target or `--debug` to ship its debug runtime.
+Startup verification always runs with the host's debug runtime, so publishing
+for another platform does not try to execute its launcher. Use `-o DIR` and
+`--name NAME` to choose the folder and executable name. Distribute the whole folder.
 
 `translate update` extracts dialogue, character names, menu prompts/choices,
 input questions, game titles, explicit `_()` strings and the engine interface
@@ -105,6 +143,11 @@ label("start", async () => {
 ```
 
 `game/main.js` is a complete demo using most features.
+
+MP4 H.264 playback uses the pure Rust OxideAV decoder, with 8-bit 4:2:0 video,
+cropping, presentation-order B-frames and looping. Archive compression uses
+`lz4r`; SpiderMonkey remains the JavaScript VM and still requires its native
+build toolchain.
 
 WebM files work with `playMovie()`, `video()` and `configure({ menuVideo })`,
 including looping and end callbacks. WebM demuxing, VP8/VP9 decoding and color

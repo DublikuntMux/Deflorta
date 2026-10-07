@@ -60,12 +60,12 @@ pub fn extract(project: &Project) -> Result<Strings> {
     }
 
     let runtime_allocator = Allocator::default();
-    let ids: Vec<&str> = deflorta::BUILTIN_MODULES
+    let ids: Vec<&str> = deflorta_data::BUILTIN_MODULES
         .iter()
         .map(|(id, _)| *id)
         .collect();
     let mut runtime = Graph::build(&runtime_allocator, &Builtins, &ids);
-    runtime.link(&builtin_exports());
+    runtime.link(&builtin_exports()?);
     for (text, _) in &api::analyze(&runtime).strings {
         push_unique(&mut strings, &mut seen, text);
     }

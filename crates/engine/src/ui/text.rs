@@ -7,45 +7,14 @@ use log::{info, warn};
 use glyphon::cosmic_text::Align as TextAlignment;
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Shaping, Style as FontStyle,
-    Weight, Wrap, fontdb,
+    Weight, Wrap,
 };
 
 use super::desc::{Color, SpanDesc, TextAlign};
 use crate::files::GameFiles;
 use crate::util::math::unit_to_u8;
 
-const FONT_EXTENSIONS: [&str; 4] = ["ttf", "otf", "ttc", "otc"];
-
-/// Loads every font file below `fonts/`.
-fn load_fonts(files: &GameFiles) -> fontdb::Database {
-    let mut db = fontdb::Database::new();
-    for path in files.list("fonts") {
-        let is_font = std::path::Path::new(&path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .is_some_and(|e| FONT_EXTENSIONS.iter().any(|f| e.eq_ignore_ascii_case(f)));
-        if !is_font {
-            continue;
-        }
-        match files.read(&path) {
-            Ok(data) => db.load_font_data(data),
-            Err(err) => warn!("Cannot read font '{path}': {err}"),
-        }
-    }
-    db
-}
-
-/// Font families shipped with a game, sorted and deduplicated.
-pub fn font_families(files: &GameFiles) -> Vec<String> {
-    let db = load_fonts(files);
-    let mut families: Vec<String> = db
-        .faces()
-        .filter_map(|f| f.families.first().map(|(name, _)| name.clone()))
-        .collect();
-    families.sort_unstable();
-    families.dedup();
-    families
-}
+use deflorta_data::fonts::load_fonts;
 
 /// Resolved (inherited) text properties of a text node.
 #[derive(Clone, Debug, PartialEq)]

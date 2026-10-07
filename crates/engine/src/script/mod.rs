@@ -15,7 +15,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::ffi::CString;
 use std::fmt::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::ptr::{self, NonNull};
 use std::time::Instant;
 
@@ -37,7 +37,8 @@ use mozjs::rust::{
     transform_str_to_source_text,
 };
 
-use crate::files::{GameFiles, normalize_game_path};
+use crate::files::GameFiles;
+pub use deflorta_data::{is_builtin_module, resolve_specifier};
 
 /// Embeds a runtime module prepared by the build script (minified in release).
 macro_rules! runtime_module {
@@ -464,35 +465,6 @@ unsafe fn compile_module(cx: *mut RawJSContext, id: &str, source: &str) -> Resul
         jsapi::SetModulePrivate(module.get(), &private.get());
         Ok(module.get())
     }
-}
-
-/// True for the engine's built-in modules (`deflorta`, `deflorta/ui`, …).
-pub fn is_builtin_module(specifier: &str) -> bool {
-    BUILTIN_MODULES.iter().any(|(name, _)| *name == specifier)
-}
-
-/// Resolves an import specifier to a module id: either a builtin name or a
-/// normalized path relative to the game directory. Specifiers name files
-/// exactly; no extensions are added.
-pub fn resolve_specifier(referrer: &str, specifier: &str) -> Result<String> {
-    if is_builtin_module(specifier) {
-        return Ok(specifier.to_owned());
-    }
-    let base = if let Some(rest) = specifier.strip_prefix('/') {
-        PathBuf::from(rest)
-    } else if specifier.starts_with("./") || specifier.starts_with("../") {
-        if is_builtin_module(referrer) {
-            bail!("builtin module '{referrer}' cannot import '{specifier}'");
-        }
-        Path::new(referrer)
-            .parent()
-            .unwrap_or_else(|| Path::new(""))
-            .join(specifier)
-    } else {
-        bail!("unknown module '{specifier}' (game modules must start with './', '../' or '/')");
-    };
-    normalize_game_path(&base)
-        .ok_or_else(|| anyhow!("module path '{specifier}' escapes the game directory"))
 }
 
 fn module_source(id: &str) -> Result<String> {

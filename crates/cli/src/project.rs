@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use deflorta::GameFiles;
+use deflorta_data::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::graph::{Graph, builtin_exports};
@@ -65,7 +65,12 @@ impl Project {
     /// Links the module graph rooted at `main.js`.
     pub fn graph<'a>(&self, allocator: &'a Allocator) -> Graph<'a> {
         let mut graph = Graph::build(allocator, &self.files, &["main.js"]);
-        graph.link(&builtin_exports());
+        match builtin_exports() {
+            Ok(builtins) => graph.link(&builtins),
+            Err(err) => graph
+                .report
+                .error(format!("cannot load the runtime templates: {err:#}")),
+        }
         graph
     }
 }
@@ -131,7 +136,7 @@ fn collect(
             collect(root, &path, excluded, out)?;
         } else {
             let relative = path.strip_prefix(root)?;
-            let archive_path = deflorta::files::normalize_game_path(relative)
+            let archive_path = deflorta_data::files::normalize_game_path(relative)
                 .with_context(|| format!("invalid file name {}", path.display()))?;
             out.push((archive_path, path));
         }

@@ -4,29 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, Result, bail};
 
-const MAIN: &str = include_str!("../templates/main.js");
-pub const JSCONFIG: &str = include_str!("../templates/jsconfig.json");
-const GITIGNORE: &str = include_str!("../templates/gitignore");
-
-/// Noto Sans, the default font, with its license.
-const FONTS: &[(&str, &[u8])] = &[
-    (
-        "NotoSans-Regular.ttf",
-        include_bytes!("../../../game/fonts/NotoSans-Regular.ttf"),
-    ),
-    (
-        "NotoSans-Bold.ttf",
-        include_bytes!("../../../game/fonts/NotoSans-Bold.ttf"),
-    ),
-    (
-        "NotoSans-Italic.ttf",
-        include_bytes!("../../../game/fonts/NotoSans-Italic.ttf"),
-    ),
-    (
-        "LICENSE-noto.txt",
-        include_bytes!("../../../game/fonts/LICENSE-noto.txt"),
-    ),
-];
+use crate::distribution;
 
 /// A save-directory id from a title: lowercase ASCII words joined by dashes.
 pub fn slug(title: &str) -> String {
@@ -48,10 +26,13 @@ pub fn slug(title: &str) -> String {
 
 /// Writes the type declarations and editor configuration into a project.
 pub fn write_types(dir: &Path) -> Result<()> {
-    std::fs::write(dir.join("deflorta.d.ts"), deflorta::TYPE_DECLARATIONS)?;
+    let template = distribution::template()?.join("game");
+    std::fs::copy(template.join("deflorta.d.ts"), dir.join("deflorta.d.ts"))
+        .context("cannot copy template/game/deflorta.d.ts")?;
     let jsconfig = dir.join("jsconfig.json");
     if !jsconfig.exists() {
-        std::fs::write(jsconfig, JSCONFIG)?;
+        std::fs::copy(template.join("jsconfig.json"), jsconfig)
+            .context("cannot copy template/game/jsconfig.json")?;
     }
     Ok(())
 }
@@ -74,24 +55,25 @@ pub fn create(dir: &Path, title: Option<&str>, id: Option<&str>) -> Result<()> {
         bail!("the id may only contain ASCII letters, digits, '-' and '_'");
     }
 
-    for sub in ["fonts", "images", "audio", "movies", "tl"] {
-        std::fs::create_dir_all(dir.join(sub))?;
-    }
+    let template = distribution::template()?.join("game");
+    let source = std::fs::read_to_string(template.join("main.js"))
+        .context("cannot read template/game/main.js")?;
     // Split the template before inserting user text so placeholder-like
     // strings inside the title or id remain literal.
-    let (prefix, rest) = MAIN.split_once("__ID__").expect("template id");
-    let (middle, suffix) = rest.split_once("__TITLE__").expect("template title");
+    let (prefix, rest) = source
+        .split_once("__ID__")
+        .context("template main.js has no __ID__ placeholder")?;
+    let (middle, suffix) = rest
+        .split_once("__TITLE__")
+        .context("template main.js has no __TITLE__ placeholder")?;
     let main = format!(
         "{prefix}{}{middle}{}{suffix}",
         serde_json::to_string(&id)?,
         serde_json::to_string(title)?
     );
+    distribution::copy_tree(&template, dir)?;
     std::fs::write(dir.join("main.js"), main)?;
-    std::fs::write(dir.join(".gitignore"), GITIGNORE)?;
-    for (name, data) in FONTS {
-        std::fs::write(dir.join("fonts").join(name), data)?;
-    }
-    write_types(dir)
+    Ok(())
 }
 
 #[cfg(test)]

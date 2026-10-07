@@ -70,13 +70,13 @@ fn decodes_webm_key_and_inter_frames() {
 }
 
 #[test]
-fn loops_webm_and_stops_when_dropped() {
-    for codec in ["vp8", "vp9"] {
+fn loops_video_and_stops_when_dropped() {
+    for path in ["vp8-vorbis.webm", "vp9-vorbis.webm", "h264-main.mp4"] {
         let files = fixtures();
-        let path = format!("{codec}-vorbis.webm");
+        let count = if is_webm(path) { 6 } else { 8 };
         let (sender, receiver) = sync_channel(QUEUE_AHEAD);
-        let thread = std::thread::spawn(move || decode(&files, &path, true, &sender));
-        let frames: Vec<_> = (0..12)
+        let thread = std::thread::spawn(move || decode(&files, path, true, &sender));
+        let frames: Vec<_> = (0..count * 2)
             .map(|_| {
                 let Message::Frame(frame) = receiver.recv_timeout(Duration::from_secs(5)).unwrap()
                 else {
@@ -85,9 +85,9 @@ fn loops_webm_and_stops_when_dropped() {
                 frame
             })
             .collect();
-        assert!(frames[6].pts > frames[5].pts);
-        assert_eq!(frames[0].image, frames[6].image);
-        assert_eq!(frames[5].image, frames[11].image);
+        assert!(frames[count].pts > frames[count - 1].pts);
+        assert_eq!(frames[0].image, frames[count].image);
+        assert_eq!(frames[count - 1].image, frames[count * 2 - 1].image);
         drop(receiver);
         assert!(thread.join().unwrap().is_ok());
     }
@@ -98,9 +98,67 @@ fn mp4_still_decodes() {
     let files = GameFiles::directory(&crate::workspace_dir().join("game")).unwrap();
     let size = probe_size(&files, "movies/intro.mp4").unwrap();
     let (frames, duration) = decode_frames(&files, "movies/intro.mp4");
-    assert!(!frames.is_empty());
-    assert!(duration > 0.0);
+    assert_eq!(frames.len(), 72);
+    assert!((duration - 3.0).abs() < 0.001);
     assert!(frames.iter().all(|frame| frame.image.dimensions() == size));
+    assert!(frames.windows(2).all(|pair| pair[0].pts < pair[1].pts));
+}
+
+#[test]
+fn decodes_h264_profiles_cropping_and_reordered_frames() {
+    let files = fixtures();
+    for profile in ["baseline", "main", "high"] {
+        let path = format!("h264-{profile}.mp4");
+        assert_eq!(probe_size(&files, &path).unwrap(), (66, 50));
+        let (frames, duration) = decode_frames(&files, &path);
+        assert_eq!(
+            frames.len(),
+            8,
+            "{profile}: must flush the last picture and B-frames"
+        );
+        assert!((duration - 0.8).abs() < 0.001);
+        assert!(
+            frames[0].pts.abs() < 0.001,
+            "{profile}: apply the MP4 edit that removes decode delay"
+        );
+        assert!((frames[7].pts - 0.7).abs() < 0.001);
+        let reference = image::load_from_memory(
+            &files
+                .read(&format!("h264-{profile}-reference.png"))
+                .unwrap(),
+        )
+        .unwrap()
+        .into_rgba8();
+        for (index, frame) in frames.iter().enumerate() {
+            assert_eq!(frame.image.dimensions(), (66, 50));
+            if index > 0 {
+                assert!((frame.pts - frames[index - 1].pts - 0.1).abs() < 0.001);
+            }
+            let mut error = 0u64;
+            let mut max_error = 0u8;
+            for (x, y, pixel) in frame.image.enumerate_pixels() {
+                let expected = reference.get_pixel(x + u32::try_from(index).unwrap() * 66, y);
+                for channel in 0..3 {
+                    let difference = pixel[channel].abs_diff(expected[channel]);
+                    error += u64::from(difference);
+                    max_error = max_error.max(difference);
+                }
+                assert_eq!(pixel[3], 255);
+            }
+            assert!(
+                error < 66 * 50 * 3 * 3,
+                "{profile} frame {index}: total error {error}, max {max_error}"
+            );
+            assert!(
+                max_error <= 8,
+                "{profile} frame {index}: max error {max_error}"
+            );
+        }
+        assert_ne!(
+            frames[0].image, frames[7].image,
+            "{profile} must decode motion"
+        );
+    }
 }
 
 #[test]

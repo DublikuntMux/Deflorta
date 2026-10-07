@@ -1,0 +1,21 @@
+[package]
+name = "deflorta-data"
+description = "Shared game files, archive format and module resolution for Deflorta"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+media = ["dep:symphonia-core"]
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+log.workspace = true
+# Same version as for cosmic-text
+fontdb = { version = "0.23.0", default-features = false, features = ["std"] }
+symphonia-core = { version = "0.6.1", optional = true }
+lz4.workspace = true

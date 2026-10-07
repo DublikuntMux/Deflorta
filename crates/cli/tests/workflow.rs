@@ -2,9 +2,10 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use deflorta::GameFiles;
+use deflorta_data::GameFiles;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
@@ -33,14 +34,9 @@ impl Project {
     }
 
     fn publish(&self, output: &str) -> Output {
-        // Verify bundled startup and copied launcher bytes without requiring a
-        // window server or audio hardware in the test runner.
-        self.write("build/launcher", "launcher fixture");
         cli([
             "publish",
             self.path(),
-            "--launcher",
-            self.0.join("build/launcher").to_str().unwrap(),
             "-o",
             self.0.join(output).to_str().unwrap(),
         ])
@@ -54,7 +50,7 @@ impl Drop for Project {
 }
 
 fn cli<const N: usize>(args: [&str; N]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_deflorta"))
+    Command::new(distribution().join(format!("deflorta{}", std::env::consts::EXE_SUFFIX)))
         .args(args)
         // Avoid developer preferences/saves affecting a fresh project's boot.
         .env(
@@ -63,6 +59,66 @@ fn cli<const N: usize>(args: [&str; N]) -> Output {
         )
         .output()
         .unwrap()
+}
+
+/// Assemble once from real binaries and external template data. Cargo builds
+/// only the CLI binary for this test, so build its external launcher explicitly.
+fn distribution() -> &'static Path {
+    static DISTRIBUTION: OnceLock<PathBuf> = OnceLock::new();
+    DISTRIBUTION.get_or_init(|| {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let cli = Path::new(env!("CARGO_BIN_EXE_deflorta"));
+        let profile = cli.parent().unwrap();
+        let mut build = Command::new(env!("CARGO"));
+        build
+            .current_dir(&root)
+            .args(["build", "--locked", "-p", "deflorta-launcher"]);
+        if profile.file_name().unwrap() == "release" {
+            build.arg("--release");
+        }
+        success(&build.output().unwrap());
+        let path = profile.join(format!("test-distribution-{}", std::process::id()));
+        std::fs::create_dir_all(&path).unwrap();
+        std::fs::copy(cli, path.join(cli.file_name().unwrap())).unwrap();
+        let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+        let launcher = profile.join(format!("deflorta-launcher{}", std::env::consts::EXE_SUFFIX));
+        for mode in ["debug", "release"] {
+            let runtime = path.join("target").join(&platform).join(mode);
+            std::fs::create_dir_all(runtime.join("resources")).unwrap();
+            std::fs::copy(&launcher, runtime.join(launcher.file_name().unwrap())).unwrap();
+            std::fs::write(runtime.join("resources/runtime.txt"), mode).unwrap();
+        }
+        let template = path.join("template/game");
+        copy_tree(&root.join("crates/cli/templates"), &template);
+        std::fs::rename(template.join("gitignore"), template.join(".gitignore")).unwrap();
+        copy_tree(&root.join("game/fonts"), &template.join("fonts"));
+        std::fs::copy(
+            root.join("crates/engine/runtime/deflorta.d.ts"),
+            template.join("deflorta.d.ts"),
+        )
+        .unwrap();
+        for dir in ["images", "audio", "movies", "tl"] {
+            std::fs::create_dir_all(template.join(dir)).unwrap();
+        }
+        copy_tree(
+            &root.join("crates/engine/runtime"),
+            &path.join("template/runtime"),
+        );
+        path
+    })
+}
+
+fn copy_tree(source: &Path, destination: &Path) {
+    std::fs::create_dir_all(destination).unwrap();
+    for entry in source.read_dir().unwrap() {
+        let entry = entry.unwrap();
+        let to = destination.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_tree(&entry.path(), &to);
+        } else {
+            std::fs::copy(entry.path(), to).unwrap();
+        }
+    }
 }
 
 fn success(output: &Output) -> String {
@@ -91,14 +147,40 @@ fn created_game_checks_bundles_and_publishes_without_packing_outputs() {
     assert_eq!(files.list("releases"), [] as [String; 0]);
     assert_eq!(files.list("build"), [] as [String; 0]);
     assert_eq!(
-        std::fs::read_to_string(project.0.join(format!(
+        std::fs::metadata(project.0.join(format!(
             "releases/test-game{}",
             std::env::consts::EXE_SUFFIX
         )))
-        .unwrap(),
-        "launcher fixture"
+        .unwrap()
+        .len(),
+        std::fs::metadata(distribution().join(format!(
+            "target/{}-{}/release/deflorta-launcher{}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            std::env::consts::EXE_SUFFIX
+        )))
+        .unwrap()
+        .len()
+    );
+    assert_eq!(
+        std::fs::read_to_string(project.0.join("releases/resources/runtime.txt")).unwrap(),
+        "release"
+    );
+    let published = project.0.join(format!(
+        "releases/test-game{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    success(
+        &Command::new(published)
+            .arg("--inspect")
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap(),
     );
 
+    // The custom archive check below is about excluding its own output. Remove
+    // the already-verified custom publish folder, which holds a real runtime.
+    std::fs::remove_dir_all(project.0.join("releases")).unwrap();
     let archive = project.0.join("custom.dm");
     for _ in 0..2 {
         success(&cli([
@@ -295,7 +377,7 @@ fn create_keeps_placeholder_text_and_types_preserves_editor_settings() {
     );
     assert_eq!(
         std::fs::read_to_string(project.0.join("deflorta.d.ts")).unwrap(),
-        deflorta::TYPE_DECLARATIONS
+        std::fs::read_to_string(distribution().join("template/game/deflorta.d.ts")).unwrap()
     );
     assert!(
         !cli([
@@ -311,4 +393,166 @@ fn create_keeps_placeholder_text_and_types_preserves_editor_settings() {
     assert!(!invalid.status.success());
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("single valid file name"));
     assert!(!Path::new(project.path()).join("empty-id").exists());
+}
+
+#[test]
+fn moved_distribution_uses_external_templates_and_reports_missing_data() {
+    let project = Project::new();
+    let moved = project.0.join(".engine");
+    copy_tree(distribution(), &moved);
+    let executable = moved.join(format!("deflorta{}", std::env::consts::EXE_SUFFIX));
+    let template = moved.join("template/game");
+    std::fs::write(template.join(".gitignore"), "custom template\n").unwrap();
+    std::fs::write(template.join("images/custom.txt"), "external resource").unwrap();
+    std::fs::write(template.join("deflorta.d.ts"), "// external declarations\n").unwrap();
+    let created = project.0.join("created");
+    success(
+        &Command::new(&executable)
+            .args(["create", created.to_str().unwrap()])
+            .current_dir(std::env::temp_dir())
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        std::fs::read_to_string(created.join(".gitignore")).unwrap(),
+        "custom template\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(created.join("images/custom.txt")).unwrap(),
+        "external resource"
+    );
+    assert_eq!(
+        std::fs::read_to_string(created.join("deflorta.d.ts")).unwrap(),
+        "// external declarations\n"
+    );
+    assert!(created.join("fonts/NotoSans-Regular.ttf").is_file());
+    std::fs::remove_dir_all(moved.join("target")).unwrap();
+    success(
+        &Command::new(&executable)
+            .args(["check", created.to_str().unwrap(), "--no-boot"])
+            .output()
+            .unwrap(),
+    );
+    let output = Command::new(&executable)
+        .args(["check", created.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stdout).contains("launcher"));
+    std::fs::remove_dir_all(moved.join("template")).unwrap();
+    let missing = project.0.join("missing-template");
+    let output = Command::new(&executable)
+        .args(["create", missing.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("template folder"));
+    assert!(!missing.exists());
+}
+
+#[test]
+fn publish_selects_profiles_and_foreign_platform_resources() {
+    let project = Project::new();
+    success(&cli([
+        "publish",
+        project.path(),
+        "--debug",
+        "--level",
+        "12",
+    ]));
+    for level in ["0", "13"] {
+        assert!(
+            !cli(["bundle", project.path(), "--level", level])
+                .status
+                .success()
+        );
+        assert!(
+            !cli(["publish", project.path(), "--level", level])
+                .status
+                .success()
+        );
+    }
+    let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+    assert_eq!(
+        std::fs::read_to_string(
+            project
+                .0
+                .join("dist")
+                .join(platform)
+                .join("resources/runtime.txt")
+        )
+        .unwrap(),
+        "debug"
+    );
+    let conflict = cli(["publish", project.path(), "--name", "resources"]);
+    assert!(!conflict.status.success());
+    assert!(
+        String::from_utf8_lossy(&conflict.stderr).contains("conflicts with a runtime resource")
+    );
+    let moved = project.0.join(".engine");
+    copy_tree(distribution(), &moved);
+    let foreign = moved.join("target/windows-x86_64/release");
+    std::fs::create_dir_all(foreign.join("resources")).unwrap();
+    std::fs::write(
+        foreign.join("deflorta-launcher.exe"),
+        "foreign binary; must never execute here",
+    )
+    .unwrap();
+    std::fs::write(foreign.join("resources/engine.dat"), "foreign resource").unwrap();
+    let output = project.0.join("dist/windows");
+    success(
+        &Command::new(moved.join(format!("deflorta{}", std::env::consts::EXE_SUFFIX)))
+            .args([
+                "publish",
+                project.path(),
+                "--platform",
+                "windows-x86_64",
+                "-o",
+                output.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        std::fs::read_to_string(output.join("test-game.exe")).unwrap(),
+        "foreign binary; must never execute here"
+    );
+    assert_eq!(
+        std::fs::read_to_string(output.join("resources/engine.dat")).unwrap(),
+        "foreign resource"
+    );
+    assert!(!output.join("deflorta-launcher.exe").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn run_forwards_arguments_environment_and_exit_status_to_debug_launcher() {
+    let project = Project::new();
+    let moved = project.0.join(".engine");
+    copy_tree(distribution(), &moved);
+    let launcher = moved.join(format!(
+        "target/{}-{}/debug/deflorta-launcher",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    ));
+    std::fs::write(
+        launcher,
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" \"$RUST_LOG\"\nexit 7\n",
+    )
+    .unwrap();
+    let output = Command::new(moved.join("deflorta"))
+        .args(["run", project.path(), "--test", "steps.json", "-vv"])
+        .env("RUST_LOG", "deflorta=trace")
+        .current_dir(std::env::temp_dir())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(7));
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!(
+            "{}\n--test\n{}\n-vv\ndeflorta=trace\n",
+            project.path(),
+            std::env::temp_dir().join("steps.json").display()
+        )
+    );
 }

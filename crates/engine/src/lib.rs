@@ -1,20 +1,18 @@
 //! Deflorta — a visual novel engine scripted in JavaScript.
 //!
 //! The engine runs a game from a project directory (development) or from a
-//! `.dm` archive (published games). The `deflorta` CLI and the game launcher
-//! are thin front ends over [`run`].
+//! `.dm` archive (published games). The CLI delegates execution to the game
+//! launcher, which is a thin front end over [`run`].
 
 // wgpu's nested backend types need this depth for async Send/Sync checks.
 #![recursion_limit = "256"]
 
 mod app;
-pub mod archive;
 mod assets;
 mod audio;
 #[cfg(all(debug_assertions, feature = "dev-console"))]
 mod dev_console;
 mod engine;
-pub mod files;
 mod headless;
 mod media;
 mod render;
@@ -30,13 +28,8 @@ use anyhow::{Context, Result};
 use log::info;
 use winit::event_loop::EventLoop;
 
-pub use files::GameFiles;
+pub use deflorta_data::{GameFiles, archive, files, font_families};
 pub use script::{BUILTIN_MODULES, GameConfig, is_builtin_module, resolve_specifier};
-pub use ui::text::font_families;
-
-/// TypeScript declarations for the scripting API, for editor completion and
-/// type checking of game code.
-pub const TYPE_DECLARATIONS: &str = include_str!("../runtime/deflorta.d.ts");
 
 /// Log filter used when `RUST_LOG` is not set: engine and script messages at
 /// info, third-party crates only when something goes wrong.

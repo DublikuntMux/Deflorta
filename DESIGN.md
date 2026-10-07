@@ -17,26 +17,42 @@ Non-goals for now: web builds (SpiderMonkey is the native engine), 3D, Live2D (p
 
 ## Architecture
 
-The Cargo workspace has three crates: `crates/engine` exposes the reusable
+The Cargo workspace has four crates: `crates/data` owns shared files, archives,
+font discovery and module resolution, `crates/engine` exposes the reusable
 `deflorta` library, `crates/cli` implements the clap-based developer CLI, and
-`crates/launcher` runs published games. The engine owns `GameFiles`, which
+`crates/launcher` runs games. The data crate owns `GameFiles`, which
 provides the same read/seek API for development directories and `.dm` archives.
 Script loading, fonts, images, audio and video all use that API.
+
+The CLI links only tooling and the data crate. It resolves runtimes from
+`target/<os>-<arch>/<debug|release>/` beside its executable and delegates game
+execution and startup inspection to a launcher process. `run` and inspection
+use the host debug launcher; `publish` copies the selected release runtime
+folder (or debug with `--debug`), including accompanying libraries/resources.
+Project templates, fonts, editor declarations and runtime sources for static
+analysis live in the adjacent `template/` folder. `scripts/build-dist.py`
+assembles the release CLI, both launcher profiles and that template data.
 
 The CLI resolves the game's static module graph from `main.js`, follows
 imports and re-exports, renames bindings to avoid collisions and emits one
 game module. Namespace objects use live getters. Engine modules remain
-embedded in the executable. oxc supplies parsing, semantic analysis and
+embedded in the launcher. oxc supplies parsing, semantic analysis and
 minification. The same resolver is used by the CLI and the runtime, so import
 paths and built-in module names agree in development and published games.
 
-`game.dm` is an indexed container with an LZ4HC-compressed directory and
-independent 128 KiB blocks. Each entry records its path, size and first block;
+Version 2 `game.dm` is an indexed container with an LZ4-framed directory and
+independent 128 KiB chunks. Each entry records its path, size and first chunk;
 the index records stored block sizes and compression flags. Raw blocks are
 used for already compressed formats and when compression does not shrink a
 block. Packing uses bounded batches, and readers decompress only the requested
 block, keeping media seekable without unpacking the game. See
-`crates/engine/src/archive.rs` for the binary format.
+`crates/data/src/archive.rs` for the binary format.
+Packing and reading both use the pure Rust `lz4r` library, imported as `lz4`.
+The index and each compressed chunk are standard independent LZ4 frames with content size
+and XXHash32 content checksum. Packing uses HC level 9 by default, selectable
+with `--level 2` through `--level 12`; level 1 selects fast compression. The
+packer uses the library's frame encoder directly with HC preferences.
+Version 1 raw-block archives must be rebuilt; no legacy read path is retained.
 
 ```
     ┌─────────────────────── game/ (JS, images, audio, fonts) ───────────────────────┐
@@ -52,7 +68,7 @@ block, keeping media seekable without unpacking the game. See
 │             rich text, taffy flex/grid layout, scrolling, focus navigation, widgets        │
 │ render/     wgpu: instanced SDF quads (rounded, bordered, rotated, masked, image/video)    │
 │             + glyphon text, offscreen capture                                              │
-│ video/      MP4/H.264 (mp4/OpenH264), WebM/VP8/VP9 (Symphonia/OxideAV), background decode │
+│ video/      MP4/H.264 (mp4/OxideAV), WebM/VP8/VP9 (Symphonia/OxideAV), background decode │
 │ audio.rs    kira: music, sound, voice tracks; video soundtracks                            │
 │ assets.rs   sandboxed file access; background image decoding pool                          │
 │ app.rs      winit + gilrs front end   headless.rs  scripted front end (tests, screenshots) │

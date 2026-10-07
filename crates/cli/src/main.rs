@@ -4,6 +4,7 @@ mod api;
 mod bundle;
 mod check;
 mod create;
+mod distribution;
 mod graph;
 mod pack;
 mod project;
@@ -17,7 +18,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use deflorta::GameFiles;
+use deflorta_data::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::pack::{ArchiveFile, Contents};
@@ -69,9 +70,9 @@ enum Command {
         /// Archive to write (default: <project>/build/game.dm).
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// LZ4HC compression level, 1–12.
-        #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(i32).range(1..=12))]
-        level: i32,
+        /// Compression level: 1 fast, 2–12 LZ4HC (default: 9).
+        #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
+        level: u8,
         /// Keep the bundled JavaScript readable.
         #[arg(long)]
         no_minify: bool,
@@ -79,22 +80,25 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         emit_js: Option<PathBuf>,
     },
-    /// Create a folder with the game launcher and its game.dm archive.
+    /// Create a folder with the target runtime and its game.dm archive.
     Publish {
         #[arg(default_value = ".")]
         path: PathBuf,
         /// Output folder (default: <project>/dist/<os>-<arch>).
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Launcher executable to ship (default: deflorta-launcher next to this program).
+        /// Target platform folder (default: the host's <os>-<arch>).
         #[arg(long)]
-        launcher: Option<PathBuf>,
+        platform: Option<String>,
+        /// Ship the debug runtime instead of the release runtime.
+        #[arg(long)]
+        debug: bool,
         /// Executable name (default: the game's id).
         #[arg(long)]
         name: Option<String>,
-        /// LZ4HC compression level, 1–12.
-        #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(i32).range(1..=12))]
-        level: i32,
+        /// Compression level: 1 fast, 2–12 LZ4HC (default: 9).
+        #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
+        level: u8,
     },
     /// Extract and manage translations in tl/<language>.json.
     Translate {
@@ -137,13 +141,6 @@ enum TranslateCommand {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
-    let filter = match &cli.command {
-        Command::Run { verbose: 0, .. } => deflorta::DEFAULT_LOG_FILTER,
-        Command::Run { verbose: 1, .. } => "warn,deflorta=debug",
-        Command::Run { .. } => "warn,deflorta=trace",
-        _ => "warn",
-    };
-    deflorta::init_logging(filter);
     match run(cli.command) {
         Ok(code) => code,
         Err(err) => {
@@ -165,8 +162,12 @@ fn run(command: Command) -> Result<ExitCode> {
                 path.display()
             );
         }
-        Command::Run { path, test, .. } => {
-            deflorta::run(GameFiles::open(&path)?, test.as_deref())?;
+        Command::Run {
+            path,
+            test,
+            verbose,
+        } => {
+            return distribution::run(&path, test.as_deref(), verbose);
         }
         Command::Check { path, no_boot } => {
             let project = Project::open(&path)?;
@@ -198,10 +199,11 @@ fn run(command: Command) -> Result<ExitCode> {
         Command::Publish {
             path,
             output,
-            launcher,
+            platform,
+            debug,
             name,
             level,
-        } => publish(&path, output, launcher, name, level)?,
+        } => publish(&path, output, platform, debug, name, level)?,
         Command::Translate { command } => return translate(command),
         Command::Info { archive } => info(&archive)?,
         Command::Types { path } => {
@@ -225,7 +227,7 @@ fn size(bytes: u64) -> String {
 fn build_archive(
     project: &Project,
     output: &Path,
-    level: i32,
+    level: u8,
     minify: bool,
     emit_js: Option<&Path>,
     excluded: &[&Path],
@@ -236,7 +238,7 @@ fn build_archive(
         eprint!("{}", graph.report.render(&project::sources(&graph)));
         bail!("the game's scripts have errors");
     }
-    let script = bundle::bundle(&graph, &graph::builtin_exports(), minify)?;
+    let script = bundle::bundle(&graph, &graph::builtin_exports()?, minify)?;
     if let Some(path) = emit_js {
         std::fs::write(path, &script)
             .with_context(|| format!("cannot write {}", path.display()))?;
@@ -278,9 +280,10 @@ fn build_archive(
 fn publish(
     path: &Path,
     output: Option<PathBuf>,
-    launcher: Option<PathBuf>,
+    platform: Option<String>,
+    debug: bool,
     name: Option<String>,
-    level: i32,
+    level: u8,
 ) -> Result<()> {
     let project = Project::open(path)?;
     if let Some(name) = &name {
@@ -292,40 +295,32 @@ fn publish(
         bail!("the game has errors ({})", outcome.report.summary());
     }
 
-    let launcher = match launcher {
-        Some(path) => path,
-        None => std::env::current_exe()?
-            .parent()
-            .context("cannot locate this program's directory")?
-            .join(format!("deflorta-launcher{}", std::env::consts::EXE_SUFFIX)),
-    };
-    if !launcher.is_file() {
-        bail!(
-            "launcher {} not found; build it with `cargo build --release -p deflorta-launcher` or pass --launcher",
-            launcher.display()
-        );
-    }
-
-    let output = output.unwrap_or_else(|| {
-        project.dist_dir().join(format!(
-            "{}-{}",
-            std::env::consts::OS,
-            std::env::consts::ARCH
-        ))
-    });
+    let platform = platform.unwrap_or_else(distribution::platform);
+    let runtime = distribution::runtime(&platform, debug)?;
+    let launcher = distribution::launcher(&runtime);
+    let output = output.unwrap_or_else(|| project.dist_dir().join(&platform));
     let output = project::absolute_path(&output)?;
     if project.dir.starts_with(&output) {
         bail!("the publish output must not contain the project directory");
     }
+    let installation = distribution::root()?.canonicalize()?;
+    if output.starts_with(&installation) || installation.starts_with(&output) {
+        bail!("the publish output must not overlap the engine distribution");
+    }
     std::fs::create_dir_all(&output)?;
     let archive = output.join("game.dm");
+    validate_runtime(&runtime, &archive)?;
     build_archive(&project, &archive, level, true, None, &[&output])?;
 
     // Running the bundle verifies it and tells us the game's id and title.
-    let config =
-        deflorta::boot(GameFiles::open(&archive)?).context("the bundled game failed to start")?;
+    let config = distribution::inspect(&archive).context("the bundled game failed to start")?;
     let name = name.unwrap_or_else(|| create::slug(&config.id));
-    let executable = output.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+    let suffix = if platform.starts_with("windows-") {
+        ".exe"
+    } else {
+        ""
+    };
+    let executable = output.join(format!("{name}{suffix}"));
     if executable == archive {
         bail!("the launcher name conflicts with game.dm");
     }
@@ -336,11 +331,26 @@ fn publish(
     {
         bail!("the launcher source and destination are the same file");
     }
-    std::fs::copy(&launcher, &executable)
-        .with_context(|| format!("cannot copy the launcher to {}", executable.display()))?;
+    validate_runtime(&runtime, &executable)?;
+    distribution::copy_tree(&runtime, &output)?;
+    let copied_launcher = output.join(launcher.file_name().context("launcher has no file name")?);
+    if copied_launcher != executable {
+        std::fs::rename(&copied_launcher, &executable)
+            .with_context(|| format!("cannot rename the launcher to {}", executable.display()))?;
+    }
     println!("Published '{}' to {}", config.title, output.display());
     println!("  {}  (launcher)", executable.display());
     println!("  {}  (game data)", archive.display());
+    Ok(())
+}
+
+fn validate_runtime(runtime: &Path, output: &Path) -> Result<()> {
+    let launcher = distribution::launcher(runtime);
+    let name = output.file_name().context("output has no file name")?;
+    let source = runtime.join(name);
+    if source.exists() && source != launcher {
+        bail!("{} conflicts with a runtime resource", output.display());
+    }
     Ok(())
 }
 
@@ -353,9 +363,6 @@ fn validate_executable_name(name: &str) -> Result<()> {
         })
     {
         bail!("the launcher name must be a single valid file name");
-    }
-    if name == "game.dm" && std::env::consts::EXE_SUFFIX.is_empty() {
-        bail!("the launcher name conflicts with game.dm");
     }
     Ok(())
 }

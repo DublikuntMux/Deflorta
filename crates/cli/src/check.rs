@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use deflorta::GameFiles;
+use deflorta_data::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::api::{self, FileKind, ImageUse};
@@ -32,7 +32,7 @@ pub fn check(project: &Project, boot: bool) -> Outcome {
     let sources = sources(&graph);
     report.items.splice(0..0, graph.report.items);
     if boot && !report.has_errors() {
-        check_boot(project.files.clone(), &mut report);
+        check_boot(&project.dir, &mut report);
     }
     Outcome { report, sources }
 }
@@ -161,7 +161,7 @@ fn check_labels(graph: &Graph, facts: &api::Facts, report: &mut Report) {
 }
 
 fn check_assets(files: &GameFiles, report: &mut Report) {
-    if deflorta::font_families(files).is_empty() {
+    if deflorta_data::font_families(files).is_empty() {
         report.warn("no fonts in fonts/; system fonts will be used and text may look different on each computer");
     }
     for path in files.list("tl") {
@@ -188,10 +188,10 @@ fn check_assets(files: &GameFiles, report: &mut Report) {
     }
 }
 
-fn check_boot(files: GameFiles, report: &mut Report) {
-    let families = deflorta::font_families(&files);
-    match deflorta::boot(files) {
+fn check_boot(path: &std::path::Path, report: &mut Report) {
+    match crate::distribution::inspect(path) {
         Ok(config) => {
+            let families = config.font_families;
             if config.id == DEFAULT_ID {
                 report.warn("configure({ id }) is not set; saves would be shared with other games that do not set it");
             }

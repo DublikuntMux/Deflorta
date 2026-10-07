@@ -1,8 +1,9 @@
 //! Video playback: H.264 in MP4 and VP8/VP9 in `WebM`, decoded on a background
-//! thread. `WebM` demuxing and decoding use pure Rust libraries.
+//! thread. Demuxing and decoding use pure Rust libraries.
 //! Frames are timed against the wall clock;
 //! the engine plays the file's audio track separately.
 
+mod h264;
 mod webm;
 
 #[cfg(test)]
@@ -10,18 +11,14 @@ mod tests;
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::io::BufReader;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, sync_channel};
 use std::time::Instant;
 
-use anyhow::{Context, Result, bail};
-use log::{debug, error, info, trace, warn};
-use num_traits::AsPrimitive;
-use openh264::decoder::Decoder;
-use openh264::formats::YUVSource;
+use anyhow::Result;
+use log::{debug, error, info, warn};
 
-use crate::files::{GameFiles, GameReader};
+use crate::files::GameFiles;
 
 /// Decoded frames buffered ahead of playback.
 const QUEUE_AHEAD: usize = 4;
@@ -161,47 +158,11 @@ impl VideoPlayer {
     }
 }
 
-type Mp4Reader = mp4::Mp4Reader<BufReader<GameReader>>;
-
-fn open_reader(files: &GameFiles, path: &str) -> Result<Mp4Reader> {
-    let file = files.open_file(path)?;
-    let size = file.size()?;
-    Ok(mp4::Mp4Reader::read_header(file.buffered(), size)?)
-}
-
-fn video_track(reader: &Mp4Reader) -> Result<&mp4::Mp4Track> {
-    reader
-        .tracks()
-        .values()
-        .find(|t| matches!(t.media_type(), Ok(mp4::MediaType::H264)))
-        .context("no H.264 video track")
-}
-
 fn probe_size(files: &GameFiles, path: &str) -> Result<(u32, u32)> {
     if is_webm(path) {
         return webm::probe_size(files, path);
     }
-    let reader = open_reader(files, path)?;
-    let track = video_track(&reader)?;
-    Ok((u32::from(track.width()), u32::from(track.height())))
-}
-
-/// Converts length-prefixed NAL units (AVCC) to Annex B start codes.
-fn to_annex_b(sample: &[u8], out: &mut Vec<u8>) {
-    let mut rest = sample;
-    while rest.len() >= 4 {
-        let Ok(len) = usize::try_from(u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]))
-        else {
-            break;
-        };
-        rest = &rest[4..];
-        if len > rest.len() {
-            break;
-        }
-        out.extend_from_slice(&[0, 0, 0, 1]);
-        out.extend_from_slice(&rest[..len]);
-        rest = &rest[len..];
-    }
+    h264::probe_size(files, path)
 }
 
 /// Decodes frames until the end (or until the player is dropped). Returns the frame count.
@@ -214,7 +175,7 @@ fn decode(
     if is_webm(path) {
         webm::decode(files, path, looping, sender)
     } else {
-        decode_mp4(files, path, looping, sender)
+        h264::decode(files, path, looping, sender)
     }
 }
 
@@ -222,71 +183,4 @@ pub fn is_webm(path: &str) -> bool {
     std::path::Path::new(path)
         .extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("webm"))
-}
-
-fn decode_mp4(
-    files: &GameFiles,
-    path: &str,
-    looping: bool,
-    sender: &SyncSender<Message>,
-) -> Result<(u64, f64)> {
-    let mut offset = 0.0;
-    let mut frames = 0;
-    loop {
-        let mut reader = open_reader(files, path)?;
-        let track = video_track(&reader)?;
-        let track_id = track.track_id();
-        let timescale = f64::from(track.timescale());
-        let duration = track.duration().as_secs_f64();
-        let mut header = Vec::new();
-        for nal in [
-            track.sequence_parameter_set()?,
-            track.picture_parameter_set()?,
-        ] {
-            header.extend_from_slice(&[0, 0, 0, 1]);
-            header.extend_from_slice(nal);
-        }
-        let count = reader.sample_count(track_id)?;
-        let mut decoder = Decoder::new()?;
-        let mut packet = Vec::new();
-        for id in 1..=count {
-            let Some(sample) = reader.read_sample(track_id, id)? else {
-                continue;
-            };
-            packet.clear();
-            if id == 1 {
-                packet.extend_from_slice(&header);
-            }
-            to_annex_b(&sample.bytes, &mut packet);
-            let start_time: f64 = sample.start_time.as_();
-            let pts = (start_time + f64::from(sample.rendering_offset)) / timescale + offset;
-            let Some(yuv) = decoder.decode(&packet)? else {
-                continue;
-            };
-            let (w, h) = yuv.dimensions();
-            let width = u32::try_from(w).context("video frame width exceeds u32")?;
-            let height = u32::try_from(h).context("video frame height exceeds u32")?;
-            let mut rgba = vec![0; w * h * 4];
-            yuv.write_rgba8(&mut rgba);
-            let Some(image) = image::RgbaImage::from_raw(width, height, rgba) else {
-                bail!("frame size mismatch");
-            };
-            if sender
-                .send(Message::Frame(Frame {
-                    pts,
-                    image: Arc::new(image),
-                }))
-                .is_err()
-            {
-                // The player was dropped (the video left the screen).
-                return Ok((frames, offset + duration));
-            }
-            frames += 1;
-        }
-        if !looping || duration <= 0.0 {
-            return Ok((frames, offset + duration));
-        }
-        trace!("Looping video {path}");
-        offset += duration;
-    }
 }

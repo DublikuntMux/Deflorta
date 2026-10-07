@@ -12,6 +12,7 @@ workspace = true
 dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu"]
 
 [dependencies]
+deflorta-data = { workspace = true, features = ["media"] }
 egui = { version = "0.36.2", optional = true }
 egui-winit = { version = "0.36.2", default-features = false, features = ["clipboard", "wayland", "x11"], optional = true }
 egui-wgpu = { version = "0.36.2", default-features = false, optional = true }
@@ -28,7 +29,8 @@ bytemuck = { version = "1.25.2", features = [ "derive" ] }
 pollster = "1.0.1"
 dirs = "7.0.0"
 anyhow.workspace = true
-openh264 = "0.9.8"
+oxideav-core = "0.1.39"
+oxideav-h264 = "0.1.8"
 mp4 = "0.14.0"
 symphonia = { version = "0.6.1", default-features = false, features = ["mkv"] }
 oxideav-vp8 = { version = "0.2.7", default-features = false }
@@ -38,7 +40,6 @@ gilrs = "0.11.2"
 log.workspace = true
 pretty_env_logger = "0.5.0"
 num-traits = "0.2.19"
-lz4_flex = { version = "0.14.0", default-features = false, features = ["std", "safe-decode", "checked-decode"] }
 
 [build-dependencies]
 anyhow.workspace = true

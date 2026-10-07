@@ -1,14 +1,14 @@
 //! The game's ES module graph: parsing, import resolution and linking.
 //!
 //! Modules are resolved exactly like the engine resolves them at run time
-//! ([`deflorta::resolve_specifier`]): `./`, `../` and `/` paths name game files
+//! ([`deflorta_data::resolve_specifier`]): `./`, `../` and `/` paths name game files
 //! and the engine's built-in modules (`deflorta`, `deflorta/ui`, …) stay
 //! external. Linking maps every import binding to the declaration it refers
 //! to, following re-exports and `export *` through the graph.
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 use oxc::allocator::Allocator;
 use oxc::ast::ast::{
     Declaration, ExportDefaultDeclarationKind, IdentifierReference, ImportDeclarationSpecifier,
@@ -101,22 +101,24 @@ pub trait Loader {
     fn load(&self, id: &str) -> Result<String>;
 }
 
-impl Loader for deflorta::GameFiles {
+impl Loader for deflorta_data::GameFiles {
     fn load(&self, id: &str) -> Result<String> {
         Ok(self.read_to_string(id)?)
     }
 }
 
-/// The engine's built-in modules, loaded from the embedded runtime.
+/// The engine's built-in modules, loaded from adjacent runtime templates.
 pub struct Builtins;
 
 impl Loader for Builtins {
     fn load(&self, id: &str) -> Result<String> {
-        deflorta::BUILTIN_MODULES
+        let file = deflorta_data::BUILTIN_MODULES
             .iter()
             .find(|(name, _)| *name == id)
-            .map(|(_, source)| (*source).to_owned())
-            .ok_or_else(|| anyhow::anyhow!("unknown built-in module '{id}'"))
+            .map(|(_, file)| *file)
+            .ok_or_else(|| anyhow::anyhow!("unknown built-in module '{id}'"))?;
+        let path = crate::distribution::template()?.join("runtime").join(file);
+        std::fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))
     }
 }
 
@@ -168,8 +170,8 @@ impl<'a> Graph<'a> {
             .map(|(specifier, span, _)| (specifier.clone(), *span))
             .collect();
         for (k, (specifier, span)) in specifiers.into_iter().enumerate() {
-            let source = match deflorta::resolve_specifier(id, &specifier) {
-                Ok(resolved) if deflorta::is_builtin_module(&resolved) => {
+            let source = match deflorta_data::resolve_specifier(id, &specifier) {
+                Ok(resolved) if deflorta_data::is_builtin_module(&resolved) => {
                     Source::External(resolved)
                 }
                 Ok(resolved) => match self.load(loader, &resolved) {
@@ -566,16 +568,19 @@ pub fn declaration_bindings(declaration: &Declaration) -> Vec<(String, SymbolId)
 }
 
 /// Exported names of every built-in module.
-pub fn builtin_exports() -> HashMap<String, HashSet<String>> {
+pub fn builtin_exports() -> Result<HashMap<String, HashSet<String>>> {
     let allocator = Allocator::default();
-    let ids: Vec<&str> = deflorta::BUILTIN_MODULES
+    let ids: Vec<&str> = deflorta_data::BUILTIN_MODULES
         .iter()
         .map(|(id, _)| *id)
         .collect();
     let graph = Graph::build(&allocator, &Builtins, &ids);
-    graph
+    if graph.report.has_errors() {
+        bail!("{}", graph.report.render(&crate::project::sources(&graph)));
+    }
+    Ok(graph
         .modules
         .iter()
         .map(|module| (module.id.clone(), module.exports.keys().cloned().collect()))
-        .collect()
+        .collect())
 }
