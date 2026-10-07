@@ -1,6 +1,6 @@
 // deflorta/text — dialogue text tags and translations.
 //
-// Text tags (Ren'Py style):
+// Text tags:
 //   {b}…{/b} {i}…{/i} {u}…{/u} {s}…{/s}   bold, italic, underline, strikethrough
 //   {color=#f88}…{/color}                  color
 //   {size=32} {size=+4} {size=*1.5}…{/size} absolute or relative size

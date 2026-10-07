@@ -199,22 +199,6 @@ Requirements this places on story code (documented in the README): keep state
 in `store`, use `random()`/`randInt()` (seeded, saved), and await only engine
 functions. In return, saves are tiny and robust, and rollback is exact.
 
-The same model gives several Ren'Py features almost for free:
-
-- **History** entries remember their root and checkpoint, so clicking a line in
-  the backlog is a rollback to that checkpoint. A save stores the history from
-  before its root; replay re-adds the rest.
-- **NVL pages** are part of the scene snapshot, and each `say` appends to them
-  even while fast-forwarding, so pages rebuild themselves on load.
-- **Script updates**: a save records the *kind* of each checkpoint. If the
-  replayed script asks for something different (or jumps away early), the
-  engine notices the mismatch, restarts the scene from its root snapshot and
-  tells the player, instead of failing.
-- **Autosave** happens at the first interaction of every label and on quit,
-  rotating through six slots. Quick save/load use their own slot.
-- **Seen text** is a set of hashes of (label, line) in a separate file, so
-  skipping can stop at unread text.
-
 ### UI system
 
 - **Layout**: CSS flexbox and grid through `taffy` (`position`, insets, sizes,
