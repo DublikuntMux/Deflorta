@@ -104,6 +104,21 @@ fn distribution() -> &'static Path {
             &root.join("crates/engine/runtime"),
             &path.join("template/runtime"),
         );
+        let android = path.join("template/android");
+        std::fs::create_dir_all(android.join("app")).unwrap();
+        for file in [
+            "settings.gradle.kts",
+            "build.gradle.kts",
+            "gradle.properties",
+            "gradlew",
+            "gradlew.bat",
+            "app/build.gradle.kts",
+            "app/proguard-rules.pro",
+        ] {
+            std::fs::copy(root.join("android").join(file), android.join(file)).unwrap();
+        }
+        copy_tree(&root.join("android/gradle"), &android.join("gradle"));
+        copy_tree(&root.join("android/app/src"), &android.join("app/src"));
         path
     })
 }
@@ -629,6 +644,111 @@ fn publish_selects_profiles_and_foreign_platform_resources() {
         "foreign resource"
     );
     assert!(!output.join("deflorta-launcher.exe").exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn android_publish_packages_verified_game_and_selected_native_profile() {
+    let project = Project::new();
+    project.write(
+        "main.js",
+        r#"
+import { configure, label, say } from "deflorta";
+configure({ id: "test-game", title: "Android export", font: "Noto Sans", version: "2.4" });
+label("start", async () => { await say("Hello Android"); });
+"#,
+    );
+    let moved = project.0.join(".engine");
+    copy_tree(distribution(), &moved);
+    for mode in ["debug", "release"] {
+        let libraries = moved.join(format!("target/android-aarch64/{mode}/jniLibs/arm64-v8a"));
+        std::fs::create_dir_all(&libraries).unwrap();
+        std::fs::write(libraries.join("libdeflorta_android.so"), mode).unwrap();
+        std::fs::write(libraries.join("libc++_shared.so"), "C++ runtime").unwrap();
+    }
+    // The real host launcher verifies startup; substitute only the Gradle
+    // build so this packaging regression needs no SDK or signing credentials.
+    std::fs::write(
+        moved.join("template/android/gradlew"),
+        r#"
+set -eu
+test "$1" = "--console=plain"
+test "$2" = "assembleDebug"
+mkdir -p app/build/outputs/apk/debug
+cp app/src/main/assets/game.dm app/build/outputs/apk/debug/app-debug.apk
+"#,
+    )
+    .unwrap();
+    let publish = |package: &str| {
+        Command::new(moved.join("deflorta"))
+            .args([
+                "publish",
+                project.path(),
+                "--platform",
+                "android-aarch64",
+                "--debug",
+                "--android-package",
+                package,
+                "--android-version-code",
+                "7",
+            ])
+            .output()
+            .unwrap()
+    };
+    let invalid = publish("com.invalid-package");
+    assert!(!invalid.status.success());
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("Android package"));
+    assert!(!project.0.join("dist/android-aarch64/android").exists());
+    success(&publish("com.example.mygame"));
+    let output = project.0.join("dist/android-aarch64");
+    let gradle = output.join("android");
+    let libraries = gradle.join("app/src/main/jniLibs/arm64-v8a");
+    assert_eq!(
+        std::fs::read(libraries.join("libdeflorta_android.so")).unwrap(),
+        b"debug"
+    );
+    assert!(libraries.join("libc++_shared.so").is_file());
+    let config: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(gradle.join("deflorta-export.json")).unwrap())
+            .unwrap();
+    assert_eq!(config["applicationId"], "com.example.mygame");
+    assert_eq!(config["versionCode"], 7);
+    assert_eq!(config["versionName"], "2.4");
+    let artifact = GameFiles::open(&output.join("test-game.apk")).unwrap();
+    assert!(artifact.exists("main.js"));
+    assert!(!artifact.exists("game.dm"));
+    std::fs::create_dir_all(gradle.join("app/src/main/jniLibs/x86_64")).unwrap();
+    std::fs::write(gradle.join("app/src/main/jniLibs/x86_64/stale.so"), "stale").unwrap();
+    success(&publish("com.example.mygame"));
+    assert!(!gradle.join("app/src/main/jniLibs/x86_64").exists());
+    let unsigned = Command::new(moved.join("deflorta"))
+        .args(["publish", project.path(), "--platform", "android-aarch64"])
+        .env_remove("DEFLORTA_KEYSTORE")
+        .output()
+        .unwrap();
+    assert!(!unsigned.status.success());
+    assert!(
+        String::from_utf8_lossy(&unsigned.stderr)
+            .contains("release Android exports need DEFLORTA_KEYSTORE")
+    );
+    std::fs::rename(&gradle, output.join("previous-android")).unwrap();
+    std::fs::create_dir(&gradle).unwrap();
+    std::fs::write(gradle.join("custom.txt"), "keep me").unwrap();
+    let custom = publish("com.example.mygame");
+    assert!(!custom.status.success());
+    assert!(String::from_utf8_lossy(&custom.stderr).contains("not a generated Android export"));
+    assert_eq!(
+        std::fs::read_to_string(gradle.join("custom.txt")).unwrap(),
+        "keep me"
+    );
+    let desktop = cli([
+        "publish",
+        project.path(),
+        "--android-package",
+        "com.example.game",
+    ]);
+    assert!(!desktop.status.success());
+    assert!(String::from_utf8_lossy(&desktop.stderr).contains("require --platform"));
 }
 
 #[cfg(unix)]

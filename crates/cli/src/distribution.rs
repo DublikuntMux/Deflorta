@@ -40,10 +40,22 @@ pub fn runtime(platform: &str, debug: bool) -> Result<PathBuf> {
         .join("target")
         .join(platform)
         .join(if debug { "debug" } else { "release" });
-    if !launcher(&path).is_file() {
+    let entry = if platform.starts_with("android-") {
+        path.join("jniLibs")
+            .join(crate::android::abi(platform)?)
+            .join("libdeflorta_android.so")
+    } else {
+        launcher(&path)
+    };
+    if !entry.is_file() {
+        let android = if platform.starts_with("android-") {
+            " --android"
+        } else {
+            ""
+        };
         bail!(
-            "launcher {} not found; run python3 scripts/build-dist.py or install this platform's runtime folder",
-            launcher(&path).display()
+            "runtime {} not found; run python3 scripts/build-dist.py{android} or install this platform's runtime folder",
+            entry.display()
         );
     }
     Ok(path)

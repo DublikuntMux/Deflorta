@@ -10,6 +10,11 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+ANDROID_TARGETS = {
+    "arm64-v8a": "android-aarch64",
+    "x86_64": "android-x86_64",
+}
+ANDROID_API = 26
 
 
 def capture(*args):
@@ -38,6 +43,42 @@ def build(package, release, target):
     return Path(executables[0])
 
 
+def build_android(abi, release, destination):
+    # cargo-ndk supplies NDK clang/sysroot settings and installs libc++_shared.
+    command = [
+        "cargo", "ndk", "-t", abi, "--platform", str(ANDROID_API),
+        "-o", str(destination), "--link-libcxx-shared",
+        "build", "--locked", "-p", "deflorta-android",
+    ]
+    if release:
+        command.append("--release")
+    environment = os.environ.copy()
+    ndk = environment.get("ANDROID_NDK_HOME") or environment.get("ANDROID_NDK_ROOT")
+    if not ndk:
+        raise RuntimeError("set ANDROID_NDK_HOME to your installed NDK (r28+)")
+    # SpiderMonkey's configure/make build uses these names too.
+    environment["ANDROID_NDK_HOME"] = ndk
+    environment["ANDROID_NDK_ROOT"] = ndk
+    environment["ANDROID_API_LEVEL"] = str(ANDROID_API)
+    environment["CXXSTDLIB"] = "c++_shared"
+    subprocess.run(command, cwd=ROOT, env=environment, check=True)
+    library = destination / abi / "libdeflorta_android.so"
+    if not library.is_file():
+        raise RuntimeError(f"Android build did not produce {library}")
+    # Export templates do not need native debug information. Keep full symbols
+    # in Cargo's build output, while packaging works without an NDK installed.
+    strip_name = "llvm-strip.exe" if os.name == "nt" else "llvm-strip"
+    strip = list(Path(ndk).glob(f"toolchains/llvm/prebuilt/*/bin/{strip_name}"))
+    if len(strip) != 1:
+        raise RuntimeError(f"cannot locate {strip_name} in {ndk}")
+    subprocess.run([str(strip[0]), "--strip-debug", str(library)], check=True)
+    # cargo-ndk copies dependency cdylibs too, but the Rust dependencies are
+    # statically linked into our engine. Only its C++ runtime is needed.
+    for extra in (destination / abi).glob("*.so"):
+        if extra.name not in {"libdeflorta_android.so", "libc++_shared.so"}:
+            extra.unlink()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -51,6 +92,14 @@ def main():
         default=os.environ.get("CARGO_BUILD_TARGET"),
         help="Rust target triple (default: native)",
     )
+    parser.add_argument(
+        "--android", action="store_true",
+        help="also build Android export runtimes (requires cargo-ndk and NDK)",
+    )
+    parser.add_argument(
+        "--android-abi", action="append", choices=ANDROID_TARGETS,
+        help="ABI to include; repeat for more (default: arm64-v8a)",
+    )
     args = parser.parse_args()
     output = args.output.resolve()
     metadata = json.loads(
@@ -58,7 +107,7 @@ def main():
     )
     cargo_target = Path(metadata["target_directory"]).resolve()
     protected = [
-        ROOT / name for name in [".git", ".cargo", "crates", "game", "scripts", "tests"]
+        ROOT / name for name in [".git", ".cargo", "android", "crates", "game", "scripts", "tests"]
     ]
     protected.append(cargo_target)
     if ROOT.is_relative_to(output) or any(
@@ -74,6 +123,16 @@ def main():
         line.split("=", 1) for line in capture(*cfg_command).splitlines() if "=" in line
     )
     platform = f"{json.loads(cfg['target_os'])}-{json.loads(cfg['target_arch'])}"
+    if platform.startswith("android-"):
+        parser.error("use --android to add Android runtimes to a host distribution")
+    if args.android_abi and not args.android:
+        parser.error("--android-abi requires --android")
+    if args.android:
+        ndk = os.environ.get("ANDROID_NDK_HOME") or os.environ.get("ANDROID_NDK_ROOT")
+        if not ndk or not Path(ndk).is_dir():
+            parser.error("set ANDROID_NDK_HOME to your installed NDK (r28+)")
+        if not shutil.which("cargo-ndk"):
+            parser.error("install cargo-ndk with: cargo install cargo-ndk --locked")
 
     cli = build("deflorta-cli", True, args.target)
     debug = build("deflorta-launcher", False, args.target)
@@ -99,6 +158,15 @@ def main():
         shutil.copytree(
             ROOT / "crates" / "engine" / "runtime", staging / "template" / "runtime"
         )
+        shutil.copytree(
+            ROOT / "android", staging / "template" / "android",
+            ignore=shutil.ignore_patterns(".gradle", ".kotlin", "build", "local.properties"),
+        )
+        if args.android:
+            for abi in dict.fromkeys(args.android_abi or ["arm64-v8a"]):
+                for mode in ["debug", "release"]:
+                    destination = staging / "target" / ANDROID_TARGETS[abi] / mode / "jniLibs"
+                    build_android(abi, mode == "release", destination)
         if output.exists():
             shutil.rmtree(output)
         staging.rename(output)

@@ -2,3 +2,8 @@
 /dist
 /game/build
 /game/dist
+/android/.gradle
+/android/.kotlin
+/android/app/build
+/android/build
+/android/local.properties

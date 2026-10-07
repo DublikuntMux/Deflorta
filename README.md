@@ -108,6 +108,84 @@ Startup verification always runs with the host's debug runtime, so publishing
 for another platform does not try to execute its launcher. Use `-o DIR` and
 `--name NAME` to choose the folder and executable name. Distribute the whole folder.
 
+### Android exports
+
+Android uses a reusable Gradle template and prebuilt engine libraries, like
+Godot's Gradle export flow. The distribution still contains the host CLI and
+launcher for checking games; exporting a game needs no Rust toolchain or NDK.
+The activity and TTS bridge are Kotlin, and Gradle uses Kotlin DSL (`.gradle.kts`).
+The runtime uses Winit's `android-game-activity` with GameActivity 4.4.0;
+`android-activity` builds the matching native glue, so no Prefab/CMake setup is needed.
+
+To build the Android engine templates, install `cargo-ndk`, the Rust targets,
+and Android NDK r28 or newer. Set `ANDROID_NDK_HOME` to that NDK directory:
+
+```sh
+cargo install cargo-ndk --locked
+rustup target add aarch64-linux-android x86_64-linux-android
+export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+python3 scripts/build-dist.py --android
+# Optional emulator runtime as well:
+python3 scripts/build-dist.py --android --android-abi arm64-v8a --android-abi x86_64
+```
+
+The default ABI is arm64-v8a (`android-aarch64`); x86_64 uses
+`android-x86_64`. Both have debug and release native libraries under
+`target/<platform>/<profile>/jniLibs/`. Android debug exports use an unoptimized
+engine without the desktop developer console. Native compilation also needs
+SpiderMonkey's source build tools when a prebuilt archive is unavailable
+(Python, make, clang and libclang). The build script sets its NDK path and
+minimum Android API to match cargo-ndk.
+
+For game exports, install Java 17+ and the Android SDK, set `ANDROID_HOME`,
+and install SDK platform 36 and build-tools 36.0.0. The included Gradle wrapper
+downloads Gradle 9.4.1 and uses Android Gradle Plugin 9.2.1.
+
+```sh
+dist/deflorta publish game --platform android-aarch64 --debug \
+  --android-package com.example.mygame
+adb install -r game/dist/android-aarch64/*.apk
+```
+
+`publish` checks and bundles the game with the host runtime, then packages it
+as an APK. Use `--android-format aab` for an Android App Bundle. `--name` sets
+the artifact name, and `--android-version-code N` sets the store version code
+(default 1; increase it for updates). The version name comes from
+`configure({ version })`, or defaults to `1.0`. The default application id is
+`org.deflorta.game_<game id>` with hyphens replaced by underscores; choose a
+stable reverse-domain id for your own releases.
+
+Release exports require signing credentials in the environment:
+
+```sh
+export DEFLORTA_KEYSTORE=/absolute/path/to/release.jks
+export DEFLORTA_KEYSTORE_PASSWORD=...
+export DEFLORTA_KEY_ALIAS=...
+export DEFLORTA_KEY_PASSWORD=...
+dist/deflorta publish game --platform android-aarch64 \
+  --android-package com.example.mygame --android-format aab --android-version-code 2
+```
+
+The generated Gradle project is kept in the output's `android/` directory for
+inspection or custom builds. A subsequent export regenerates it; keep custom
+template changes in the distribution's `template/android/` instead. No signing
+passwords are written to the project. Android 8.0/API 26 or newer is required.
+Games open in landscape, accept touch and GameActivity keyboard input,
+recreate their GPU surface after backgrounding, and save to the app's private
+files directory. Packaged `game.dm`
+is copied there on startup so large media retains seekable archive reads.
+
+Android self-voicing uses the existing `tts` crate. Its required setup is
+included in the template: `rs.tts.Bridge` with a JNI-visible `@JvmField` backend id,
+explicit `System.loadLibrary` in the Kotlin `GameActivity` subclass (to call
+`JNI_OnLoad`), matching library metadata,
+R8 keep rules, and the Android 11+ `TTS_SERVICE` visibility query. Winit's
+`android-activity` supplies the `ndk-context` used by TTS; do not add `ndk-glue`.
+The device needs an installed speech engine and voice data to speak.
+Failed speech initialization is retried after 2, 4 and 8 seconds on every
+platform to allow slow speech services to become ready. Android's `tts` 0.26.3
+initialization timeout is only 500 ms. Disabling self-voicing cancels pending retries.
+
 `translate update` extracts dialogue, character names, menu prompts/choices,
 input questions, game titles, explicit `_()` strings and the engine interface
 strings into `tl/<language>.json`. Existing translations are preserved;

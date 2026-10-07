@@ -98,6 +98,13 @@ pub struct Engine {
 }
 
 impl Engine {
+    #[cfg(target_os = "android")]
+    pub fn set_suspended(&mut self, suspended: bool) {
+        if let Some(audio) = &mut self.audio {
+            audio.set_suspended(suspended);
+        }
+    }
+
     pub fn new(script: ScriptHost, assets: Assets, ui: Ui, audio: Option<Audio>) -> Self {
         let mut engine = Self {
             script,
@@ -475,10 +482,7 @@ impl Engine {
                 }
             })
             .collect();
-        self.data_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("deflorta")
-            .join(id);
+        self.data_dir = crate::data_dir().join("deflorta").join(id);
         ScriptHost::set_data_dir(self.data_dir.clone());
         self.assets.set_user_dir(self.data_dir.clone());
         self.requests.title = Some(config.title.clone());
@@ -677,6 +681,14 @@ impl Engine {
         if let Some(event) = self.ui.type_text(text) {
             self.handle_ui_events(vec![event], "left");
         }
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn replace_text_input(&mut self, text: &str) {
+        if let Some(event) = self.ui.replace_text(text) {
+            self.handle_ui_events(vec![event], "left");
+        }
+        self.requests.redraw = true;
     }
 
     pub fn accessibility_action(&mut self, request: accesskit::ActionRequest) {

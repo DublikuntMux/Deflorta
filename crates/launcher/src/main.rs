@@ -48,6 +48,11 @@ fn run(cli: Cli) -> Result<()> {
         let inspection = GameInspection {
             id: config.id,
             title: config.title,
+            version: config.version.map(|version| {
+                version
+                    .as_str()
+                    .map_or_else(|| version.to_string(), str::to_owned)
+            }),
             font: config.font,
             font_families,
         };

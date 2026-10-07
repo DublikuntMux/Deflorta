@@ -87,6 +87,21 @@ fn stream(
 }
 
 impl Audio {
+    #[cfg(target_os = "android")]
+    pub fn set_suspended(&mut self, suspended: bool) {
+        for track in [
+            &mut self.music_track,
+            &mut self.sound_track,
+            &mut self.voice_track,
+        ] {
+            if suspended {
+                track.pause(tween(0.0));
+            } else {
+                track.resume(tween(0.0));
+            }
+        }
+    }
+
     /// Returns None when no audio device is available; the game runs silently.
     pub fn new() -> Option<Self> {
         let mut manager = match AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())

@@ -336,6 +336,27 @@ impl Ui {
             .filter(|&i| self.nodes[i].desc.kind() == NodeKind::Input)
     }
 
+    #[cfg(target_os = "android")]
+    pub fn focused_input_text(&self) -> Option<(&str, &str)> {
+        let node = &self.nodes[self.focused_input()?];
+        Some((&node.id, node.desc.string_value()))
+    }
+
+    #[cfg(target_os = "android")]
+    pub fn replace_text(&mut self, text: &str) -> Option<InputEvent> {
+        let i = self.focused_input()?;
+        self.replace_input_text(i, text)
+    }
+
+    pub(super) fn replace_input_text(&mut self, i: usize, text: &str) -> Option<InputEvent> {
+        let value = text
+            .chars()
+            .filter(|c| !c.is_control())
+            .take(self.nodes[i].desc.max_length.unwrap_or(usize::MAX))
+            .collect();
+        self.set_input_value(i, value)
+    }
+
     /// Appends typed text to the focused input.
     pub fn type_text(&mut self, text: &str) -> Option<InputEvent> {
         let i = self.focused_input()?;

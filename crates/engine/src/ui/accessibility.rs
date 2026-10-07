@@ -333,12 +333,7 @@ impl Ui {
                 let Some(ActionData::Value(value)) = request.data else {
                     return Vec::new();
                 };
-                let value = value
-                    .chars()
-                    .filter(|c| !c.is_control())
-                    .take(desc.max_length.unwrap_or(usize::MAX))
-                    .collect();
-                self.set_input_value(i, value).into_iter().collect()
+                self.replace_input_text(i, &value).into_iter().collect()
             }
             _ => Vec::new(),
         }

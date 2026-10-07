@@ -14,6 +14,7 @@ pub use modules::{BUILTIN_MODULES, is_builtin_module, resolve_specifier};
 pub struct GameInspection {
     pub id: String,
     pub title: String,
+    pub version: Option<String>,
     pub font: String,
     pub font_families: Vec<String>,
 }

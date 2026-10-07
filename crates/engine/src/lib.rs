@@ -7,6 +7,8 @@
 // wgpu's nested backend types need this depth for async Send/Sync checks.
 #![recursion_limit = "256"]
 
+#[cfg(target_os = "android")]
+mod android_ime;
 mod app;
 mod assets;
 mod audio;
@@ -50,6 +52,43 @@ pub fn init_logging(default_filter: &str) {
 
 /// Runs a game in a window, or headless with a test script (see `headless.rs`).
 pub fn run(files: GameFiles, test_script: Option<&Path>) -> Result<()> {
+    run_with_event_loop(files, test_script, EventLoop::with_user_event())
+}
+
+/// Runs the packaged game with Android's activity and private save directory.
+#[cfg(target_os = "android")]
+pub fn run_android(
+    files: GameFiles,
+    app: winit::platform::android::activity::AndroidApp,
+) -> Result<()> {
+    use winit::platform::android::EventLoopBuilderExtAndroid;
+
+    ANDROID_DATA_DIR
+        .set(app.internal_data_path().context("no app data directory")?)
+        .map_err(|_| anyhow::anyhow!("Android runtime already initialized"))?;
+    let mut builder = EventLoop::with_user_event();
+    builder.with_android_app(app);
+    run_with_event_loop(files, None, builder)
+}
+
+#[cfg(target_os = "android")]
+static ANDROID_DATA_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+fn data_dir() -> std::path::PathBuf {
+    #[cfg(target_os = "android")]
+    return ANDROID_DATA_DIR
+        .get()
+        .expect("Android runtime not initialized")
+        .clone();
+    #[cfg(not(target_os = "android"))]
+    dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
+fn run_with_event_loop(
+    files: GameFiles,
+    test_script: Option<&Path>,
+    mut builder: winit::event_loop::EventLoopBuilder<accesskit_winit::Event>,
+) -> Result<()> {
     info!(
         "Deflorta {} on {}/{}, game {}, {} mode",
         env!("CARGO_PKG_VERSION"),
@@ -79,7 +118,7 @@ pub fn run(files: GameFiles, test_script: Option<&Path>) -> Result<()> {
 
     let engine = engine::Engine::new(script, assets, ui, audio::Audio::new());
     info!("Startup took {:.0?}", started.elapsed());
-    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event().build()?;
+    let event_loop = builder.build()?;
     let mut app = app::App::new(engine, event_loop.create_proxy());
     event_loop.run_app(&mut app)?;
     app.take_error().map_or_else(|| Ok(()), Err)

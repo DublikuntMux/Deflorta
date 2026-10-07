@@ -1,5 +1,6 @@
 //! `deflorta`: create, check, run, translate, bundle and publish games.
 
+mod android;
 mod api;
 mod bundle;
 mod check;
@@ -99,6 +100,15 @@ enum Command {
         /// Compression level: 1 fast, 2–12 LZ4HC.
         #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
         level: u8,
+        /// Android application id (default: org.deflorta.game_<game id>).
+        #[arg(long)]
+        android_package: Option<String>,
+        /// Android export format.
+        #[arg(long, value_enum, default_value = "apk")]
+        android_format: android::Format,
+        /// Android version code; increase for each store upload.
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=2_100_000_000))]
+        android_version_code: u32,
     },
     /// Extract and manage translations in tl/<language>.json.
     Translate {
@@ -203,7 +213,22 @@ fn run(command: Command) -> Result<ExitCode> {
             debug,
             name,
             level,
-        } => publish(&path, output, platform, debug, name, level)?,
+            android_package,
+            android_format,
+            android_version_code,
+        } => publish(
+            &path,
+            output,
+            platform,
+            debug,
+            name,
+            level,
+            &android::Options {
+                package: android_package,
+                format: android_format,
+                version_code: android_version_code,
+            },
+        )?,
         Command::Translate { command } => return translate(command),
         Command::Info { archive } => info(&archive)?,
         Command::Types { path } => {
@@ -290,6 +315,7 @@ fn publish(
     debug: bool,
     name: Option<String>,
     level: u8,
+    android: &android::Options,
 ) -> Result<()> {
     let project = Project::open(path)?;
     if let Some(name) = &name {
@@ -302,6 +328,13 @@ fn publish(
     }
 
     let platform = platform.unwrap_or_else(distribution::platform);
+    if !platform.starts_with("android-")
+        && (android.package.is_some()
+            || android.format != android::Format::Apk
+            || android.version_code != 1)
+    {
+        bail!("Android export options require --platform android-aarch64 or android-x86_64");
+    }
     let runtime = distribution::runtime(&platform, debug)?;
     let launcher = distribution::launcher(&runtime);
     let output = output.unwrap_or_else(|| project.dist_dir().join(&platform));
@@ -320,6 +353,18 @@ fn publish(
 
     // Running the bundle verifies it and tells us the game's id and title.
     let config = distribution::inspect(&archive).context("the bundled game failed to start")?;
+    if platform.starts_with("android-") {
+        return android::publish(
+            &output,
+            &archive,
+            &runtime,
+            &config,
+            &platform,
+            debug,
+            name.as_deref(),
+            android,
+        );
+    }
     let name = name.unwrap_or_else(|| create::slug(&config.id));
     let suffix = if platform.starts_with("windows-") {
         ".exe"

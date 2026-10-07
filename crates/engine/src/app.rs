@@ -9,7 +9,9 @@ use log::{debug, error, info, warn};
 use num_traits::AsPrimitive;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
+use winit::event::{
+    ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent,
+};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
@@ -30,6 +32,9 @@ pub struct App {
     gamepads: Option<Gilrs>,
     /// Last stick direction per axis, to turn deflection into key presses.
     stick: [i8; 2],
+    touch: Option<u64>,
+    #[cfg(target_os = "android")]
+    android_ime: crate::android_ime::AndroidIme,
     modifiers: ModifiersState,
     fullscreen: bool,
     booted: bool,
@@ -67,6 +72,9 @@ impl App {
             window: None,
             gamepads,
             stick: [0; 2],
+            touch: None,
+            #[cfg(target_os = "android")]
+            android_ime: crate::android_ime::AndroidIme::default(),
             modifiers: ModifiersState::empty(),
             fullscreen: false,
             booted: false,
@@ -132,6 +140,12 @@ impl App {
 
     /// Carries out window changes, captures and redraw/quit requests made by the engine.
     fn handle_requests(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        if self.window.is_some() {
+            use winit::platform::android::ActiveEventLoopExtAndroid;
+            self.android_ime
+                .sync(event_loop.android_app(), &mut self.engine);
+        }
         let requests = self.engine.take_requests();
         if let Some(on) = requests.self_voicing {
             self.self_voicing.set_enabled(on);
@@ -163,7 +177,7 @@ impl App {
             info!("{} fullscreen", if on { "Entering" } else { "Leaving" });
             window.set_fullscreen(on.then_some(Fullscreen::Borderless(None)));
         }
-        #[cfg(not(all(feature = "dev-console")))]
+        #[cfg(not(any(feature = "dev-console", target_os = "android")))]
         if let Some(on) = requests.text_input {
             window.set_ime_allowed(on);
         }
@@ -253,6 +267,24 @@ impl App {
 
     fn press(&mut self, key: &str, down: bool) {
         self.engine.key(key, down, false, &KeyModifiers::default());
+    }
+
+    fn touch_event(&mut self, touch: Touch) {
+        // Track one finger, so a second touch cannot release a drag.
+        if touch.phase == TouchPhase::Started && self.touch.is_none() {
+            self.touch = Some(touch.id);
+            self.engine
+                .pointer_moved(Some((touch.location.x.as_(), touch.location.y.as_())));
+            self.engine.mouse_down("left");
+        } else if self.touch == Some(touch.id) {
+            self.engine
+                .pointer_moved(Some((touch.location.x.as_(), touch.location.y.as_())));
+            if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                self.engine.mouse_up();
+                self.engine.pointer_moved(None);
+                self.touch = None;
+            }
+        }
     }
 
     /// Maps gamepad input to the keyboard bindings.
@@ -367,6 +399,8 @@ impl App {
 
 fn key_name(key: &Key) -> Option<String> {
     match key {
+        #[cfg(target_os = "android")]
+        Key::Named(NamedKey::BrowserBack) => Some("Escape".into()),
         Key::Named(NamedKey::Space) => Some(" ".into()),
         Key::Named(named) => Some(format!("{named:?}")),
         Key::Character(text) => Some(text.to_string()),
@@ -406,6 +440,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             return;
         }
         info!("Application resumed");
+        #[cfg(target_os = "android")]
+        self.engine.set_suspended(false);
         if let Err(err) = self.create_window(event_loop) {
             error!("Cannot create the window: {err:#}");
             self.error = Some(err);
@@ -479,6 +515,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     self.engine.wheel(dy);
                 }
             }
+            WindowEvent::Touch(touch) => self.touch_event(touch),
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers.state(),
             WindowEvent::Ime(Ime::Commit(text)) => self.engine.text_input(&text),
             WindowEvent::KeyboardInput { event, .. } => {
@@ -514,6 +551,26 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
         info!("Application suspended");
+        #[cfg(target_os = "android")]
+        {
+            // Android invalidates the native surface on suspension. Drop all
+            // references before returning; resumed() creates a new surface.
+            self.engine.mouse_up();
+            self.engine.pointer_moved(None);
+            self.touch = None;
+            self.android_ime = crate::android_ime::AndroidIme::default();
+            self.self_voicing.suspend();
+            self.engine.set_suspended(true);
+            self.accessibility = None;
+            self.accessibility_tree = None;
+            self.accessibility_active = false;
+            self.renderer = None;
+            self.window = None;
+            #[cfg(feature = "dev-console")]
+            {
+                self.console = None;
+            }
+        }
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
@@ -521,6 +578,16 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "android")]
+        if self.window.is_none() {
+            event_loop.set_control_flow(ControlFlow::Wait);
+            return;
+        }
+        if self.self_voicing.retry_initialization()
+            && let Some(window) = &self.window
+        {
+            window.request_redraw();
+        }
         self.poll_gamepads();
         self.engine.fire_timers();
         self.engine.poll();
@@ -543,6 +610,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             self.engine.next_timer(),
             Some(self.engine.next_resource_cleanup()),
             polling,
+            self.self_voicing.next_retry(),
             #[cfg(feature = "dev-console")]
             console_refresh,
         ]
