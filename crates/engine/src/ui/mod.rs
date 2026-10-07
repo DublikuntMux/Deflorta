@@ -233,6 +233,51 @@ impl Ui {
         }
     }
 
+    #[cfg(feature = "dev-console")]
+    pub fn diagnostic_counts(&self) -> (usize, usize, usize) {
+        (
+            self.nodes.len(),
+            self.text.buffer_count(),
+            self.videos.len(),
+        )
+    }
+
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        let mut assets = self
+            .videos
+            .values()
+            .map(|video| crate::dev_console::diagnostics::LoadedAsset {
+                kind: "Video",
+                source: video.src().into(),
+                state: if video.ended() { "Ended" } else { "Streaming" }.into(),
+                detail: video
+                    .size()
+                    .map_or_else(|| "Opening".into(), |(w, h)| format!("{w}×{h}")),
+                bytes: None,
+            })
+            .collect::<Vec<_>>();
+        assets.extend(self.text.font_system.db().faces().map(|face| {
+            crate::dev_console::diagnostics::LoadedAsset {
+                kind: "Font",
+                source: face.post_script_name.clone(),
+                state: "Loaded face".into(),
+                detail: format!(
+                    "{} · weight {} · {:?}",
+                    face.families
+                        .iter()
+                        .map(|(name, _)| name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    face.weight.0,
+                    face.style
+                ),
+                bytes: None,
+            }
+        }));
+        assets
+    }
+
     /// Updates the letterboxed mapping from virtual units to the physical surface.
     // Any change to the mapping must invalidate layout, even below an epsilon.
     #[allow(clippy::float_cmp)]

@@ -121,17 +121,63 @@ impl Engine {
         &self.config
     }
 
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     pub fn enable_console(&mut self) -> anyhow::Result<()> {
         self.script.enable_console()
     }
 
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     pub fn evaluate_console(&mut self, source: &str) -> anyhow::Result<String> {
         let result = self.script.evaluate_console(source);
         self.apply(ScriptHost::take_commands());
         self.requests.redraw = true;
         result
+    }
+
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        let mut assets = self.assets.loaded_assets();
+        assets.extend(self.ui.loaded_assets());
+        assets.extend(ScriptHost::loaded_modules().into_iter().map(|source| {
+            crate::dev_console::diagnostics::LoadedAsset {
+                kind: "JavaScript",
+                source,
+                state: "Loaded module".into(),
+                detail: String::new(),
+                bytes: None,
+            }
+        }));
+        if let Some(audio) = &self.audio {
+            assets.extend(audio.loaded_assets());
+        }
+        assets
+    }
+
+    #[cfg(feature = "dev-console")]
+    pub fn diagnostic_stats(&self) -> Vec<(String, String)> {
+        let (nodes, text, videos) = self.ui.diagnostic_counts();
+        vec![
+            (
+                "UI nodes (including exit animations)".into(),
+                nodes.to_string(),
+            ),
+            ("Shaped text buffers".into(), text.to_string()),
+            ("Video players".into(), videos.to_string()),
+            ("Timers".into(), self.timers.len().to_string()),
+            (
+                "Waiting for assets/capture".into(),
+                self.is_loading().to_string(),
+            ),
+            (
+                "Audio device".into(),
+                if self.audio.is_some() {
+                    "Available"
+                } else {
+                    "Unavailable"
+                }
+                .into(),
+            ),
+        ]
     }
 
     pub fn take_requests(&mut self) -> PlatformRequests {

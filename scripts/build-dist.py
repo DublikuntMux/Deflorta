@@ -24,7 +24,6 @@ def build(package, release, target):
             command.append("--no-default-features")
     if target:
         command.extend(["--target", target])
-    # Cargo reports the actual artifact path, including custom target directories.
     result = subprocess.run(
         command, cwd=ROOT, text=True, stdout=subprocess.PIPE, check=True
     )
@@ -58,7 +57,6 @@ def main():
         capture("cargo", "metadata", "--no-deps", "--format-version", "1")
     )
     cargo_target = Path(metadata["target_directory"]).resolve()
-    # Publishing replaces this folder. Never replace source or Cargo artifacts.
     protected = [
         ROOT / name for name in [".git", ".cargo", "crates", "game", "scripts", "tests"]
     ]

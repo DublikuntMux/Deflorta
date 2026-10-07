@@ -240,7 +240,7 @@ impl ScriptHost {
     }
 
     /// Exposes the public module namespace for commands in the debug console.
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     pub fn enable_console(&mut self) -> Result<()> {
         let cx = self.cx();
         unsafe {
@@ -263,9 +263,14 @@ impl ScriptHost {
         Ok(())
     }
 
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_modules() -> Vec<String> {
+        with_state(|state| state.modules.keys().cloned().collect())
+    }
+
     /// Evaluates a script in the live global scope, retaining declarations between
     /// commands. Jobs and flush hooks run even after a command throws.
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     pub fn evaluate_console(&mut self, source: &str) -> Result<String> {
         let cx = self.cx();
         let result = unsafe {
@@ -592,7 +597,7 @@ unsafe fn value_to_string(cx: *mut RawJSContext, value: Handle<Value>) -> String
     }
 }
 
-#[cfg(all(debug_assertions, feature = "dev-console"))]
+#[cfg(feature = "dev-console")]
 unsafe fn format_console_value(cx: *mut RawJSContext, value: Handle<Value>) -> String {
     unsafe {
         if !value.get().is_object() {
@@ -620,7 +625,7 @@ unsafe fn format_console_value(cx: *mut RawJSContext, value: Handle<Value>) -> S
     }
 }
 
-#[cfg(all(debug_assertions, feature = "dev-console"))]
+#[cfg(feature = "dev-console")]
 unsafe extern "C" fn console_json(
     buffer: *const u16,
     length: u32,

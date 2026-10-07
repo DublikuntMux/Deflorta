@@ -39,9 +39,9 @@ pub struct App {
     accessibility_tree: Option<accesskit::TreeUpdate>,
     proxy: EventLoopProxy<accesskit_winit::Event>,
     self_voicing: crate::self_voicing::SelfVoicing,
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     console: Option<crate::dev_console::DevConsole>,
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     game_keys: std::collections::HashSet<String>,
 }
 
@@ -76,9 +76,9 @@ impl App {
             accessibility_tree: None,
             proxy,
             self_voicing: crate::self_voicing::SelfVoicing::default(),
-            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            #[cfg(feature = "dev-console")]
             console: None,
-            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            #[cfg(feature = "dev-console")]
             game_keys: std::collections::HashSet::new(),
         }
     }
@@ -117,7 +117,7 @@ impl App {
             Box::new(event_loop.owned_display_handle()),
         ));
         let renderer = pollster::block_on(Renderer::for_window(&instance, window.clone()))?;
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         {
             self.engine.enable_console()?;
             self.console = Some(renderer.create_console(&window));
@@ -163,11 +163,11 @@ impl App {
             info!("{} fullscreen", if on { "Entering" } else { "Leaving" });
             window.set_fullscreen(on.then_some(Fullscreen::Borderless(None)));
         }
-        #[cfg(not(all(debug_assertions, feature = "dev-console")))]
+        #[cfg(not(all(feature = "dev-console")))]
         if let Some(on) = requests.text_input {
             window.set_ime_allowed(on);
         }
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         if let Some(console) = &mut self.console {
             console.sync_ime(window, self.engine.ui.focused_input().is_some());
         }
@@ -181,7 +181,9 @@ impl App {
     }
 
     fn redraw(&mut self) {
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
+        let frame_started = Instant::now();
+        #[cfg(feature = "dev-console")]
         if let (Some(console), Some(window)) = (&mut self.console, &self.window)
             && let Some(source) = console.show(window)
         {
@@ -192,6 +194,13 @@ impl App {
         };
         let now = Instant::now();
         let items = self.engine.frame(now);
+        #[cfg(feature = "dev-console")]
+        if let Some(console) = &mut self.console
+            && console.update_inspectors(&mut self.engine, renderer, now)
+            && let Some(window) = &self.window
+        {
+            window.request_redraw();
+        }
         let clear = self.engine.clear_color();
         let size = renderer.size();
         if let Err(err) = renderer.render(
@@ -199,10 +208,14 @@ impl App {
             &mut self.engine.ui,
             &mut self.engine.assets,
             clear,
-            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            #[cfg(feature = "dev-console")]
             self.console.as_mut(),
         ) {
             error!("Render failed: {err:#}");
+        }
+        #[cfg(feature = "dev-console")]
+        if let Some(console) = &mut self.console {
+            console.record_frame(frame_started.elapsed());
         }
         if self.accessibility_active
             && let Some(adapter) = &mut self.accessibility
@@ -306,7 +319,7 @@ impl App {
             .is_some_and(|g| g.gamepads().next().is_some())
     }
 
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     fn console_event(&mut self, event: &WindowEvent) -> bool {
         let (Some(console), Some(window)) = (&mut self.console, &self.window) else {
             return false;
@@ -407,7 +420,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         if let (Some(adapter), Some(window)) = (&mut self.accessibility, &self.window) {
             adapter.process_event(window, &event);
         }
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         if self.console_event(&event) {
             self.handle_requests(event_loop);
             return;
@@ -465,7 +478,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 let down = event.state == ElementState::Pressed;
                 if let Some(key) = key_name(&event.logical_key) {
-                    #[cfg(all(debug_assertions, feature = "dev-console"))]
+                    #[cfg(feature = "dev-console")]
                     if down {
                         self.game_keys.insert(key.clone());
                     }
@@ -509,7 +522,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         self.engine.idle();
         let polling = (self.engine.is_loading() || self.has_gamepads())
             .then(|| Instant::now() + POLL_INTERVAL);
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         let console_refresh =
             if let (Some(console), Some(window)) = (&mut self.console, &self.window) {
                 console.refresh(window)
@@ -519,7 +532,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         match [
             self.engine.next_timer(),
             polling,
-            #[cfg(all(debug_assertions, feature = "dev-console"))]
+            #[cfg(feature = "dev-console")]
             console_refresh,
         ]
         .into_iter()

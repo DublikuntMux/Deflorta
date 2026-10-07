@@ -133,7 +133,7 @@ pub fn run(mut engine: Engine, script: &Path) -> Result<()> {
                 &mut engine.ui,
                 &mut engine.assets,
                 clear,
-                #[cfg(all(debug_assertions, feature = "dev-console"))]
+                #[cfg(feature = "dev-console")]
                 None,
             )?;
             engine.after_frame(now);

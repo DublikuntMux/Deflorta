@@ -9,14 +9,15 @@ license.workspace = true
 workspace = true
 
 [features]
-dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu"]
+dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu", "dep:sysinfo", "wgpu/counters"]
 
 [dependencies]
 deflorta-data = { workspace = true, features = ["media"] }
 egui = { version = "0.36.2", optional = true }
 egui-winit = { version = "0.36.2", default-features = false, features = ["clipboard", "wayland", "x11"], optional = true }
 egui-wgpu = { version = "0.36.2", default-features = false, optional = true }
-mozjs = "0.26.7"
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"], optional = true }
+mozjs = "0.26.8"
 winit = "0.30.13"
 accesskit = "0.25.1"
 accesskit_winit = "0.34.1"

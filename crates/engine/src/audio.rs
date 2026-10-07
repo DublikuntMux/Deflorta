@@ -40,6 +40,10 @@ pub struct Audio {
     music: Option<(String, Stream)>,
     voice: Option<Stream>,
     videos: HashMap<String, Stream>,
+    #[cfg(feature = "dev-console")]
+    voice_source: Option<String>,
+    #[cfg(feature = "dev-console")]
+    sounds: Vec<(String, kira::sound::static_sound::StaticSoundHandle)>,
 }
 
 fn tween(seconds: f32) -> Tween {
@@ -106,6 +110,10 @@ impl Audio {
             music: None,
             voice: None,
             videos: HashMap::new(),
+            #[cfg(feature = "dev-console")]
+            voice_source: None,
+            #[cfg(feature = "dev-console")]
+            sounds: Vec::new(),
         })
     }
 
@@ -141,6 +149,9 @@ impl Audio {
     }
 
     pub fn play_sound(&mut self, assets: &Assets, file: &str, volume: f32) {
+        #[cfg(feature = "dev-console")]
+        self.sounds
+            .retain(|(_, sound)| sound.state() != kira::sound::PlaybackState::Stopped);
         let Some(path) = assets.game_path(file) else {
             return;
         };
@@ -154,7 +165,12 @@ impl Audio {
             .and_then(|data| {
                 self.sound_track
                     .play(data.volume(decibels(volume)))
-                    .map(|_| ())
+                    .map(|handle| {
+                        #[cfg(feature = "dev-console")]
+                        self.sounds.push((file.to_owned(), handle));
+                        #[cfg(not(all(feature = "dev-console")))]
+                        drop(handle);
+                    })
                     .map_err(|e| e.to_string())
             });
         match result {
@@ -165,6 +181,10 @@ impl Audio {
 
     /// Plays a voice line, cutting off the previous one.
     pub fn play_voice(&mut self, assets: &Assets, file: Option<&str>) {
+        #[cfg(feature = "dev-console")]
+        {
+            self.voice_source = None;
+        }
         if let Some(mut handle) = self.voice.take() {
             handle.stop(tween(0.05));
         }
@@ -176,6 +196,10 @@ impl Audio {
             Ok(handle) => {
                 debug!("Playing voice '{file}'");
                 self.voice = Some(handle);
+                #[cfg(feature = "dev-console")]
+                {
+                    self.voice_source = Some(file.to_owned());
+                }
             }
             Err(err) => warn!("Cannot play voice '{file}': {err}"),
         }
@@ -228,6 +252,45 @@ impl Audio {
         };
         debug!("{channel} volume {volume:.2}");
         track.set_volume(decibels(volume), tween(0.1));
+    }
+
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        use crate::dev_console::diagnostics::LoadedAsset;
+        use kira::sound::PlaybackState;
+        let mut assets = Vec::new();
+        let mut add = |kind, source: &str, state| {
+            if state != PlaybackState::Stopped {
+                assets.push(LoadedAsset {
+                    kind,
+                    source: source.into(),
+                    state: format!("{state:?}"),
+                    detail: "Streamed".into(),
+                    bytes: None,
+                });
+            }
+        };
+        if let Some((source, handle)) = &self.music {
+            add("Music", source, handle.state());
+        }
+        if let (Some(source), Some(handle)) = (&self.voice_source, &self.voice) {
+            add("Voice", source, handle.state());
+        }
+        for (source, handle) in &self.videos {
+            add("Video audio", source, handle.state());
+        }
+        for (source, handle) in &self.sounds {
+            if handle.state() != PlaybackState::Stopped {
+                assets.push(LoadedAsset {
+                    kind: "Sound",
+                    source: source.clone(),
+                    state: format!("{:?}", handle.state()),
+                    detail: "Decoded sound effect".into(),
+                    bytes: None,
+                });
+            }
+        }
+        assets
     }
 }
 

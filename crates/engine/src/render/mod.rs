@@ -107,7 +107,48 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        self.textures
+            .iter()
+            .filter_map(|(source, texture)| {
+                let texture = texture.as_ref()?;
+                let (w, h) = (texture.raw.width(), texture.raw.height());
+                Some(crate::dev_console::diagnostics::LoadedAsset {
+                    kind: "GPU texture",
+                    source: source.clone(),
+                    state: "Resident".into(),
+                    detail: format!("{w}×{h} RGBA8"),
+                    bytes: Some(u64::from(w) * u64::from(h) * 4),
+                })
+            })
+            .collect()
+    }
+
+    #[cfg(feature = "dev-console")]
+    pub fn diagnostic_stats(&self) -> crate::dev_console::diagnostics::GpuStats {
+        let info = self.device.adapter_info();
+        let counters = self.device.get_internal_counters();
+        // wgpu 30 maintains memory counters on Vulkan and DirectX 12 only.
+        let memory_counters = matches!(info.backend, wgpu::Backend::Vulkan | wgpu::Backend::Dx12);
+        let assets = self.loaded_assets();
+        crate::dev_console::diagnostics::GpuStats {
+            adapter: format!(
+                "{} · {:?} · {:?}",
+                info.name, info.backend, info.device_type
+            ),
+            textures: assets.len(),
+            texture_bytes: assets.iter().filter_map(|asset| asset.bytes).sum(),
+            buffer_bytes: memory_counters.then(|| counters.hal.buffer_memory.read()),
+            all_texture_bytes: memory_counters.then(|| counters.hal.texture_memory.read()),
+            allocations: self
+                .device
+                .generate_allocator_report()
+                .map(|report| (report.total_allocated_bytes, report.total_reserved_bytes)),
+        }
+    }
+
+    #[cfg(feature = "dev-console")]
     pub fn create_console(&self, window: &Window) -> crate::dev_console::DevConsole {
         crate::dev_console::DevConsole::new(window, &self.device, self.format)
     }
@@ -741,12 +782,10 @@ impl Renderer {
         ui: &mut Ui,
         assets: &mut Assets,
         clear: Color,
-        #[cfg(all(debug_assertions, feature = "dev-console"))] mut console: Option<
-            &mut crate::dev_console::DevConsole,
-        >,
+        #[cfg(feature = "dev-console")] mut console: Option<&mut crate::dev_console::DevConsole>,
     ) -> Result<()> {
         let layers = self.prepare(items, ui, assets, clear)?;
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         if let Some(console) = &mut console {
             console.upload_textures(&self.device, &self.queue);
         }
@@ -800,7 +839,7 @@ impl Renderer {
         };
         let commands = self.encode(&view, &layers)?;
         self.queue.submit(Some(commands));
-        #[cfg(all(debug_assertions, feature = "dev-console"))]
+        #[cfg(feature = "dev-console")]
         if let Some(console) = console {
             let commands =
                 console.paint(&self.device, &self.queue, &view, [self.width, self.height]);

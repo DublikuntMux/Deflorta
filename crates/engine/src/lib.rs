@@ -10,7 +10,7 @@
 mod app;
 mod assets;
 mod audio;
-#[cfg(all(debug_assertions, feature = "dev-console"))]
+#[cfg(feature = "dev-console")]
 mod dev_console;
 mod engine;
 mod headless;
@@ -40,9 +40,9 @@ pub const DEFAULT_LOG_FILTER: &str = "warn,deflorta=info";
 /// shows more detail; `RUST_LOG=debug` includes wgpu, winit and other crates.
 pub fn init_logging(default_filter: &str) {
     let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| default_filter.to_owned());
-    #[cfg(all(debug_assertions, feature = "dev-console"))]
+    #[cfg(feature = "dev-console")]
     dev_console::init_logging(&filter);
-    #[cfg(not(all(debug_assertions, feature = "dev-console")))]
+    #[cfg(not(all(feature = "dev-console")))]
     pretty_env_logger::formatted_timed_builder()
         .parse_filters(&filter)
         .init();

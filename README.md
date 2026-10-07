@@ -332,9 +332,32 @@ including `console.debug`, with filtering, clearing and automatic scrolling.
 cargo run -p deflorta-launcher -- game
 ```
 
-Commands run in the live game's JavaScript global scope. Use **Enter** to run,
+Use **Enter** to run a command,
 **Shift+Enter** for a new line, and **Up/Down** for command history. Results and
-exceptions appear in the log. Global declarations persist between commands;
+exceptions appear in the log. The console has these diagnostic commands:
+
+| Command | Description |
+| --- | --- |
+| `help [command]` | List commands and descriptions, or explain one command. |
+| `accessibility [--window]` | Inspect the current AccessKit tree, including node IDs, roles, labels, properties and focus. |
+| `assets [--window]` | List cached images and their decode/upload states, resident GPU textures, active audio/video, fonts and JavaScript modules. |
+| `stats [--window]` | Show process CPU, memory, disk I/O, redraw timings, GPU resources and engine counts. |
+
+Diagnostics print a snapshot by default. For example, `accessibility --window`,
+`assets --window` and `stats --window` each open a separate floating egui window
+that refreshes every 500 ms. These windows remain open when **F12** hides the
+console; close them individually with **×**. The asset window supports filtering,
+and the accessibility window shows an expandable tree with node properties.
+
+CPU measurements cover the game process (100% means one CPU core) and need a
+second sample after warm-up. Redraw timings include the inspectors. GPU memory
+includes wgpu counters and allocation reports where the backend supports them;
+image/video texture sizes are RGBA8 estimates. Hardware GPU utilization and
+execution time are shown as unavailable. Streamed assets have no full-file
+memory estimate.
+
+Other input runs in the live game's JavaScript global scope. Global
+declarations persist between commands;
 the public game API is available as `deflorta`, for example:
 
 ```js

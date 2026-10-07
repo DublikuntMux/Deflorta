@@ -1,5 +1,32 @@
 use super::*;
 
+#[cfg(feature = "dev-console")]
+fn assert_console_diagnostics(engine: &mut crate::engine::Engine) {
+    // Diagnostic snapshots describe the live game without changing its state.
+    let assets = engine.loaded_assets();
+    assert!(
+        assets
+            .iter()
+            .any(|asset| asset.kind == "JavaScript" && asset.source == "main.js")
+    );
+    assert!(assets.iter().any(|asset| asset.kind == "Font"));
+    assert!(engine.diagnostic_stats().iter().any(|(label, value)| {
+        label == "Shaped text buffers" && value.parse::<usize>().unwrap() > 0
+    }));
+    let tree = engine
+        .ui
+        .accessibility_update(&engine.config().title.clone());
+    let report = crate::dev_console::diagnostics::tree_report(&tree);
+    assert!(report.contains("Live console UI"));
+    assert_eq!(
+        tree,
+        engine
+            .ui
+            .accessibility_update(&engine.config().title.clone())
+    );
+    assert_eq!(engine.evaluate_console("consoleProbe").unwrap(), "7");
+}
+
 fn voices() -> Vec<String> {
     ScriptHost::take_commands()
         .into_iter()
@@ -10,7 +37,7 @@ fn voices() -> Vec<String> {
         .collect()
 }
 
-#[cfg(all(debug_assertions, feature = "dev-console"))]
+#[cfg(feature = "dev-console")]
 #[test]
 fn console_evaluates_live_state_and_recovers_after_errors() {
     // SpiderMonkey cannot be reinitialized in the same process.
@@ -77,6 +104,8 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
         }),
         crate::ui::DrawItem::Quad(_) => false,
     }));
+
+    assert_console_diagnostics(&mut engine);
 
     let error = engine
         .evaluate_console(

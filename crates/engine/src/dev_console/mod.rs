@@ -1,5 +1,9 @@
 //! Debug launcher console. Shares the game's GPU and JavaScript realm.
 
+mod commands;
+pub mod diagnostics;
+mod inspectors;
+
 use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -115,6 +119,7 @@ pub struct DevConsole {
     textures: egui::TexturesDelta,
     pixels_per_point: f32,
     next_repaint: Option<Instant>,
+    inspectors: inspectors::Inspectors,
 }
 
 impl DevConsole {
@@ -150,6 +155,7 @@ impl DevConsole {
             textures: egui::TexturesDelta::default(),
             pixels_per_point: 1.0,
             next_repaint: None,
+            inspectors: inspectors::Inspectors::default(),
         }
     }
 
@@ -167,13 +173,13 @@ impl DevConsole {
         if response.repaint {
             window.request_redraw();
         }
-        self.open && response.consumed
+        (self.open || self.inspectors.any_open()) && response.consumed
     }
 
     pub fn sync_ime(&mut self, window: &Window, game_text_input: bool) {
         // egui controls IME while its text fields have focus. Otherwise restore
         // the game's setting and keep egui-winit's cached OS state in sync.
-        if self.open && self.context.egui_wants_keyboard_input() {
+        if (self.open || self.inspectors.any_open()) && self.context.egui_wants_keyboard_input() {
             return;
         }
         if self.input.allow_ime() != game_text_input {
@@ -184,7 +190,7 @@ impl DevConsole {
 
     /// Refresh asynchronous log messages without continuously redrawing the game.
     pub fn refresh(&mut self, window: &Window) -> Option<Instant> {
-        if !self.open {
+        if !self.open && !self.inspectors.any_open() {
             return None;
         }
         let now = Instant::now();
@@ -192,7 +198,7 @@ impl DevConsole {
             window.request_redraw();
             self.next_repaint = None;
         }
-        if now >= self.next_refresh {
+        if self.open && now >= self.next_refresh {
             let revision = logs()
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -202,10 +208,32 @@ impl DevConsole {
             }
             self.next_refresh = now + REFRESH_INTERVAL;
         }
-        Some(
-            self.next_repaint
-                .map_or(self.next_refresh, |due| due.min(self.next_refresh)),
-        )
+        let inspector_due = self.inspectors.next_refresh();
+        if inspector_due.is_some_and(|due| due <= now) {
+            window.request_redraw();
+        }
+        [
+            self.next_repaint,
+            self.open.then_some(self.next_refresh),
+            inspector_due,
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+    }
+
+    /// Called after the game tree is laid out, so snapshots contain current geometry.
+    pub fn update_inspectors(
+        &mut self,
+        engine: &mut crate::engine::Engine,
+        renderer: &crate::render::Renderer,
+        now: Instant,
+    ) -> bool {
+        self.inspectors.update(engine, renderer, now)
+    }
+
+    pub fn record_frame(&mut self, elapsed: Duration) {
+        self.inspectors.record_frame(elapsed);
     }
 
     pub fn show(&mut self, window: &Window) -> Option<String> {
@@ -214,62 +242,65 @@ impl DevConsole {
         let mut command = None;
         let mut open = self.open;
         let output = context.run_ui(input, |root| {
-            if !self.open {
-                return;
-            }
-            egui::Window::new("Developer console · F12")
-                .id(egui::Id::new("dev-console"))
-                .open(&mut open)
-                .default_pos([16.0, 16.0])
-                .default_size([680.0, 380.0])
-                .min_size([280.0, 180.0])
-                .show(root.ctx(), |ui| {
-                    self.show_logs(ui);
-                    ui.separator();
-                    let prompt_id = egui::Id::new("dev-console-prompt");
-                    let focused = ui.memory(|memory| memory.has_focus(prompt_id));
-                    let submit = focused
-                        && ui.input_mut(|input| {
-                            input.consume_key(egui::Modifiers::NONE, Key::Enter)
-                        });
-                    if focused && !self.command.contains('\n') {
-                        if ui.input_mut(|input| {
-                            input.consume_key(egui::Modifiers::NONE, Key::ArrowUp)
-                        }) {
-                            self.history_up();
+            if self.open {
+                egui::Window::new("Developer console · F12")
+                    .id(egui::Id::new("dev-console"))
+                    .open(&mut open)
+                    .default_pos([16.0, 16.0])
+                    .default_size([680.0, 380.0])
+                    .min_size([280.0, 180.0])
+                    .show(root.ctx(), |ui| {
+                        self.show_logs(ui);
+                        ui.separator();
+                        let prompt_id = egui::Id::new("dev-console-prompt");
+                        let focused = ui.memory(|memory| memory.has_focus(prompt_id));
+                        let submit = focused
+                            && ui.input_mut(|input| {
+                                input.consume_key(egui::Modifiers::NONE, Key::Enter)
+                            });
+                        if focused && !self.command.contains('\n') {
+                            if ui.input_mut(|input| {
+                                input.consume_key(egui::Modifiers::NONE, Key::ArrowUp)
+                            }) {
+                                self.history_up();
+                            }
+                            if ui.input_mut(|input| {
+                                input.consume_key(egui::Modifiers::NONE, Key::ArrowDown)
+                            }) {
+                                self.history_down();
+                            }
                         }
-                        if ui.input_mut(|input| {
-                            input.consume_key(egui::Modifiers::NONE, Key::ArrowDown)
-                        }) {
-                            self.history_down();
-                        }
-                    }
-                    let prompt = ui.add(
-                        egui::TextEdit::multiline(&mut self.command)
-                            .id(prompt_id)
-                            .font(egui::TextStyle::Monospace)
-                            .desired_width(f32::INFINITY)
-                            .desired_rows(2)
-                            .char_limit(65_536)
-                            .return_key(Some(egui::KeyboardShortcut::new(
-                                egui::Modifiers::SHIFT,
-                                Key::Enter,
-                            )))
-                            .hint_text("JavaScript…"),
-                    );
-                    if self.focus_prompt {
-                        prompt.request_focus();
-                        self.focus_prompt = false;
-                    }
-                    ui.horizontal(|ui| {
-                        if (ui.button("Run").clicked() || submit) && !self.command.trim().is_empty()
-                        {
-                            command = Some(std::mem::take(&mut self.command));
+                        let prompt = ui.add(
+                            egui::TextEdit::multiline(&mut self.command)
+                                .id(prompt_id)
+                                .font(egui::TextStyle::Monospace)
+                                .desired_width(f32::INFINITY)
+                                .desired_rows(2)
+                                .char_limit(65_536)
+                                .return_key(Some(egui::KeyboardShortcut::new(
+                                    egui::Modifiers::SHIFT,
+                                    Key::Enter,
+                                )))
+                                .hint_text("help · accessibility · assets · stats · JavaScript…"),
+                        );
+                        if self.focus_prompt {
                             prompt.request_focus();
+                            self.focus_prompt = false;
                         }
-                        ui.small("Enter: run · Shift+Enter: newline · PageUp/PageDown: history");
+                        ui.horizontal(|ui| {
+                            if (ui.button("Run").clicked() || submit)
+                                && !self.command.trim().is_empty()
+                            {
+                                command = Some(std::mem::take(&mut self.command));
+                                prompt.request_focus();
+                            }
+                            ui.small(
+                                "Enter: run · Shift+Enter: newline · PageUp/PageDown: history",
+                            );
+                        });
                     });
-                });
+            }
+            self.inspectors.show(root.ctx());
         });
         self.open = open;
         self.next_repaint = output
@@ -292,6 +323,16 @@ impl DevConsole {
             self.draft.clear();
             append(Level::Info, format!("> {source}"));
             window.request_redraw();
+        }
+        if let Some(parsed) = command.as_deref().and_then(commands::parse) {
+            match parsed {
+                Ok(commands::Command::Help(kind)) => print_report(&commands::help(kind)),
+                Ok(commands::Command::Inspect { kind, window }) => {
+                    self.inspectors.request(kind, window);
+                }
+                Err(message) => append(Level::Error, message),
+            }
+            command = None;
         }
         command
     }
@@ -428,6 +469,12 @@ impl DevConsole {
             self.renderer.free_texture(&id);
         }
         commands
+    }
+}
+
+fn print_report(report: &str) {
+    for line in report.lines() {
+        append(Level::Info, line.to_owned());
     }
 }
 

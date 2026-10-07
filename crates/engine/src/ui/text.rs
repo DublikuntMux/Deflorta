@@ -134,6 +134,11 @@ impl TextSystem {
         self.entries.get(id)
     }
 
+    #[cfg(feature = "dev-console")]
+    pub fn buffer_count(&self) -> usize {
+        self.entries.len()
+    }
+
     /// Drops buffers whose owner node is not kept, including shadow/ruby buffers.
     pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
         self.entries.retain(|id, _| {

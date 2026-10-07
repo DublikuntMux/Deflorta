@@ -127,6 +127,37 @@ impl Assets {
         &self.files
     }
 
+    #[cfg(feature = "dev-console")]
+    pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        self.images
+            .iter()
+            .map(|(source, state)| {
+                let size = match state {
+                    ImageState::Ready(image) => Some(image.dimensions()),
+                    _ => self.sizes.get(source).copied().flatten(),
+                };
+                crate::dev_console::diagnostics::LoadedAsset {
+                    kind: "Image",
+                    source: source.clone(),
+                    state: match state {
+                        ImageState::Pending => "Decoding",
+                        ImageState::Ready(_) => "Decoded (CPU)",
+                        ImageState::Uploaded => "Uploaded",
+                        ImageState::Failed => "Failed",
+                    }
+                    .into(),
+                    detail: size.map_or_else(String::new, |(w, h)| format!("{w}×{h}")),
+                    bytes: match state {
+                        ImageState::Ready(image) => {
+                            Some(image.as_raw().len().try_into().unwrap_or(u64::MAX))
+                        }
+                        _ => None,
+                    },
+                }
+            })
+            .collect()
+    }
+
     pub fn resolve(&self, src: &str) -> Option<AssetPath> {
         let src = src.split('?').next().unwrap_or(src);
         match src.strip_prefix("user:") {
@@ -216,5 +247,34 @@ impl Assets {
         debug!("Released '{src}'");
         self.images.remove(src);
         self.sizes.remove(src);
+    }
+}
+
+#[cfg(all(test, feature = "dev-console"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostics_follow_pixel_ownership_and_asset_release() {
+        let files = GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut assets = Assets::new(files);
+        assets.images.insert(
+            "probe.png".into(),
+            ImageState::Ready(Arc::new(image::RgbaImage::new(8, 4))),
+        );
+        let decoded = assets.loaded_assets();
+        assert_eq!(decoded[0].bytes, Some(128));
+        assert_eq!(decoded[0].detail, "8×4");
+        assert_eq!(
+            assets.take_pixels("probe.png").unwrap().dimensions(),
+            (8, 4)
+        );
+        let uploaded = assets.loaded_assets();
+        assert_eq!(uploaded[0].state, "Uploaded");
+        assert_eq!(uploaded[0].bytes, None);
+        assets.forget("probe.png");
+        assert_eq!(assets.loaded_assets().len(), 0);
+        assets.request("../outside.png");
+        assert_eq!(assets.loaded_assets()[0].state, "Failed");
     }
 }
