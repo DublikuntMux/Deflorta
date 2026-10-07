@@ -469,6 +469,10 @@ declare module "deflorta" {
   }
 
   /**
+   * Story screen props contain source strings (`say.what`, `choice.items[].text`,
+   * `input.question`); translate them with `_()` when rendering a custom screen.
+   * `say` and `nvl` receive `revealKey`, a unique checkpoint ID to use in the
+   * typewriter text element's key, so repeated lines reveal independently.
    * Defines or replaces a screen. Replacing `say`, `nvl`, `choice`, `input`,
    * `history`, `quick_menu`, `main_menu` or `game_menu` restyles the game.
    */

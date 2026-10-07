@@ -130,7 +130,7 @@ export function plainText(markup) {
 // Translations
 // ---------------------------------------------------------------------------
 
-const tables = {};
+const tables = Object.create(null);
 const loadedFiles = new Set();
 let current = null;
 
@@ -164,8 +164,8 @@ const missing = new Set();
 /** Translates a string into the current language (returns it unchanged when untranslated). */
 export function _(source) {
   if (!current) return source;
-  const translated = current[source];
-  if (translated == null) {
+  const translated = Object.hasOwn(current, source) ? current[source] : undefined;
+  if (typeof translated !== "string") {
     missing.add(source);
     return source;
   }

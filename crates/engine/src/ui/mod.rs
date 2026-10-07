@@ -184,7 +184,7 @@ pub struct Ui {
     tooltip: Option<String>,
     /// Interactive nodes in draw order with their on-screen (clipped) bounds, from the last frame.
     hit_order: Vec<(usize, Rect)>,
-    was_revealing: bool,
+    reveal_event_pending: bool,
     accessibility: accessibility::Accessibility,
 }
 
@@ -213,7 +213,7 @@ impl Ui {
             dragging: None,
             tooltip: None,
             hit_order: Vec::new(),
-            was_revealing: false,
+            reveal_event_pending: false,
             accessibility: accessibility::Accessibility::default(),
         }
     }
@@ -545,11 +545,17 @@ impl Ui {
             };
             let reveal = match self.reveals.remove(&node.id) {
                 Some(r) if r.spans == **spans => r,
-                _ => Reveal::new(spans.to_vec(), cps, now, instant),
+                _ => {
+                    self.reveal_event_pending = true;
+                    Reveal::new(spans.to_vec(), cps, now, instant)
+                }
             };
             reveals.insert(node.id.clone(), reveal);
         }
         self.reveals = reveals;
+        if self.reveals.is_empty() {
+            self.reveal_event_pending = false;
+        }
 
         // Videos keep playing across re-renders of the same element and source.
         let mut videos = HashMap::new();
@@ -703,10 +709,11 @@ impl Ui {
 
     /// Returns true once when all typewriter text has finished revealing.
     pub fn take_revealed_event(&mut self, now: Instant) -> bool {
-        let revealing = self.is_revealing(now);
-        let fired = self.was_revealing && !revealing;
-        self.was_revealing = revealing;
-        fired
+        if self.reveal_event_pending && !self.is_revealing(now) {
+            self.reveal_event_pending = false;
+            return true;
+        }
+        false
     }
 
     /// Handlers of videos that finished since the last call.
@@ -754,6 +761,56 @@ fn inherit_text(parent: &TextStyle, style: &Style) -> TextStyle {
 mod tests {
     use super::*;
     use desc::Dim;
+
+    #[test]
+    fn reveal_completion_fires_once_for_instant_animated_and_restored_text() {
+        let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut ui = Ui::new(TextSystem::new(&files));
+        let assets = Assets::new(files);
+        let now = Instant::now();
+        let line = |key: &str, text: &str, cps| NodeDesc {
+            t: Some(NodeKind::Text),
+            key: Some(key.into()),
+            text: Some(text.into()),
+            cps: Some(cps),
+            ..Default::default()
+        };
+        let exits = HashMap::new();
+        let instant = line("first", "Same", 0.0);
+        ui.commit(instant.clone(), false, &exits, &assets, now);
+        assert!(ui.take_revealed_event(now));
+        assert!(!ui.take_revealed_event(now));
+        ui.commit(instant, false, &exits, &assets, now);
+        assert!(!ui.take_revealed_event(now));
+
+        ui.commit(line("second", "Same", 0.0), false, &exits, &assets, now);
+        assert!(ui.take_revealed_event(now));
+        ui.commit(
+            line("animated", "Typing", 10.0),
+            false,
+            &exits,
+            &assets,
+            now,
+        );
+        assert!(!ui.take_revealed_event(now));
+        let later = now + std::time::Duration::from_secs(1);
+        assert!(ui.take_revealed_event(later));
+        assert!(!ui.take_revealed_event(later));
+
+        ui.commit(
+            line("restored", "Typing", 10.0),
+            true,
+            &exits,
+            &assets,
+            later,
+        );
+        assert!(ui.take_revealed_event(later));
+        assert!(!ui.take_revealed_event(later));
+        ui.commit(line("empty", "", 0.0), false, &exits, &assets, later);
+        assert!(ui.take_revealed_event(later));
+        ui.commit(NodeDesc::default(), false, &exits, &assets, later);
+        assert!(!ui.take_revealed_event(later));
+    }
 
     #[test]
     fn retained_assets_preserve_hover_and_exit_masks_until_the_ghost_finishes() {

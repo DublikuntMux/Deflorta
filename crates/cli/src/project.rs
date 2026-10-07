@@ -50,8 +50,8 @@ impl Project {
     }
 
     /// Every file that ships in the archive besides the script bundle, as
-    /// `(archive path, file)`, sorted.
-    pub fn assets(&self, excluded: &[&Path]) -> Result<Vec<(String, PathBuf)>> {
+    /// game paths, sorted.
+    pub fn assets(&self, excluded: &[&Path]) -> Result<Vec<String>> {
         let excluded = excluded
             .iter()
             .map(|path| absolute_path(path))
@@ -112,12 +112,7 @@ fn is_shipped(name: &str, is_dir: bool, at_root: bool) -> bool {
         || extension.is_some_and(|e| SOURCE_EXTENSIONS.iter().any(|s| e.eq_ignore_ascii_case(s))))
 }
 
-fn collect(
-    root: &Path,
-    dir: &Path,
-    excluded: &[PathBuf],
-    out: &mut Vec<(String, PathBuf)>,
-) -> Result<()> {
+fn collect(root: &Path, dir: &Path, excluded: &[PathBuf], out: &mut Vec<String>) -> Result<()> {
     for entry in std::fs::read_dir(dir).with_context(|| format!("cannot read {}", dir.display()))? {
         let entry = entry?;
         let path = entry.path();
@@ -128,17 +123,21 @@ fn collect(
         let Some(name) = name.to_str() else {
             bail!("file name is not UTF-8: {}", path.display());
         };
-        let is_dir = entry.file_type()?.is_dir();
+        let kind = entry.file_type()?;
+        if kind.is_symlink() {
+            bail!("project symlinks are not supported: {}", path.display());
+        }
+        let is_dir = kind.is_dir();
         if !is_shipped(name, is_dir, dir == root) {
             continue;
         }
         if is_dir {
             collect(root, &path, excluded, out)?;
-        } else {
+        } else if kind.is_file() {
             let relative = path.strip_prefix(root)?;
             let archive_path = deflorta_data::files::normalize_game_path(relative)
                 .with_context(|| format!("invalid file name {}", path.display()))?;
-            out.push((archive_path, path));
+            out.push(archive_path);
         }
     }
     Ok(())

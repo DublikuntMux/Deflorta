@@ -51,6 +51,25 @@ fn normalize(path: &str) -> io::Result<String> {
     })
 }
 
+/// Resolves a normalized game path without traversing project symlinks.
+/// The root is canonicalized once when the project is opened.
+fn directory_path(root: &Path, path: &str) -> io::Result<PathBuf> {
+    let mut resolved = root.to_owned();
+    for component in Path::new(path).components() {
+        resolved.push(component);
+        if std::fs::symlink_metadata(&resolved)?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!("project symlinks are not supported: {}", resolved.display()),
+            ));
+        }
+    }
+    Ok(resolved)
+}
+
 impl GameFiles {
     /// Opens a game: a directory or `.dm` archive containing `main.js`.
     pub fn open(path: &Path) -> Result<Self> {
@@ -105,7 +124,7 @@ impl GameFiles {
             return false;
         };
         match &*self.0 {
-            Source::Directory(dir) => dir.join(path).is_file(),
+            Source::Directory(dir) => directory_path(dir, &path).is_ok_and(|p| p.is_file()),
             Source::Archive(archive) => archive.contains(&path),
         }
     }
@@ -113,7 +132,11 @@ impl GameFiles {
     pub fn read(&self, path: &str) -> io::Result<Vec<u8>> {
         let path = normalize(path)?;
         match &*self.0 {
-            Source::Directory(dir) => std::fs::read(dir.join(path)),
+            Source::Directory(_) => {
+                let mut bytes = Vec::new();
+                self.open_file(&path)?.read_to_end(&mut bytes)?;
+                Ok(bytes)
+            }
             Source::Archive(archive) => archive.read(&path),
         }
     }
@@ -129,7 +152,7 @@ impl GameFiles {
         let path = normalize(path)?;
         let inner = match &*self.0 {
             Source::Directory(dir) => {
-                let file = File::open(dir.join(&path))?;
+                let file = File::open(directory_path(dir, &path)?)?;
                 if !file.metadata()?.is_file() {
                     return Err(not_found(&path));
                 }
@@ -147,7 +170,11 @@ impl GameFiles {
         };
         let mut files = Vec::new();
         match &*self.0 {
-            Source::Directory(root) => collect_files(root, &root.join(&dir), &mut files),
+            Source::Directory(root) => {
+                if let Ok(path) = directory_path(root, &dir) {
+                    collect_files(root, &path, &mut files);
+                }
+            }
             Source::Archive(archive) => {
                 let prefix = format!("{dir}/");
                 files.extend(
@@ -169,9 +196,14 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) {
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
+        let Ok(kind) = entry.file_type() else {
+            continue;
+        };
+        if kind.is_dir() {
             collect_files(root, &path, out);
-        } else if let Some(name) = path.strip_prefix(root).ok().and_then(normalize_game_path) {
+        } else if kind.is_file()
+            && let Some(name) = path.strip_prefix(root).ok().and_then(normalize_game_path)
+        {
             out.push(name);
         }
     }
@@ -223,5 +255,52 @@ impl symphonia_core::io::MediaSource for GameReader {
 
     fn byte_len(&self) -> Option<u64> {
         self.size().ok()
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    #[test]
+    fn directory_access_rejects_file_directory_and_cycle_symlinks() {
+        let temp = std::env::temp_dir().join(format!("deflorta-files-{}", std::process::id()));
+        let root = temp.join("game");
+        std::fs::create_dir_all(root.join("assets")).unwrap();
+        std::fs::create_dir_all(temp.join("outside")).unwrap();
+        std::fs::write(root.join("assets/inside.txt"), "inside").unwrap();
+        std::fs::write(temp.join("outside/sentinel.txt"), "outside").unwrap();
+        symlink(
+            temp.join("outside/sentinel.txt"),
+            root.join("assets/file.txt"),
+        )
+        .unwrap();
+        symlink(temp.join("outside"), root.join("assets/directory")).unwrap();
+        symlink(root.join("assets"), root.join("assets/cycle")).unwrap();
+        symlink(
+            root.join("assets/inside.txt"),
+            root.join("assets/internal.txt"),
+        )
+        .unwrap();
+        let files = GameFiles::directory(&root).unwrap();
+        assert_eq!(files.read_to_string("assets/inside.txt").unwrap(), "inside");
+        for path in [
+            "assets/file.txt",
+            "assets/directory/sentinel.txt",
+            "assets/internal.txt",
+            "assets/cycle/inside.txt",
+        ] {
+            assert!(!files.exists(path), "{path}");
+            assert_eq!(
+                files.read(path).unwrap_err().kind(),
+                io::ErrorKind::PermissionDenied
+            );
+            assert!(files.open_file(path).is_err());
+        }
+        assert_eq!(files.list("assets"), ["assets/inside.txt"]);
+        assert_eq!(files.list("assets/directory"), [] as [String; 0]);
+        assert!(files.read("../outside/sentinel.txt").is_err());
+        std::fs::remove_dir_all(temp).unwrap();
     }
 }

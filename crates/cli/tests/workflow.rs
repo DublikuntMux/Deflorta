@@ -281,6 +281,113 @@ fn check_and_bundle_reject_broken_imports_and_dynamic_imports() {
 }
 
 #[test]
+fn local_namespace_facades_check_publish_and_extract_translations() {
+    let project = Project::new();
+    project.write("api.js", "export * from 'deflorta';");
+    project.write(
+        "characters.js",
+        "import * as api from './api.js'; export const speaker = api.character('Speaker');",
+    );
+    project.write(
+        "main.js",
+        r"
+import * as api from './api.js';
+import * as cast from './characters.js';
+api.configure({id: 'namespace-regression', title: 'Namespace regression'});
+api.label('start', async () => {
+  await api.say('Facade dialogue');
+  await cast.speaker('Character dialogue');
+  await api.nvlNarrator('NVL dialogue');
+});
+",
+    );
+    success(&cli(["check", project.path(), "--no-boot"]));
+    success(&cli(["translate", "update", "uk", "-p", project.path()]));
+    let table: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(project.0.join("tl/uk.json")).unwrap())
+            .unwrap();
+    for text in [
+        "Speaker",
+        "Facade dialogue",
+        "Character dialogue",
+        "NVL dialogue",
+    ] {
+        assert!(table.as_object().unwrap().contains_key(text), "{text}");
+    }
+    success(&project.publish("dist/test"));
+}
+
+#[test]
+fn bundles_reject_direct_eval_with_source_location() {
+    let project = Project::new();
+    project.write(
+        "other.js",
+        "const value = 'other';\nexport function read() { return (eval)('value'); }",
+    );
+    project.write(
+        "main.js",
+        r"
+import { configure, label } from 'deflorta';
+import { read } from './other.js';
+configure({id: 'eval-regression'});
+const value = 'main';
+if (eval('value') !== 'main' || read() !== 'other') throw new Error('wrong scope');
+label('start', async () => {});
+",
+    );
+    success(&cli(["check", project.path()]));
+    for args in [
+        vec!["bundle", project.path()],
+        vec!["bundle", project.path(), "--no-minify"],
+        vec!["publish", project.path()],
+    ] {
+        let output =
+            Command::new(distribution().join(format!("deflorta{}", std::env::consts::EXE_SUFFIX)))
+                .args(args)
+                .output()
+                .unwrap();
+        assert!(!output.status.success());
+        let error = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            error.contains("other.js:2:") && error.contains("direct eval"),
+            "{error}"
+        );
+    }
+    assert!(!project.0.join("build/game.dm").exists());
+    project.write(
+        "other.js",
+        "export function read() { return (0, eval)('1 + 1'); }",
+    );
+    project.write(
+        "main.js",
+        "import { read } from './other.js'; if (read() !== 2) throw new Error('indirect eval');",
+    );
+    success(&cli(["bundle", project.path()]));
+}
+
+#[cfg(unix)]
+#[test]
+fn bundling_rejects_outside_file_and_directory_symlinks() {
+    use std::os::unix::fs::symlink;
+    let outside = Project::new();
+    outside.write("sentinel.txt", "outside-root-sentinel");
+    let project = Project::new();
+    for source in [
+        outside.0.join("sentinel.txt"),
+        outside.0.clone(),
+        project.0.clone(),
+    ] {
+        let link = project.0.join("linked");
+        symlink(source, &link).unwrap();
+        let output = cli(["bundle", project.path()]);
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("project symlinks"));
+        assert!(!project.0.join("build/game.dm").exists());
+        std::fs::remove_file(link).unwrap();
+    }
+}
+
+#[test]
 fn translations_follow_aliases_and_keep_existing_work_until_pruned() {
     let project = Project::new();
     project.write(

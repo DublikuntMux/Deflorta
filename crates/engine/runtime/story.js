@@ -100,6 +100,8 @@ function applyPrefs() {
   native.app.fullscreen(prefs.fullscreen);
   native.app.selfVoicing(prefs.selfVoicing);
   useLanguage(prefs.language);
+  refreshDialogue();
+  syncAutomaticAdvance();
   invalidate();
 }
 
@@ -409,6 +411,12 @@ function addCleanup(pending, fn) {
   };
 }
 
+function cancelCheckpoint() {
+  const pending = run.pending;
+  run.pending = null;
+  pending?.cleanup?.();
+}
+
 // ---------------------------------------------------------------------------
 // Dialogue
 // ---------------------------------------------------------------------------
@@ -417,13 +425,85 @@ let skipHeld = false;
 let skipToggled = false;
 let currentLine = "";
 let nextVoice = null;
+let revealSeq = 0;
+
+function storyBlocked() {
+  return ["game_menu", "history", "confirm"].some(isShown);
+}
+
+function refreshDialogue() {
+  const pending = run.pending;
+  if (pending?.kind !== "say" || typeof pending.markup !== "string") return;
+  const translated = _(pending.markup);
+  const previousNoWait = pending.noWait;
+  pending.noWait = parseMarkup(translated).noWait;
+  currentLine = pending.speaker
+    ? `${_(pending.speaker.name)}: ${plainText(translated)}`
+    : plainText(translated);
+  if (pending.revealed && previousNoWait !== pending.noWait) {
+    if (pending.noWait) {
+      scheduleAutomaticAdvance(pending, 0, "noWait");
+    } else if (pending.automatic?.mode === "noWait") {
+      if (pending.automatic.timer != null) clearTimer(pending.automatic.timer);
+      pending.automatic = null;
+      if (prefs.autoForward)
+        scheduleAutomaticAdvance(pending, prefs.autoDelay * 1000, "auto");
+    }
+  }
+}
+
+function automaticEnabled(pending) {
+  if (pending.automatic.mode === "skip") return isSkipping();
+  if (pending.automatic.mode === "noWait") return pending.noWait;
+  return prefs.autoForward;
+}
+
+// Automatic progression belongs to one checkpoint. Keep the remaining delay
+// while a blocking screen is open, including menus opened by custom screens.
+function syncAutomaticAdvance() {
+  const pending = run.pending;
+  const automatic = pending?.automatic;
+  if (!automatic) return;
+  if (!automaticEnabled(pending) || storyBlocked()) {
+    if (automatic.timer != null) {
+      automatic.remaining = Math.max(0, automatic.due - Date.now());
+      clearTimer(automatic.timer);
+      automatic.timer = null;
+    }
+    return;
+  }
+  if (automatic.timer != null) return;
+  automatic.due = Date.now() + automatic.remaining;
+  automatic.timer = setTimer(automatic.remaining, () => {
+    automatic.timer = null;
+    automatic.remaining = 0;
+    if (run.pending !== pending || storyBlocked()) return;
+    if (automaticEnabled(pending)) pending.resolve();
+  });
+}
+
+function scheduleAutomaticAdvance(pending, delay, mode) {
+  if (pending.automatic?.timer != null) clearTimer(pending.automatic.timer);
+  pending.automatic = { remaining: delay, timer: null, due: 0, mode };
+  if (!pending.automaticCleanup) {
+    pending.automaticCleanup = true;
+    addCleanup(pending, () => {
+      if (pending.automatic?.timer != null) clearTimer(pending.automatic.timer);
+      pending.automatic = null;
+    });
+  }
+  syncAutomaticAdvance();
+}
+
+on("screensChanged", syncAutomaticAdvance);
 
 export const isSkipping = () => skipHeld || skipToggled;
 
 /** Starts or stops skip mode (Tab / the quick menu). */
 export function toggleSkip(on = !skipToggled) {
   skipToggled = on;
-  if (on) advance();
+  if (on && !storyBlocked()) advance();
+  syncAutomaticAdvance();
   invalidate();
 }
 
@@ -484,21 +564,20 @@ export function say(who, what, options = {}) {
   if (history.length > MAX_LINES) history.shift();
 
   return checkpoint("say", (pending) => {
-    const translated = _(markup);
-    const { noWait } = parseMarkup(translated);
-    currentLine = speaker
-      ? `${_(speaker.name)}: ${plainText(translated)}`
-      : plainText(translated);
-    pending.noWait = noWait;
+    pending.markup = markup;
+    pending.speaker = speaker;
+    refreshDialogue();
+    const revealKey = ++revealSeq;
     if (nvl) {
       hideScreen("say");
-      showScreen("nvl", { lines: scene.nvl, cps: textSpeed(), ...options });
+      showScreen("nvl", { lines: scene.nvl, cps: textSpeed(), revealKey, ...options });
     } else {
       hideScreen("nvl");
       showScreen("say", {
         who,
-        what: translated,
+        what: markup,
         cps: textSpeed(),
+        revealKey,
         ...options,
       });
     }
@@ -511,8 +590,7 @@ export function say(who, what, options = {}) {
     markSeen(key);
     if (isSkipping()) {
       if (wasSeen || prefs.skipUnseen) {
-        const timer = setTimer(config.skipDelay, advance);
-        addCleanup(pending, () => clearTimer(timer));
+        scheduleAutomaticAdvance(pending, config.skipDelay, "skip");
       } else {
         skipToggled = false;
       }
@@ -581,14 +659,15 @@ export async function menu(prompt, choices) {
       else if (prompt)
         showScreen("say", {
           who: null,
-          what: _(String(prompt)),
+          what: String(prompt),
           cps: textSpeed(),
+          revealKey: ++revealSeq,
         });
       else hideScreen("say");
       skipToggled = false;
       showScreen("choice", {
         items: items.map((c, i) => ({
-          text: _(c.text),
+          text: c.text,
           select: () => pending.resolve(i),
         })),
       });
@@ -622,7 +701,7 @@ export function prompt(
     "input",
     (pending) => {
       showScreen("input", {
-        question: _(question),
+        question,
         value: initial,
         maxLength,
         submit(value) {
@@ -686,6 +765,7 @@ function resetPresentation() {
 /** Starts a new game at `start`. */
 export function newGame(start = "start") {
   console.info(`New game at label '${start}'`);
+  cancelCheckpoint();
   replaceContents(store, clone(storeDefaults));
   resetScene();
   replaceScreens([], isGameScreen);
@@ -710,6 +790,7 @@ export function newGame(start = "start") {
 export function endGame() {
   console.info("Returning to the main menu");
   run.gen++;
+  cancelCheckpoint();
   Object.assign(run, {
     root: null,
     pending: null,
@@ -729,6 +810,7 @@ export function endGame() {
 
 function restart(root, inputs, target, expected) {
   console.debug(`Restoring label '${root.label}' at checkpoint ${target}`);
+  cancelCheckpoint();
   restore(root.snapshot);
   run.root = root;
   run.nextRootId = Math.max(run.nextRootId, root.id + 1);
@@ -954,7 +1036,7 @@ export const actions = {
   auto() {
     prefs.autoForward = !prefs.autoForward;
     savePrefs();
-    if (prefs.autoForward && run.pending?.kind === "say") advance();
+    if (prefs.autoForward && run.pending?.kind === "say" && !storyBlocked()) advance();
   },
   hideUi() {
     setUiHidden(true);
@@ -982,7 +1064,8 @@ on("backgroundClick", (event) => {
 on("key", (event) => {
   if (event.key === "Control") {
     skipHeld = event.down;
-    if (skipHeld && inGame()) advance();
+    if (skipHeld && inGame() && !storyBlocked()) advance();
+    syncAutomaticAdvance();
     invalidate();
     return;
   }
@@ -993,7 +1076,7 @@ on("key", (event) => {
 });
 
 on("wheel", (event) => {
-  if (!inGame() || isShown("game_menu") || isShown("history")) return;
+  if (!inGame() || storyBlocked()) return;
   // Wheel up rolls back, wheel down advances.
   if (event.dy < 0) rollback();
   else if (event.dy > 0) actions.advance(event);
@@ -1002,13 +1085,13 @@ on("wheel", (event) => {
 on("revealed", () => {
   const pending = run.pending;
   if (!pending || pending.kind !== "say" || isSkipping()) return;
+  pending.revealed = true;
   if (pending.noWait) {
-    advance();
+    scheduleAutomaticAdvance(pending, 0, "noWait");
     return;
   }
   if (!prefs.autoForward) return;
-  const timer = setTimer(prefs.autoDelay * 1000, advance);
-  addCleanup(pending, () => clearTimer(timer));
+  scheduleAutomaticAdvance(pending, prefs.autoDelay * 1000, "auto");
 });
 
 on("boot", () => {
@@ -1033,7 +1116,7 @@ on("quit", () => {
 
 on("error", () => {
   run.gen++;
-  run.pending = null;
+  cancelCheckpoint();
 });
 
 // The input screen edits its value through screen props.

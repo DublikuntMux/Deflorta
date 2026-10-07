@@ -207,12 +207,16 @@ export function showScreen(name, props = {}) {
       a.seq - b.seq,
   );
   invalidate();
+  emit("screensChanged");
 }
 
 export function hideScreen(name) {
   const before = shown.length;
   shown = shown.filter((s) => s.name !== name);
-  if (shown.length !== before) invalidate();
+  if (shown.length !== before) {
+    invalidate();
+    emit("screensChanged");
+  }
 }
 
 export function isShown(name) {
@@ -231,6 +235,7 @@ export function replaceScreens(list, filter = () => true) {
   shown = shown.filter((s) => !filter(s.name));
   for (const { name, props } of list) showScreen(name, props);
   invalidate();
+  emit("screensChanged");
 }
 
 export function screenProps(name) {

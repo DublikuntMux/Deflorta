@@ -435,7 +435,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             WindowEvent::CloseRequested => {
                 info!("Window close requested");
                 self.engine.quit();
-                event_loop.exit();
+                self.handle_requests(event_loop);
             }
             WindowEvent::Focused(focused) => {
                 debug!("Window {}", if focused { "focused" } else { "unfocused" });

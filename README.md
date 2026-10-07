@@ -78,7 +78,9 @@ also boots the scripts without a window to catch startup exceptions;
 `bundle` resolves static game imports from `main.js`, including default,
 named and namespace imports and re-exports. Paths name files exactly:
 `./chapter.js`, `../characters.js`, or `/screens.js`; npm package resolution,
-dynamic `import()` and TypeScript compilation are not supported. Game scripts
+dynamic `import()`, direct `eval()` and TypeScript compilation are not supported.
+Direct eval is rejected with its source location because bundling merges module
+scopes. Use ordinary functions to read local state. Game scripts
 become one `main.js`, minified with oxc; engine imports refer to the runtime
 embedded in the launcher. Use `--no-minify` for a readable bundle,
 `--emit-js FILE` to inspect it, and `-o FILE` to choose the archive path.
@@ -93,6 +95,9 @@ compressed media and blocks that do not shrink are stored verbatim. The engine
 reads and seeks through the archive directly, including streaming movies and
 audio. Tooling files and the `build/`, `dist/`, and `node_modules/` directories
 are excluded from game assets.
+Project files and directories must be ordinary files, not symlinks. The runtime
+refuses symlink reads and directory traversal; bundling rejects project symlinks
+so assets cannot copy files from outside the game root.
 
 `publish` checks the project, bundles it, boots the bundle, and copies the
 runtime beside `game.dm`. Players run the named executable; it locates the

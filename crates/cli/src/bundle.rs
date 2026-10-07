@@ -14,7 +14,7 @@ use std::fmt::Write;
 use anyhow::{Context, Result, bail};
 use oxc::allocator::Allocator;
 use oxc::ast::ast::{
-    AssignmentTargetPropertyIdentifier, BindingPattern, BindingProperty,
+    AssignmentTargetPropertyIdentifier, BindingPattern, BindingProperty, CallExpression,
     ExportDefaultDeclarationKind, Expression, ObjectProperty, Statement,
 };
 use oxc::ast_visit::{Visit, walk};
@@ -298,6 +298,22 @@ pub fn bundle(
     if !api::analyze(graph).dynamic_imports.is_empty() {
         bail!("dynamic import() is not supported; use a static import");
     }
+    // A direct eval can observe any lexical binding. Scope hoisting and
+    // renaming cannot preserve that environment by editing AST references.
+    for &m in &graph.order {
+        let module = &graph.modules[m];
+        let mut eval = DirectEval { span: None };
+        eval.visit_program(module.program);
+        if let Some(span) = eval.span {
+            let prefix = &module.source[..span.start as usize];
+            let line = prefix.bytes().filter(|&b| b == b'\n').count() + 1;
+            let column = prefix.rsplit('\n').next().unwrap_or("").chars().count() + 1;
+            bail!(
+                "{}:{line}:{column}: direct eval is not supported in bundles; use ordinary JavaScript functions instead",
+                module.id
+            );
+        }
+    }
     let mut names = Names::new(graph);
 
     // Top-level declarations keep their names where possible, in evaluation order.
@@ -362,6 +378,21 @@ pub fn bundle(
     } else {
         validate(&code)?;
         Ok(code)
+    }
+}
+
+struct DirectEval {
+    span: Option<Span>,
+}
+
+impl<'a> Visit<'a> for DirectEval {
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        if !call.optional
+            && matches!(call.callee.get_inner_expression(), Expression::Identifier(id) if id.name == "eval")
+        {
+            self.span.get_or_insert(call.span);
+        }
+        walk::walk_call_expression(self, call);
     }
 }
 

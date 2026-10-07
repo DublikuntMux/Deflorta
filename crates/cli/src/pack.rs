@@ -4,7 +4,7 @@
 
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use deflorta_data::archive::{BLOCK_COMPRESSED, BLOCK_SIZE, Block, Entry, Index, encode_header};
@@ -22,7 +22,7 @@ const COMPRESSED_FORMATS: &[&str] = &[
 ];
 
 pub enum Contents {
-    File(PathBuf),
+    File(deflorta_data::GameFiles),
     Bytes(Vec<u8>),
 }
 
@@ -124,8 +124,10 @@ pub fn write_archive(output: &Path, mut files: Vec<ArchiveFile>, level: u8) -> R
     let batch_size = u64::from(BLOCK_SIZE) * 32;
     for file in files {
         let mut input: Box<dyn Read> = match file.contents {
-            Contents::File(path) => Box::new(
-                File::open(&path).with_context(|| format!("cannot read {}", path.display()))?,
+            Contents::File(files) => Box::new(
+                files
+                    .open_file(&file.path)
+                    .with_context(|| format!("cannot read {}", file.path))?,
             ),
             Contents::Bytes(bytes) => Box::new(Cursor::new(bytes)),
         };
@@ -245,12 +247,12 @@ mod tests {
                 state.to_le_bytes()[0]
             })
             .collect();
-        let source = dir.join("source.js");
+        let source = dir.join("main.js");
         std::fs::write(&source, &text).unwrap();
         let files = vec![
             ArchiveFile {
                 path: "main.js".into(),
-                contents: Contents::File(source),
+                contents: Contents::File(deflorta_data::GameFiles::directory(&dir).unwrap()),
             },
             ArchiveFile {
                 path: "audio/noise.bin".into(),

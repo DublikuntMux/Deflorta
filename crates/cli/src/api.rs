@@ -88,6 +88,7 @@ enum Callee {
 
 /// Analyzes every module of a linked graph.
 pub fn analyze(graph: &Graph) -> Facts {
+    let builtins = &graph.builtins;
     let mut characters = HashSet::new();
     for &m in &graph.order {
         let module = &graph.modules[m];
@@ -98,6 +99,7 @@ pub fn analyze(graph: &Graph) -> Facts {
             graph,
             module: m,
             characters: &mut characters,
+            builtins,
         };
         finder.visit_program(module.program);
     }
@@ -113,6 +115,7 @@ pub fn analyze(graph: &Graph) -> Facts {
             characters: &characters,
             facts: &mut facts,
             label_depth: 0,
+            builtins,
         };
         analyzer.visit_program(module.program);
     }
@@ -133,46 +136,52 @@ fn classify(
     graph: &Graph,
     m: usize,
     characters: &HashSet<(usize, SymbolId)>,
+    builtins: &HashMap<String, HashSet<String>>,
     callee: &Expression,
 ) -> Callee {
-    match callee {
-        Expression::Identifier(ident) => match target_of(graph, m, ident) {
-            Some(Target::External(module, name)) => match api_name(&module, &name) {
-                Some(name) if name == "nvlNarrator" => Callee::Character,
-                Some(name) => Callee::Api(name),
-                None => Callee::Other,
-            },
-            Some(Target::Local(k, symbol)) if characters.contains(&(k, symbol)) => {
-                Callee::Character
+    match expression_target(graph, m, builtins, callee) {
+        Some(Target::External(module, name)) => match api_name(&module, &name) {
+            Some(name) if name == "nvlNarrator" => Callee::Character,
+            Some(name) => Callee::Api(name),
+            None => Callee::Other,
+        },
+        Some(Target::Local(k, symbol)) if characters.contains(&(k, symbol)) => Callee::Character,
+        _ => match callee.get_inner_expression() {
+            Expression::StaticMemberExpression(member) => {
+                match classify(graph, m, characters, builtins, &member.object) {
+                    Callee::Api(name) => Callee::Method(name, member.property.name.to_string()),
+                    _ => Callee::Other,
+                }
             }
             _ => Callee::Other,
         },
+    }
+}
+
+fn expression_target(
+    graph: &Graph,
+    m: usize,
+    builtins: &HashMap<String, HashSet<String>>,
+    expression: &Expression,
+) -> Option<Target> {
+    match expression {
+        Expression::Identifier(ident) => target_of(graph, m, ident),
         Expression::StaticMemberExpression(member) => {
-            let Expression::Identifier(object) = &member.object else {
-                return Callee::Other;
-            };
             let property = member.property.name.as_str();
-            match target_of(graph, m, object) {
-                Some(Target::ExternalNamespace(module)) => {
-                    api_name(&module, property).map_or(Callee::Other, |name| {
-                        if name == "nvlNarrator" {
-                            Callee::Character
-                        } else {
-                            Callee::Api(name)
-                        }
-                    })
+            match expression_target(graph, m, builtins, &member.object)? {
+                Target::Namespace(k) => graph
+                    .resolve_export(k, property, builtins, &mut HashSet::new())
+                    .ok(),
+                Target::ExternalNamespace(module) => {
+                    Some(Target::External(module, property.to_owned()))
                 }
-                Some(Target::External(module, name)) => api_name(&module, &name)
-                    .map_or(Callee::Other, |name| {
-                        Callee::Method(name, property.to_owned())
-                    }),
-                _ => Callee::Other,
+                _ => None,
             }
         }
         Expression::ParenthesizedExpression(inner) => {
-            classify(graph, m, characters, &inner.expression)
+            expression_target(graph, m, builtins, &inner.expression)
         }
-        _ => Callee::Other,
+        _ => None,
     }
 }
 
@@ -180,6 +189,7 @@ struct CharacterFinder<'g, 'a> {
     graph: &'g Graph<'a>,
     module: usize,
     characters: &'g mut HashSet<(usize, SymbolId)>,
+    builtins: &'g HashMap<String, HashSet<String>>,
 }
 
 impl<'a> Visit<'a> for CharacterFinder<'_, 'a> {
@@ -187,7 +197,7 @@ impl<'a> Visit<'a> for CharacterFinder<'_, 'a> {
         if let (BindingPattern::BindingIdentifier(id), Some(Expression::CallExpression(call))) =
             (&it.id, &it.init)
             && matches!(
-                classify(self.graph, self.module, self.characters, &call.callee),
+                classify(self.graph, self.module, self.characters, self.builtins, &call.callee),
                 Callee::Api(name) if name == "character"
             )
         {
@@ -201,6 +211,7 @@ struct Analyzer<'g, 'a> {
     graph: &'g Graph<'a>,
     module: usize,
     characters: &'g HashSet<(usize, SymbolId)>,
+    builtins: &'g HashMap<String, HashSet<String>>,
     facts: &'g mut Facts,
     /// Nesting depth inside `label()` bodies.
     label_depth: u32,
@@ -427,7 +438,13 @@ impl<'a> Analyzer<'_, 'a> {
 impl<'a> Visit<'a> for Analyzer<'_, 'a> {
     fn visit_call_expression(&mut self, it: &CallExpression<'a>) {
         let mut in_label = false;
-        match classify(self.graph, self.module, self.characters, &it.callee) {
+        match classify(
+            self.graph,
+            self.module,
+            self.characters,
+            self.builtins,
+            &it.callee,
+        ) {
             Callee::Api(name) => {
                 in_label = name == "label";
                 self.api_call(&name, &it.arguments, it.span);
@@ -459,7 +476,13 @@ impl<'a> Visit<'a> for Analyzer<'_, 'a> {
 
     fn visit_tagged_template_expression(&mut self, it: &TaggedTemplateExpression<'a>) {
         if matches!(
-            classify(self.graph, self.module, self.characters, &it.tag),
+            classify(
+                self.graph,
+                self.module,
+                self.characters,
+                self.builtins,
+                &it.tag
+            ),
             Callee::Character
         ) {
             // Speakers join tagged templates with String.raw, so the raw text is the key.

@@ -1,4 +1,228 @@
 use super::*;
+use crate::ui::desc::NodeDesc;
+
+fn runtime_key(host: &mut ScriptHost, key: &str) -> Vec<Command> {
+    host.dispatch(&Event::Key {
+        key,
+        down: true,
+        repeat: false,
+        ctrl: false,
+        shift: false,
+        alt: false,
+        revealing: false,
+    })
+    .unwrap();
+    ScriptHost::take_commands()
+}
+
+fn runtime_state(host: &mut ScriptHost) -> serde_json::Value {
+    runtime_key(host, "state")
+        .into_iter()
+        .find_map(|command| match command {
+            Command::Voice { file: Some(text) } => Some(serde_json::from_str(&text).unwrap()),
+            _ => None,
+        })
+        .unwrap()
+}
+
+fn scheduled_timer(commands: &[Command]) -> u64 {
+    commands
+        .iter()
+        .find_map(|command| match command {
+            Command::SetTimer { id, .. } => Some(*id),
+            _ => None,
+        })
+        .expect("automatic progression must schedule a timer")
+}
+
+fn committed_tree(commands: &[Command]) -> &NodeDesc {
+    commands
+        .iter()
+        .rev()
+        .find_map(|command| match command {
+            Command::Commit(commit) => Some(&commit.tree),
+            _ => None,
+        })
+        .expect("expected a UI commit")
+}
+
+fn tree_text(tree: &NodeDesc) -> String {
+    let mut text = tree.text.clone().unwrap_or_default();
+    if let Some(spans) = &tree.spans {
+        for span in spans {
+            text.push_str(&span.text);
+        }
+    }
+    for child in &tree.children {
+        text.push_str(&tree_text(child));
+    }
+    text
+}
+
+fn keyed_node<'a>(tree: &'a NodeDesc, key: &str) -> Option<&'a NodeDesc> {
+    if tree.key.as_deref() == Some(key) {
+        return Some(tree);
+    }
+    tree.children
+        .iter()
+        .find_map(|child| keyed_node(child, key))
+}
+
+#[test]
+fn story_lifecycle_timers_and_active_translations_regressions() {
+    let name = "script::tests::story_lifecycle_timers_and_active_translations_regressions";
+    if std::env::var_os("DEFLORTA_STORY_TEST_CHILD").is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", name])
+            .env("DEFLORTA_STORY_TEST_CHILD", "1")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let files = GameFiles::open(&crate::workspace_dir().join("tests/runtime-regressions")).unwrap();
+    let mut host = ScriptHost::new(files).unwrap();
+    let directory = std::env::temp_dir().join(format!("deflorta-story-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    ScriptHost::set_data_dir(directory.clone());
+    // Top-level fixture assertions also cover prototype keys and language IDs.
+    host.run_main().unwrap();
+    ScriptHost::take_commands();
+    host.dispatch(&Event::Boot).unwrap();
+    ScriptHost::take_commands();
+
+    check_checkpoint_cancellation(&mut host);
+    check_modal_progression(&mut host);
+    check_active_translations(&mut host);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+fn check_checkpoint_cancellation(host: &mut ScriptHost) {
+    for lifecycle in ["load", "start", "end", "rollback-test", "error-test"] {
+        runtime_key(host, "stop-auto");
+        runtime_key(host, "start");
+        if lifecycle == "rollback-test" {
+            runtime_key(host, "advance-test");
+        }
+        runtime_key(host, "save");
+        runtime_key(host, "auto");
+        host.dispatch(&Event::Revealed).unwrap();
+        let timer = scheduled_timer(&ScriptHost::take_commands());
+        runtime_key(host, "stop-auto");
+        let commands = runtime_key(host, lifecycle);
+        // Disabling Auto has already cleared the timer. Abandoning the
+        // checkpoint must still stop its voice and discard the intent.
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, Command::Voice { file: None })),
+            "{lifecycle}"
+        );
+        let before = runtime_state(host);
+        host.dispatch(&Event::Timer { id: timer }).unwrap();
+        ScriptHost::take_commands();
+        assert_eq!(runtime_state(host), before, "stale timer after {lifecycle}");
+    }
+    runtime_key(host, "start");
+    runtime_key(host, "auto");
+    host.dispatch(&Event::Revealed).unwrap();
+    let timer = scheduled_timer(&ScriptHost::take_commands());
+    let commands = runtime_key(host, "start");
+    assert!(
+        commands
+            .iter()
+            .any(|c| matches!(c, Command::ClearTimer { id } if *id == timer))
+    );
+    host.dispatch(&Event::Timer { id: timer }).unwrap();
+    ScriptHost::take_commands();
+    assert_eq!(runtime_state(host)["line"], "first");
+}
+
+fn check_modal_progression(host: &mut ScriptHost) {
+    for modal in ["game_menu", "history", "confirm"] {
+        runtime_key(host, "start");
+        runtime_key(host, "auto");
+        host.dispatch(&Event::Revealed).unwrap();
+        let timer = scheduled_timer(&ScriptHost::take_commands());
+        let commands = runtime_key(host, modal);
+        assert!(
+            commands
+                .iter()
+                .any(|c| matches!(c, Command::ClearTimer { id } if *id == timer))
+        );
+        host.dispatch(&Event::Timer { id: timer }).unwrap();
+        ScriptHost::take_commands();
+        let state = runtime_state(host);
+        assert_eq!(state["line"], "first");
+        assert_eq!(state["blocked"], true);
+        let commands = runtime_key(host, &format!("close-{modal}"));
+        let resumed = scheduled_timer(&commands);
+        host.dispatch(&Event::Timer { id: resumed }).unwrap();
+        ScriptHost::take_commands();
+        assert_eq!(runtime_state(host)["line"], "second");
+    }
+    runtime_key(host, "stop-auto");
+    runtime_key(host, "start");
+    let commands = runtime_key(host, "skip");
+    let skip = scheduled_timer(&commands);
+    let commands = runtime_key(host, "history");
+    assert!(
+        commands
+            .iter()
+            .any(|c| matches!(c, Command::ClearTimer { id } if *id == skip))
+    );
+    host.dispatch(&Event::Timer { id: skip }).unwrap();
+    ScriptHost::take_commands();
+    assert_eq!(runtime_state(host)["line"], "second");
+    let commands = runtime_key(host, "close-history");
+    let resumed = scheduled_timer(&commands);
+    host.dispatch(&Event::Timer { id: resumed }).unwrap();
+    ScriptHost::take_commands();
+    assert_eq!(runtime_state(host)["line"], "third");
+    runtime_key(host, "stop-skip");
+}
+
+fn check_active_translations(host: &mut ScriptHost) {
+    runtime_key(host, "translated");
+    let commands = runtime_key(host, "uk");
+    assert!(tree_text(committed_tree(&commands)).contains("Привіт"));
+    runtime_key(host, "save");
+    assert_eq!(runtime_state(host)["preview"], "Привіт");
+    let commands = runtime_key(host, "source");
+    assert!(tree_text(committed_tree(&commands)).contains("Hello"));
+    runtime_key(host, "save");
+    assert_eq!(runtime_state(host)["preview"], "Hello");
+
+    runtime_key(host, "choices");
+    let commands = runtime_key(host, "uk");
+    let tree = committed_tree(&commands);
+    let text = tree_text(tree);
+    assert!(text.contains("Питання") && text.contains("Ліворуч"));
+    let choice = keyed_node(tree, "choice-0").unwrap().on_click.unwrap();
+    host.dispatch(&Event::Click {
+        handler: Some(choice),
+        button: "left",
+        revealing: false,
+    })
+    .unwrap();
+    ScriptHost::take_commands();
+    assert_eq!(runtime_state(host)["choice"], "left");
+
+    let commands = runtime_key(host, "input");
+    let input = keyed_node(committed_tree(&commands), "answer")
+        .unwrap()
+        .on_input
+        .unwrap();
+    host.dispatch(&Event::Handler {
+        handler: input,
+        value: Some(HandlerValue::Text("Bob".into())),
+    })
+    .unwrap();
+    ScriptHost::take_commands();
+    let commands = runtime_key(host, "source");
+    assert!(tree_text(committed_tree(&commands)).contains("Question"));
+    assert_eq!(runtime_state(host)["input"], "Bob");
+}
 
 #[cfg(feature = "dev-console")]
 fn assert_console_diagnostics(engine: &mut crate::engine::Engine) {

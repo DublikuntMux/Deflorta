@@ -129,6 +129,8 @@ pub struct Graph<'a> {
     pub order: Vec<usize>,
     index: HashMap<String, usize>,
     pub report: Report,
+    /// Built-in export names used when linking namespace re-exports.
+    pub builtins: HashMap<String, HashSet<String>>,
 }
 
 impl<'a> Graph<'a> {
@@ -141,6 +143,7 @@ impl<'a> Graph<'a> {
             order: Vec::new(),
             index: HashMap::new(),
             report: Report::default(),
+            builtins: HashMap::new(),
         };
         for entry in entries {
             if let Err(err) = graph.load(loader, entry) {
@@ -245,6 +248,7 @@ impl<'a> Graph<'a> {
     /// Resolves every import binding, reporting missing exports. `builtins`
     /// lists the exports of each built-in module.
     pub fn link(&mut self, builtins: &HashMap<String, HashSet<String>>) {
+        self.builtins.clone_from(builtins);
         let mut errors = Vec::new();
         for m in 0..self.modules.len() {
             let mut links = HashMap::new();

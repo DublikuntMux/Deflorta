@@ -84,7 +84,7 @@ function dialogueText(markup, props = {}) {
 
 screen(
   "say",
-  ({ who, what, cps }) =>
+  ({ who, what, cps, revealKey }) =>
     box(
       {
         key: "say-window",
@@ -107,14 +107,14 @@ screen(
         },
       },
       who?.name != null && nameText(who),
-      dialogueText(what, { key: "line", cps }),
+      dialogueText(_(what), { key: `line:${revealKey ?? "custom"}`, cps }),
     ),
   { z: 10 },
 );
 
 screen(
   "nvl",
-  ({ lines, cps }) =>
+  ({ lines, cps, revealKey }) =>
     box(
       {
         key: "nvl-window",
@@ -134,6 +134,7 @@ screen(
           { key: `nvl-${i}`, live: i === lines.length - 1, style: { flexDirection: "column", gap: 2 } },
           line.who?.name != null && nameText(line.who),
           dialogueText(_(line.what), {
+            key: i === lines.length - 1 ? `line:${revealKey ?? "custom"}` : "line",
             cps: i === lines.length - 1 ? cps : undefined,
           }),
         ),
@@ -210,7 +211,7 @@ screen(
         },
       },
       items.map((item, i) =>
-        button(item.text, item.select, {
+        button(_(item.text), item.select, {
           key: `choice-${i}`,
           style: {
             width: 640,
@@ -255,10 +256,10 @@ screen(
             borderColor: theme.panelBorder,
           },
         },
-        text(props.question, { style: { fontSize: 24, color: theme.text } }),
+        text(_(props.question), { style: { fontSize: 24, color: theme.text } }),
         input(props.value, (value) => updatePromptValue(value), {
           key: "answer",
-          label: props.question,
+          label: _(props.question),
           autofocus: true,
           maxLength: props.maxLength,
           onSubmit: (value) => props.submit(value),

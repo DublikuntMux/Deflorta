@@ -257,9 +257,9 @@ fn build_archive(
     let mut files: Vec<ArchiveFile> = project
         .assets(&excluded)?
         .into_iter()
-        .map(|(path, file)| ArchiveFile {
+        .map(|path| ArchiveFile {
             path,
-            contents: Contents::File(file),
+            contents: Contents::File(project.files.clone()),
         })
         .collect();
     files.push(ArchiveFile {

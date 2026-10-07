@@ -37,6 +37,9 @@ pub struct KeyModifiers {
     pub alt: bool,
 }
 
+#[cfg(all(test, target_os = "linux"))]
+mod tests;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum CaptureTiming {
     /// Capture the frame currently on screen; hold back new trees until then.
@@ -83,6 +86,7 @@ pub struct Engine {
     data_dir: PathBuf,
     timers: Vec<(Instant, u64)>,
     requests: PlatformRequests,
+    shutting_down: bool,
     pending: Option<PendingTree>,
     /// A thumbnail capture was requested and has not arrived yet.
     capture: Option<CaptureTiming>,
@@ -112,6 +116,7 @@ impl Engine {
             data_dir: PathBuf::from("."),
             timers: Vec::new(),
             requests: PlatformRequests::default(),
+            shutting_down: false,
             pending: None,
             capture: None,
             thumbnail: None,
@@ -220,6 +225,9 @@ impl Engine {
     }
 
     pub fn take_requests(&mut self) -> PlatformRequests {
+        if self.requests.quit {
+            self.quit();
+        }
         let text_input = self.ui.focused_input().is_some();
         if text_input != self.text_input {
             self.text_input = text_input;
@@ -570,8 +578,18 @@ impl Engine {
     }
 
     pub fn quit(&mut self) {
+        if self.shutting_down {
+            return;
+        }
+        self.shutting_down = true;
         info!("Shutting down the game");
         self.dispatch(&Event::Quit);
+        self.requests.quit = true;
+        // Finish captures queued by the final autosave before the front end exits.
+        if self.capture.is_some() {
+            self.capture = Some(CaptureTiming::Now);
+            self.requests.capture = true;
+        }
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
@@ -723,6 +741,9 @@ impl Engine {
 
     pub fn fire_timers(&mut self) {
         for _ in 0..MAX_TIMERS_PER_TICK {
+            if self.requests.quit || self.shutting_down {
+                break;
+            }
             let now = Instant::now();
             let due = self
                 .timers
