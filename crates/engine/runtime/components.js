@@ -1,5 +1,3 @@
-// Component reconciliation and hooks. Only resolved native nodes cross into Rust.
-
 const ELEMENT = Symbol("deflorta.element");
 export function Fragment({ children } = {}) {
   return children;
@@ -122,7 +120,6 @@ export function useEffect(effect, deps) {
   }
 }
 
-/** Flattens arrays while preserving empty positions for unkeyed identity. */
 function childrenOf(children, result = []) {
   if (Array.isArray(children)) {
     for (const child of children) childrenOf(child, result);
@@ -244,7 +241,6 @@ export function createRenderer() {
       }
       return resolve(tree, "root");
     },
-    // Called after the native tree is committed. Effects may schedule a render.
     commit() {
       for (const [path, instance] of instances) {
         if (!instance.visited) dispose(path);

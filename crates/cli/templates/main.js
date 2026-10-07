@@ -1,6 +1,3 @@
-// The entry point of the game. Everything — story, characters and screens —
-// is JavaScript; `deflorta.d.ts` gives editors completion and type checks.
-
 import {
   character,
   configure,
@@ -32,7 +29,6 @@ defaults({ visits: 0 });
 
 const guide = character("Guide", { color: "#f4b6d2" });
 
-// Hook state belongs to the UI; saved story variables belong in store.
 function Visits() {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -52,7 +48,6 @@ function Visits() {
 screen("visits", Visits, { z: 5 });
 
 label("start", async () => {
-  // Backgrounds come from images/<name>.png; scene() without a name clears the screen.
   scene(null, { with: dissolve(1) });
   await say("Welcome to your new visual novel.");
   await guide("Edit {b}main.js{/b} to write your story.");

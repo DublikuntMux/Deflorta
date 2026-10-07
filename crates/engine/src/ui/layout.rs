@@ -1,5 +1,3 @@
-//! Flexbox/grid layout with taffy and element measurement.
-
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::time::Instant;
@@ -18,11 +16,9 @@ use super::{Move, Node, Rect, Ui};
 use crate::assets::Assets;
 use crate::video::VideoPlayer;
 
-/// Default slider height when the style gives none.
 const SLIDER_HEIGHT: f32 = 24.0;
 
 impl Ui {
-    /// Update tooltip-bound text without a JS render or a replacement tree.
     pub(super) fn sync_tooltip_text(&mut self) {
         let content = self.tooltip.as_deref().unwrap_or_default();
         for (i, node) in self.nodes.iter_mut().enumerate() {
@@ -49,7 +45,6 @@ impl Ui {
         }
     }
 
-    /// Retain keyed Taffy nodes and invalidate only changed layout inputs.
     pub(super) fn reconcile_layout(&mut self, old: &[Node], old_index: &HashMap<String, usize>) {
         let tree = &mut self.layout_tree;
         let mut retained = HashSet::new();
@@ -172,7 +167,6 @@ impl Ui {
         self.layout_dirty = false;
         Self::assign_rects(&self.layout_tree, &mut self.nodes, root, 0, 0.0, 0.0);
 
-        // Turn position changes of keyed `move` elements into animations.
         for (id, (old, spec)) in std::mem::take(&mut self.pending_moves) {
             let Some(&i) = self.index.get(&id) else {
                 continue;
@@ -192,7 +186,6 @@ impl Ui {
             }
         }
 
-        // New scroll containers that ask for it start at the end.
         for node in &self.nodes {
             if node.desc.start_at_end && !node.in_ghost && !self.scroll.contains_key(&node.id) {
                 let max = (node.content.1 - node.rect.h).max(0.0);
@@ -200,7 +193,6 @@ impl Ui {
             }
         }
 
-        // Keep scroll offsets within the scrollable range.
         self.scroll.iter_mut().for_each(|(id, (sx, sy))| {
             if let Some(&i) = self.index.get(id) {
                 let node = &self.nodes[i];
@@ -235,7 +227,6 @@ impl Ui {
             rect.w + layout.scroll_width(),
             rect.h + layout.scroll_height(),
         );
-        // Snapshot indices before recursively mutating the nodes.
         #[allow(clippy::needless_collect)]
         let live_children: Vec<usize> = nodes[i]
             .children
@@ -349,7 +340,6 @@ fn measure(
                     None,
                 )
             } else {
-                // Inputs: one line of the value (or placeholder) sized like text.
                 let content = input_display(node).0;
                 let spans = [SpanDesc {
                     text: content,
@@ -392,7 +382,6 @@ fn measure(
     }
 }
 
-/// Text shown by an input and whether it is the placeholder.
 pub(super) fn input_display(node: &Node) -> (String, bool) {
     let value = node.desc.string_value();
     if value.is_empty() {

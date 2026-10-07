@@ -1,5 +1,3 @@
-//! The installed tool's adjacent templates and per-platform runtime folders.
-
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -62,7 +60,6 @@ pub fn runtime(platform: &str, debug: bool) -> Result<PathBuf> {
 }
 
 pub fn launcher(runtime: &Path) -> PathBuf {
-    // A distribution can contain target folders for other operating systems.
     let windows = runtime
         .parent()
         .and_then(Path::file_name)

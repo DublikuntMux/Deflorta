@@ -1,7 +1,3 @@
-//! Platform-independent engine core: owns the script runtime, UI, assets,
-//! audio and timers, and turns input into script events. Windowed and
-//! headless front ends drive it and render its draw lists.
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -21,13 +17,11 @@ use crate::util::math::clamp_to_u32;
 /// script code cannot freeze the engine.
 const MAX_TIMERS_PER_TICK: usize = 64;
 
-/// Longest a new screen waits for its images to finish decoding.
 const IMAGE_WAIT_LIMIT: Duration = Duration::from_millis(1500);
 
 /// Maintenance also runs when the event-driven renderer is asleep.
 const RESOURCE_CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
 
-/// Width of save thumbnails in pixels.
 const THUMBNAIL_WIDTH: u32 = 384;
 
 #[derive(Default)]
@@ -50,10 +44,8 @@ enum CaptureTiming {
     Settling(Instant),
 }
 
-/// Longest a capture waits for transitions to finish.
 const SETTLE_LIMIT: Duration = Duration::from_secs(3);
 
-/// Requests the front end must carry out (window state, quitting, redraws).
 #[derive(Default)]
 pub struct PlatformRequests {
     pub fullscreen: Option<bool>,
@@ -62,7 +54,6 @@ pub struct PlatformRequests {
     pub redraw: bool,
     /// Render the current frame and pass it to `Engine::set_thumbnail`.
     pub capture: bool,
-    /// Enable IME/text input while a text field is focused.
     pub text_input: Option<bool>,
     pub self_voicing: Option<bool>,
 }
@@ -171,7 +162,6 @@ impl Engine {
         assets
     }
 
-    /// Releases all allocations associated with a developer-visible asset ID.
     #[cfg(feature = "dev-console")]
     pub fn unload_asset(
         &mut self,
@@ -243,10 +233,6 @@ impl Engine {
         std::mem::take(&mut self.requests)
     }
 
-    // -----------------------------------------------------------------------
-    // Script bridge
-    // -----------------------------------------------------------------------
-
     fn dispatch(&mut self, event: &Event) {
         if let Err(err) = self.script.dispatch(event) {
             error!("Script event failed: {err:#}");
@@ -254,7 +240,6 @@ impl Engine {
         self.apply(ScriptHost::take_commands());
     }
 
-    /// Commits output the runtime produced outside of an event (at startup).
     fn flush(&mut self) {
         if let Err(err) = self.script.flush() {
             error!("Script flush failed: {err:#}");
@@ -337,7 +322,6 @@ impl Engine {
             }
         }
         match self.capture {
-            // Nothing new to show: capture what is on screen.
             Some(CaptureTiming::AfterCommit) if self.pending.is_none() => {
                 self.capture = Some(CaptureTiming::Now);
                 self.requests.capture = true;
@@ -440,7 +424,6 @@ impl Engine {
         self.check_settled();
     }
 
-    /// Requests a deferred capture once transitions have played out.
     fn check_settled(&mut self) {
         let Some(CaptureTiming::Settling(since)) = self.capture else {
             return;
@@ -452,14 +435,12 @@ impl Engine {
         }
     }
 
-    /// True while background work (image decoding) may change what is shown.
     pub fn is_loading(&self) -> bool {
         self.assets.has_pending()
             || self.pending.is_some()
             || matches!(self.capture, Some(CaptureTiming::Settling(_)))
     }
 
-    /// Advances background work; call regularly while `is_loading`.
     pub fn poll(&mut self) {
         if self.assets.poll() {
             self.requests.redraw = true;
@@ -503,7 +484,6 @@ impl Engine {
 
     /// The front end delivers the frame captured for a `CaptureThumbnail` request.
     pub fn set_thumbnail(&mut self, image: Option<image::RgbaImage>) {
-        // Keep only the game area, without letterbox bars.
         let area = self.ui.viewport();
         self.thumbnail = image.map(|img| {
             let x = clamp_to_u32(area.x, img.width().saturating_sub(1));
@@ -571,10 +551,6 @@ impl Engine {
             Err(err) => warn!("Cannot save thumbnail '{name}': {err:#}"),
         }
     }
-
-    // -----------------------------------------------------------------------
-    // Input
-    // -----------------------------------------------------------------------
 
     pub fn boot(&mut self) {
         info!("Booting the game");
@@ -676,7 +652,6 @@ impl Engine {
         self.dispatch(&Event::Wheel { dy, revealing });
     }
 
-    /// Typed text (after IME composition) for the focused text field.
     pub fn text_input(&mut self, text: &str) {
         if let Some(event) = self.ui.type_text(text) {
             self.handle_ui_events(vec![event], "left");
@@ -699,7 +674,6 @@ impl Engine {
 
     pub fn key(&mut self, key: &str, down: bool, repeat: bool, modifiers: &KeyModifiers) {
         if down {
-            // A focused text field consumes editing keys.
             if self.ui.focused_input().is_some() && key != "F6" {
                 let event = match key {
                     "Backspace" => self.ui.backspace(),
@@ -747,10 +721,6 @@ impl Engine {
         });
     }
 
-    // -----------------------------------------------------------------------
-    // Time
-    // -----------------------------------------------------------------------
-
     pub fn fire_timers(&mut self) {
         for _ in 0..MAX_TIMERS_PER_TICK {
             if self.requests.quit || self.shutting_down {
@@ -795,12 +765,10 @@ impl Engine {
         }
     }
 
-    /// Lets the JS engine collect garbage while idle.
     pub fn idle(&mut self) {
         self.script.maybe_gc();
     }
 
-    /// Builds the draw list for a frame.
     pub fn frame(&mut self, now: Instant) -> Vec<DrawItem> {
         self.ui.draw(&mut self.assets, now)
     }

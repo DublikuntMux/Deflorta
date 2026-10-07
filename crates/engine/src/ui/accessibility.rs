@@ -1,5 +1,3 @@
-//! Accessibility semantics share the retained identities and drawn geometry.
-
 use std::collections::{HashMap, HashSet};
 
 use accesskit::{

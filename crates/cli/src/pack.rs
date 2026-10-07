@@ -1,7 +1,3 @@
-//! Writes `.dm` archives (format in `deflorta_data::archive`). Each file is split
-//! into chunks that are compressed as LZ4HC frames in parallel; chunks that do not
-//! shrink, and files in already-compressed formats, are stored as they are.
-
 use std::fs::File;
 use std::io::{BufWriter, Cursor, Read, Write};
 use std::path::Path;
@@ -15,7 +11,6 @@ use lz4::frame::{
 
 pub const DEFAULT_LEVEL: u8 = 12;
 
-/// Extensions of formats that are already compressed.
 const COMPRESSED_FORMATS: &[&str] = &[
     "png", "jpg", "jpeg", "webp", "gif", "avif", "mp4", "m4a", "webm", "mkv", "ogg", "oga", "opus",
     "mp3", "flac", "aac", "zip", "gz", "woff2",
@@ -27,7 +22,6 @@ pub enum Contents {
 }
 
 pub struct ArchiveFile {
-    /// Path inside the archive (`images/bg room.png`).
     pub path: String,
     pub contents: Contents,
 }
@@ -68,7 +62,6 @@ fn compress_block(data: &[u8], compress: bool, level: u8) -> Result<(Vec<u8>, u8
     Ok((data.to_vec(), 0))
 }
 
-/// Compresses blocks on all cores, preserving their order.
 fn compress_blocks(data: &[u8], compress: bool, level: u8) -> Result<Vec<(Vec<u8>, u8)>> {
     let blocks: Vec<&[u8]> = data.chunks(BLOCK_SIZE as usize).collect();
     let threads = std::thread::available_parallelism()
@@ -234,7 +227,6 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("deflorta-pack-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let output = dir.join("game.dm");
-        // Compressible text spanning several blocks, incompressible noise, and an empty file.
         let text: Vec<u8> = (0..500_000u32)
             .flat_map(|i| format!("line {i}\n").into_bytes())
             .collect();

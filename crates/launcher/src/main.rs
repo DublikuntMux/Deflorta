@@ -1,6 +1,3 @@
-//! Player-facing executable of a published game. It runs `game.dm` from its
-//! own directory, or the archive or game directory given as the argument.
-
 use std::path::PathBuf;
 use std::process::ExitCode;
 

@@ -1,7 +1,3 @@
-//! GPU renderer: batched quads (solid, image, video, rounded, bordered,
-//! rotated, masked) interleaved with glyphon text layers so text and shapes
-//! keep their painter's order. Colors are blended in sRGB space like browsers.
-
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -46,7 +42,6 @@ struct Globals {
 struct Texture {
     raw: wgpu::Texture,
     bind_group: wgpu::BindGroup,
-    /// Video frame serial last uploaded.
     serial: u64,
 }
 
@@ -70,7 +65,6 @@ struct Layer {
     texts: Vec<TextDraw>,
 }
 
-/// Where frames go: a window surface, or a texture for headless rendering.
 enum Target {
     Window {
         window: Arc<Window>,
@@ -207,7 +201,6 @@ impl Renderer {
         Ok(Self::build(device, queue, format, target, width, height))
     }
 
-    /// A renderer drawing into a texture, for tests and screenshots.
     pub async fn offscreen(width: u32, height: u32) -> Result<Self> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let (_, device, queue) = request_device(&instance, None).await?;
@@ -483,8 +476,6 @@ impl Renderer {
         })
     }
 
-    /// Makes sure the texture for an image (or video frame) is resident.
-    /// Returns false while it is still loading or when it failed.
     fn ensure_texture(&mut self, image: &ImageRef, assets: &mut Assets, now: Instant) -> bool {
         let Some((serial, frame)) = &image.frame else {
             return self.ensure_image(&image.src, assets, now);
@@ -564,7 +555,6 @@ impl Renderer {
         }
     }
 
-    /// Uploads quads and prepares text for a frame. Returns the layers to draw.
     fn prepare(
         &mut self,
         items: Vec<DrawItem>,
@@ -582,7 +572,6 @@ impl Renderer {
             h: height.as_(),
         };
 
-        // The game area is cleared to the configured color; letterbox bars stay black.
         let background = DrawItem::Quad(Quad {
             rect: viewport_rect,
             rotation: 0.0,
@@ -664,7 +653,6 @@ impl Renderer {
     }
 
     fn prepare_text(&mut self, layers: &[Layer], ui: &mut Ui, full: Rect) -> Result<()> {
-        // Prepare text, one glyphon renderer per layer.
         self.viewport.update(
             &self.queue,
             Resolution {
@@ -782,12 +770,10 @@ impl Renderer {
         Ok(encoder.finish())
     }
 
-    /// Drops both successful and failed GPU cache entries for an asset ID.
     pub fn unload_texture(&mut self, src: &str) -> bool {
         self.textures.remove(src).is_some()
     }
 
-    /// Coordinated CPU/GPU cleanup, also callable without rendering a frame.
     pub fn collect_unused(
         &mut self,
         assets: &mut Assets,
@@ -902,7 +888,6 @@ impl Renderer {
         Ok(())
     }
 
-    /// Renders a draw list into a new image (save thumbnails) without touching the screen.
     pub fn render_to_image(
         &mut self,
         items: Vec<DrawItem>,
@@ -918,7 +903,6 @@ impl Renderer {
         self.read_texture(&texture)
     }
 
-    /// Reads back the last frame of an offscreen renderer.
     pub fn capture(&self) -> Result<image::RgbaImage> {
         let Target::Offscreen { texture } = &self.target else {
             anyhow::bail!("capture is only supported for offscreen renderers");
@@ -1039,7 +1023,6 @@ async fn request_device(
         })
         .await
         .context("request device")?;
-    // Log GPU errors instead of aborting: a broken frame is better than a crash.
     device.on_uncaptured_error(Arc::new(|err| error!("GPU error: {err}")));
     device.set_device_lost_callback(|reason, message| {
         if reason != wgpu::DeviceLostReason::Destroyed {

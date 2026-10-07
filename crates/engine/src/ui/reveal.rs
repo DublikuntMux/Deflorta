@@ -1,6 +1,3 @@
-//! Typewriter state: characters appear at `cps`, pausing at timed waits and
-//! stopping at click-waits until skipped.
-
 use std::time::Instant;
 
 use num_traits::{AsPrimitive, ToPrimitive};
@@ -10,13 +7,10 @@ use crate::util::time::elapsed_secs;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Stop {
-    /// Pause for this many seconds.
     Wait(f32),
-    /// Stop until `skip()`.
     Click,
 }
 
-/// Character positions of pauses and the initial fast-forward point.
 pub struct RevealScript {
     pub stops: Vec<(usize, Stop)>,
     pub fast: usize,
@@ -56,7 +50,6 @@ pub struct Reveal {
     start: Instant,
     /// Characters visible when `start` was set.
     base: usize,
-    /// Index of the first stop not yet passed.
     next_stop: usize,
 }
 
@@ -136,7 +129,6 @@ impl Reveal {
             .count();
         let mut index = self.next_stop + passed;
         if at_click {
-            // Resume after the click stop we are waiting at.
             self.base = shown;
             self.next_stop = index;
             self.start = now;

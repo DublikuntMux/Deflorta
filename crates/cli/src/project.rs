@@ -1,5 +1,3 @@
-//! A game project directory: its source files, assets and build outputs.
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -9,10 +7,8 @@ use oxc::allocator::Allocator;
 
 use crate::graph::{Graph, builtin_exports};
 
-/// Directories at the project root that hold tooling output, not game files.
 pub const OUTPUT_DIRS: &[&str] = &["build", "dist", "node_modules"];
 
-/// Script and tooling files, which are replaced by the bundle in archives.
 const SOURCE_EXTENSIONS: &[&str] = &["js", "jsx", "mjs", "cjs", "ts", "mts", "cts", "map"];
 const TOOLING_FILES: &[&str] = &[
     "jsconfig.json",
@@ -49,8 +45,6 @@ impl Project {
         self.dir.join("dist")
     }
 
-    /// Every file that ships in the archive besides the script bundle, as
-    /// game paths, sorted.
     pub fn assets(&self, excluded: &[&Path]) -> Result<Vec<String>> {
         let excluded = excluded
             .iter()
@@ -62,7 +56,6 @@ impl Project {
         Ok(out)
     }
 
-    /// Links the module graph rooted at `main.js`.
     pub fn graph<'a>(&self, allocator: &'a Allocator) -> Graph<'a> {
         let mut graph = Graph::build(allocator, &self.files, &["main.js"]);
         match builtin_exports() {
@@ -92,7 +85,6 @@ pub fn absolute_path(path: &Path) -> Result<PathBuf> {
             other => normalized.push(other.as_os_str()),
         }
     }
-    // Canonicalize an existing parent to handle symlinked output directories.
     if let (Some(parent), Some(name)) = (normalized.parent(), normalized.file_name()) {
         return Ok(absolute_path(parent)?.join(name));
     }
@@ -143,7 +135,6 @@ fn collect(root: &Path, dir: &Path, excluded: &[PathBuf], out: &mut Vec<String>)
     Ok(())
 }
 
-/// Module sources by id, for rendering diagnostics.
 pub fn sources(graph: &Graph) -> HashMap<String, String> {
     graph
         .modules

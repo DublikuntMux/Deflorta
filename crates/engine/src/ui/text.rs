@@ -1,5 +1,3 @@
-//! Font loading and shaped rich-text buffers (cosmic-text via glyphon).
-
 use std::collections::HashMap;
 
 use log::{info, warn};
@@ -16,7 +14,6 @@ use crate::util::math::unit_to_u8;
 
 use deflorta_data::fonts::load_fonts;
 
-/// Resolved (inherited) text properties of a text node.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextStyle {
     pub font_size: f32,
@@ -38,7 +35,6 @@ pub struct Decoration {
     pub color: Option<Color>,
 }
 
-/// A ruby annotation buffer placed relative to the text origin.
 #[derive(Clone, Debug)]
 pub struct RubyPlacement {
     pub id: String,
@@ -79,7 +75,6 @@ impl Shaped {
     }
 }
 
-/// A shaped text buffer owned by one text node.
 pub struct TextEntry {
     pub buffer: Buffer,
     shaped: Option<Shaped>,
@@ -125,7 +120,6 @@ impl TextSystem {
         }
     }
 
-    /// Borrows the font system mutably alongside read access to the buffers (for rendering).
     pub const fn split(&mut self) -> (&mut FontSystem, &HashMap<String, TextEntry>) {
         (&mut self.font_system, &self.entries)
     }
@@ -139,7 +133,6 @@ impl TextSystem {
         self.entries.len()
     }
 
-    /// Drops buffers whose owner node is not kept, including shadow/ruby buffers.
     pub fn retain(&mut self, mut keep: impl FnMut(&str) -> bool) {
         self.entries.retain(|id, _| {
             let mut owner = id.as_str();
@@ -365,7 +358,6 @@ fn annotate(buffer: &Buffer, spans: &[SpanDesc]) -> (Vec<Decoration>, Vec<RubyJo
     let mut rubies: Vec<RubyJob> = Vec::new();
     let mut ruby_seen = vec![false; spans.len()];
     for run in buffer.layout_runs() {
-        // Group consecutive visible glyphs by span.
         let mut groups: Vec<(usize, f32, f32, f32)> = Vec::new();
         for glyph in run.glyphs {
             if glyph.metadata % 2 == 1 {

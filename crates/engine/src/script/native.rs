@@ -1,8 +1,3 @@
-//! Native modules (TurboModule-style): typed functions installed on
-//! `__native` and called synchronously from JavaScript. Arguments are read
-//! straight from JS values; calls that affect the engine queue a typed
-//! [`Command`] that the engine applies as soon as the JS call returns.
-
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::path::PathBuf;
@@ -22,17 +17,11 @@ use super::value::{self, Handler, HandlerSink, from_js, from_js_with_handlers, t
 use super::{HandlerTable, throw_error, with_state};
 use crate::ui::desc::{AnimDesc, Color, NodeDesc};
 
-// ---------------------------------------------------------------------------
-// Spec: the types exchanged with JavaScript
-// ---------------------------------------------------------------------------
-
-/// Events delivered to the runtime's dispatch function.
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Event<'a> {
     Boot,
     Quit,
-    /// All typewriter text finished revealing.
     Revealed,
     Click {
         /// The clicked element's `onClick`, or null for the background.
@@ -40,7 +29,6 @@ pub enum Event<'a> {
         button: &'a str,
         revealing: bool,
     },
-    /// A widget handler (`onChange`, `onInput`, `onSubmit`, `onEnd`).
     Handler {
         handler: Handler,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -74,7 +62,6 @@ pub enum HandlerValue {
     Text(String),
 }
 
-/// Engine work requested by native module calls, in call order.
 pub enum Command {
     Configure(GameConfig),
     SetTimer {
@@ -84,13 +71,11 @@ pub enum Command {
     ClearTimer {
         id: u64,
     },
-    /// Changes the music; `None` stops it.
     Music(Option<Music>, Fade),
     Sound {
         file: String,
         volume: f32,
     },
-    /// Plays a voice line, stopping the previous one; `None` stops voice.
     Voice {
         file: Option<String>,
     },
@@ -100,7 +85,6 @@ pub enum Command {
     },
     /// Shows all text up to the next click-wait (or the end).
     RevealSkip,
-    /// Starts decoding images in the background.
     Preload {
         images: Vec<String>,
     },
@@ -110,11 +94,9 @@ pub enum Command {
     CaptureThumbnail {
         after: bool,
     },
-    /// Writes the last captured thumbnail to `<data dir>/<name>.png`.
     SaveThumbnail {
         name: String,
     },
-    /// Removes `<data dir>/<name>.png` (when its save is deleted).
     DeleteThumbnail {
         name: String,
     },
@@ -125,7 +107,6 @@ pub enum Command {
         on: bool,
     },
     Quit,
-    /// A new element tree from `ui.commit`.
     Commit(Box<UiCommit>),
 }
 
@@ -146,7 +127,6 @@ pub struct GameConfig {
     pub width: f32,
     pub height: f32,
     pub font: String,
-    /// Game version as set by the script (any JSON value, e.g. "1.2" or 3).
     #[serde(default)]
     pub version: Option<serde_json::Value>,
     #[serde(default)]
@@ -193,10 +173,6 @@ struct DataEntry {
     /// Milliseconds since the Unix epoch.
     modified: u64,
 }
-
-// ---------------------------------------------------------------------------
-// Installation
-// ---------------------------------------------------------------------------
 
 type Native = unsafe extern "C" fn(*mut RawJSContext, u32, *mut Value) -> bool;
 type Module = &'static [(&'static CStr, Native, u32)];
@@ -250,7 +226,6 @@ const MODULES: &[(&CStr, Module)] = &[
     ),
 ];
 
-/// Defines `globalThis.__native` with the root functions and one object per module.
 pub unsafe fn install(cx: *mut RawJSContext, global: *mut JSObject) -> Result<()> {
     unsafe {
         rooted!(in(cx) let global = global);
@@ -305,17 +280,12 @@ unsafe fn define_object(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Calling convention
-// ---------------------------------------------------------------------------
-
 struct Args {
     cx: *mut RawJSContext,
     call: CallArgs,
 }
 
 impl Args {
-    /// Reads argument `index` (missing arguments are `undefined`).
     fn get<T: DeserializeOwned>(&self, index: u32) -> Result<T, value::Error> {
         unsafe { from_js(self.cx, Handle::from_raw(self.call.get(index))) }
     }
@@ -325,7 +295,6 @@ impl Args {
     }
 }
 
-/// Runs a native body, converts its result to JS and turns errors into exceptions.
 unsafe fn call<R: Serialize>(
     cx: *mut RawJSContext,
     argument_count: u32,
@@ -367,10 +336,6 @@ fn queue(command: Command) {
     with_state(|s| s.commands.push(command));
 }
 
-// ---------------------------------------------------------------------------
-// Functions
-// ---------------------------------------------------------------------------
-
 native! {
     fn log_message(args) {
         let level: String = args.get(0)?;
@@ -386,8 +351,6 @@ native! {
         Ok(())
     }
 
-    /// `connect(dispatch, flush)`: the runtime's entry points for events and
-    /// for committing pending output at the end of each turn.
     fn connect(args) {
         let functions = [args.handle(0), args.handle(1)].map(|f| {
             let callable = f.get().is_object() && unsafe { jsapi::IsCallable(f.get().to_object()) };
@@ -417,7 +380,6 @@ native! {
         let Some(path) = data_path(&name) else {
             bail!("storage.write: invalid name '{name}' or data directory not configured");
         };
-        // Write to a temporary file first so a crash never leaves a torn save.
         let tmp = path.with_extension("json.tmp");
         path.parent()
             .map_or(Ok(()), std::fs::create_dir_all)
@@ -471,7 +433,6 @@ native! {
         Ok(())
     }
 
-    /// `music({ file, loop, volume } | null, { fadeIn, fadeOut })`
     fn audio_music(args) {
         let fade: Option<Fade> = args.get(1)?;
         queue(Command::Music(args.get(0)?, fade.unwrap_or_default()));
@@ -495,8 +456,6 @@ native! {
         Ok(())
     }
 
-    /// `commit(tree, { instant, exits })`: replaces the element tree. The tree
-    /// is read in place; its functions stay in JS and are referenced by handle.
     fn ui_commit(args) {
         unsafe { commit(args) }
     }
@@ -556,10 +515,6 @@ unsafe fn commit(args: &Args) -> Result<()> {
     }
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// Storage helpers
-// ---------------------------------------------------------------------------
 
 fn is_valid_data_name(name: &str) -> bool {
     !name.is_empty()

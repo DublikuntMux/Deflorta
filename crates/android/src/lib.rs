@@ -1,5 +1,5 @@
-//! `GameActivity` entry point. Kotlin loads this library before creating the
-//! activity so the tts crate's `JNI_OnLoad` can resolve `rs.tts.Bridge`.
+//! Kotlin must load this library before activity creation so TTS's
+//! `JNI_OnLoad` can resolve `rs.tts.Bridge`.
 
 #[cfg(target_os = "android")]
 #[unsafe(no_mangle)]
@@ -25,8 +25,7 @@ fn start(app: winit::platform::android::activity::AndroidApp) -> anyhow::Result<
         .asset_manager()
         .open(c"game.dm")
         .context("missing game.dm asset")?;
-    // Copy in bounded chunks to retain the archive's seekable filesystem I/O.
-    // Always replace it so installing an update cannot reuse old game data.
+    // Replace the seekable archive on every launch to avoid stale game data after updates.
     let temporary = directory.join("game.dm.partial");
     let archive = directory.join("game.dm");
     {

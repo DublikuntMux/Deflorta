@@ -1,5 +1,3 @@
-//! Read-only diagnostic data, collected only on demand or while an inspector is open.
-
 use std::fmt::Write as _;
 use std::time::{Duration, Instant};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
@@ -151,7 +149,6 @@ pub fn tree_report(tree: &accesskit::TreeUpdate) -> String {
         tree.nodes.len(),
         tree.focus.0
     );
-    // IDs, roles and the full property set are the exact AccessKit snapshot.
     for (id, node) in &tree.nodes {
         writeln!(report, "#{} {node:?}", id.0).unwrap();
     }

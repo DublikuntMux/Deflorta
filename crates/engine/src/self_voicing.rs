@@ -1,5 +1,3 @@
-//! Optional system speech, initialized only when a player enables self-voicing.
-
 use log::warn;
 use std::time::{Duration, Instant};
 

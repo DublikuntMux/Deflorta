@@ -1,5 +1,3 @@
-// Built-in JSX screens. Games restyle these through theme or screen(name, Component).
-
 import {
   clearTimer,
   config,
@@ -1045,7 +1043,6 @@ screen(
 
 let noticeId = 0;
 
-/** Shows a short message in the corner of the screen. */
 export function notify(message, seconds = 2) {
   showScreen("notify", { message, seconds, noticeId: ++noticeId });
 }

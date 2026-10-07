@@ -1,13 +1,3 @@
-// deflorta/ui — declarative UI elements, widgets and the screen stack.
-//
-// Screens are JSX function components. Hook setters schedule rendering;
-// external story state uses invalidate(). At the end of the turn the tree is
-// committed to the engine, which reads it in place, lays it out
-// (flexbox/grid), animates and draws it. Handler functions stay in JS; the
-// engine hands them back in click and handler events. Keyboard and
-// gamepad focus moves between elements with handlers; focused elements use
-// their `hover` style.
-
 import { emit, native, on, onFlush } from "deflorta/core";
 import { parseMarkup } from "deflorta/text";
 import {
@@ -27,10 +17,6 @@ export {
   useEffect,
 } from "deflorta/components";
 
-// ---------------------------------------------------------------------------
-// Theme: shared look of all default screens
-// ---------------------------------------------------------------------------
-
 export const theme = {
   font: null,
   accent: "#e8a8c8",
@@ -47,10 +33,6 @@ export const theme = {
   radius: 12,
 };
 
-// ---------------------------------------------------------------------------
-// Elements
-// ---------------------------------------------------------------------------
-
 export const FILL = {
   position: "absolute",
   left: 0,
@@ -59,7 +41,6 @@ export const FILL = {
   bottom: 0,
 };
 
-/** A native flexbox container. */
 export function View({ children, style, hover, onPress, ...props } = {}) {
   return {
     t: "box",
@@ -71,7 +52,6 @@ export function View({ children, style, hover, onPress, ...props } = {}) {
   };
 }
 
-/** A grid container with `columns` equal columns. */
 export function Grid({ columns, style, ...props }) {
   return View({
     ...props,
@@ -79,7 +59,6 @@ export function Grid({ columns, style, ...props }) {
   });
 }
 
-/** A container that scrolls vertically with the mouse wheel and focus. */
 export function ScrollView({ style, ...props } = {}) {
   return View({
     ...props,
@@ -91,7 +70,6 @@ export function ScrollView({ style, ...props } = {}) {
   });
 }
 
-/** Plain text. Style props: color, fontSize, fontFamily, fontWeight, italic, lineHeight, textAlign, textShadow. */
 export function Text({ children, style, hover, onPress, ...props } = {}) {
   return {
     t: "text",
@@ -103,7 +81,6 @@ export function Text({ children, style, hover, onPress, ...props } = {}) {
   };
 }
 
-/** Text with text tags ({b}, {color=…}, {ruby=…}, …). */
 export function RichText({ children, style, hover, onPress, ...props } = {}) {
   style = mergeStyle(style);
   return {
@@ -117,7 +94,6 @@ export function RichText({ children, style, hover, onPress, ...props } = {}) {
   };
 }
 
-/** An image from the game directory. `fit`: "cover" | "contain" | "fill". */
 export function Image({ style, hover, onPress, ...props }) {
   return {
     t: "image",
@@ -128,7 +104,6 @@ export function Image({ style, hover, onPress, ...props }) {
   };
 }
 
-/** A video (H.264 MP4). `loop`, `onEnd`, `fit`. */
 export function Video({ style, hover, onPress, ...props }) {
   return {
     t: "video",
@@ -139,7 +114,6 @@ export function Video({ style, hover, onPress, ...props }) {
   };
 }
 
-/** A horizontal slider. Calls onValueChange while dragged or adjusted with arrow keys. */
 export function Slider({
   min = 0,
   max = 1,
@@ -159,7 +133,6 @@ export function Slider({
   };
 }
 
-/** A controlled single-line field. Calls onChangeText on edits, onSubmit on Enter. */
 export function TextInput({ value, onChangeText, style, hover, ...props }) {
   return {
     t: "input",
@@ -178,7 +151,6 @@ export function TextInput({ value, onChangeText, style, hover, ...props }) {
   };
 }
 
-/** A clickable container with hover/focus feedback and arbitrary children. */
 export function Pressable({
   children,
   onPress,
@@ -212,7 +184,6 @@ export function Pressable({
   });
 }
 
-/** Style arrays are flattened left to right, like React Native. */
 function mergeStyle(style) {
   if (!Array.isArray(style)) return style || undefined;
   return Object.assign({}, ...style.map(mergeStyle));
@@ -226,10 +197,6 @@ function textContent(children) {
   }
   return String(children);
 }
-
-// ---------------------------------------------------------------------------
-// Screens
-// ---------------------------------------------------------------------------
 
 const screens = new Map();
 let shown = [];
@@ -248,12 +215,6 @@ function screenRoot(name) {
   return `root/children/${JSON.stringify(["key", `screen:${name}`])}`;
 }
 
-/**
- * Defines (or replaces) a screen.
- * options.z      stacking order, higher is on top
- * options.modal  block clicks and keys from reaching lower screens
- * options.keys   { [key]: (event) => void } handled while the screen is shown
- */
 export function screen(name, render, options = {}) {
   screens.set(name, {
     render,
@@ -290,14 +251,12 @@ export function isShown(name) {
   return shown.some((s) => s.name === name);
 }
 
-/** Names and props of shown screens accepted by `filter`, bottom to top. */
 export function shownScreens(filter = () => true) {
   return shown
     .filter((s) => filter(s.name))
     .map(({ name, props }) => ({ name, props }));
 }
 
-/** Replaces every shown screen accepted by `filter` with `list`. */
 export function replaceScreens(list, filter = () => true) {
   shown = shown.filter((entry) => {
     if (!filter(entry.name)) return true;
@@ -313,29 +272,24 @@ export function screenProps(name) {
   return shown.find((s) => s.name === name)?.props;
 }
 
-/** Marks the UI as changed; it is re-rendered before the next frame. */
 export function invalidate() {
   dirty = true;
 }
 
-/** The next commit skips enter/exit animations (used after loading and rollback). */
 export function markInstant() {
   instant = true;
   dirty = true;
 }
 
-/** Plays `spec` as the exit animation of the element with `key` if it disappears in the next commit. */
 export function exitWith(key, spec) {
   exits[key] = spec;
 }
 
-/** Installs the function rendering the game scene underneath all screens. */
 export function setSceneLayer(fn) {
   sceneLayer = fn;
   invalidate();
 }
 
-/** Hides every screen to show the scene alone; any click or key brings them back. */
 export function setUiHidden(value) {
   hidden = value;
   invalidate();
@@ -345,15 +299,10 @@ export function isUiHidden() {
   return hidden;
 }
 
-/** The tooltip of the hovered or focused element, or null. */
 export function tooltip() {
   tooltipObserved = true;
   return tooltipText;
 }
-
-// ---------------------------------------------------------------------------
-// Rendering and event routing
-// ---------------------------------------------------------------------------
 
 function renderRoot() {
   tooltipObserved = false;
@@ -415,7 +364,6 @@ on("click", (event) => {
     setUiHidden(false);
     return;
   }
-  // Only the primary button activates elements; others go to the game (menus).
   if (event.button !== "left") emit("backgroundClick", event);
   else event.handler?.(event);
 });
@@ -434,7 +382,6 @@ on("tooltip", (event) => {
 
 on("key", (event) => {
   if (!event.down) return;
-  // Self-voicing is available on every screen, including modal dialogs.
   if (event.key === "F6") return;
   if (hidden) {
     setUiHidden(false);

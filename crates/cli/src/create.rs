@@ -1,5 +1,3 @@
-//! `deflorta create`: a new game project that runs, checks and publishes as is.
-
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};

@@ -1,18 +1,3 @@
-// deflorta/text — dialogue text tags and translations.
-//
-// Text tags:
-//   {b}…{/b} {i}…{/i} {u}…{/u} {s}…{/s}   bold, italic, underline, strikethrough
-//   {color=#f88}…{/color}                  color
-//   {size=32} {size=+4} {size=*1.5}…{/size} absolute or relative size
-//   {font=Noto Serif}…{/font}               font family
-//   {ruby=かんじ}漢字{/ruby}                 annotation above the text (furigana)
-//   {w} {w=0.5}                             wait for a click / pause for seconds
-//   {p} {p=1}                               like {w}, then a line break
-//   {nw}                                    advance automatically once typed
-//   {fast}                                  show everything before it instantly
-//   {{ }}                                   literal braces
-// Closing tags pop the most recent style tag.
-
 import { readText } from "deflorta/core";
 
 const STYLE_TAGS = new Set([
@@ -46,10 +31,6 @@ function styleValue(name, arg, current, baseSize) {
   }
 }
 
-/**
- * Parses text with tags into spans for the engine.
- * Returns { spans, noWait }.
- */
 export function parseMarkup(markup, { baseSize = 24 } = {}) {
   const source = String(markup ?? "");
   const spans = [];
@@ -111,7 +92,6 @@ export function parseMarkup(markup, { baseSize = 24 } = {}) {
     } else if (name === "fast") {
       marker({ fast: true });
     } else {
-      // Unknown tags are shown as written.
       buffer += `{${tag}}`;
     }
   }
@@ -119,30 +99,20 @@ export function parseMarkup(markup, { baseSize = 24 } = {}) {
   return { spans, noWait };
 }
 
-/** Text with all tags removed (for history previews, save names, logs). */
 export function plainText(markup) {
   return parseMarkup(markup)
     .spans.map((s) => s.text)
     .join("");
 }
 
-// ---------------------------------------------------------------------------
-// Translations
-// ---------------------------------------------------------------------------
-
 const tables = Object.create(null);
 const loadedFiles = new Set();
 let current = null;
 
-/** Adds translations for `language`: { "source text": "translated text" }. */
 export function translations(language, table) {
   tables[language] = { ...tables[language], ...table };
 }
 
-/**
- * Switches the language; null restores the source language. Strings from
- * `tl/<language>.json` in the game directory are loaded on first use.
- */
 export function useLanguage(language) {
   if (language && !loadedFiles.has(language)) {
     loadedFiles.add(language);
@@ -161,7 +131,6 @@ export function useLanguage(language) {
 
 const missing = new Set();
 
-/** Translates a string into the current language (returns it unchanged when untranslated). */
 export function _(source) {
   if (!current) return source;
   const translated = Object.hasOwn(current, source) ? current[source] : undefined;
@@ -172,7 +141,6 @@ export function _(source) {
   return translated;
 }
 
-/** Strings looked up but missing in the current language, for translators. */
 export function missingTranslations() {
   return [...missing];
 }

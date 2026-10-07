@@ -1,10 +1,3 @@
-//! Static analysis of how game code uses the scripting API: labels, images,
-//! files, translatable text and non-deterministic story code.
-//!
-//! Calls are recognized through the linked module graph, so aliased imports
-//! (`import { say as s }`), namespace imports and re-exports from other game
-//! modules are followed. Only literal arguments can be checked.
-
 use std::collections::{HashMap, HashSet};
 
 use oxc::ast::ast::{
@@ -42,7 +35,6 @@ pub enum ImageUse {
     Preload,
 }
 
-/// Attributes of a layered image; `None` when they are not literal.
 pub type Attributes = Option<HashSet<String>>;
 
 #[derive(Default)]
@@ -86,7 +78,6 @@ enum Callee {
     Other,
 }
 
-/// Analyzes every module of a linked graph.
 pub fn analyze(graph: &Graph) -> Facts {
     let builtins = &graph.builtins;
     let mut characters = HashSet::new();
@@ -221,7 +212,6 @@ fn argument<'b, 'a>(args: &'b [Argument<'a>], index: usize) -> Option<&'b Expres
     args.get(index).and_then(Argument::as_expression)
 }
 
-/// The value of a non-computed `key: value` property in an object literal.
 fn property<'b, 'a>(object: &'b ObjectExpression<'a>, key: &str) -> Option<&'b Expression<'a>> {
     object.properties.iter().find_map(|p| match p {
         ObjectPropertyKind::ObjectProperty(p)

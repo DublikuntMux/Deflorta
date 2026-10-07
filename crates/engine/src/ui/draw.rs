@@ -1,5 +1,3 @@
-//! Per-frame traversal producing draw items in physical pixels.
-
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -18,7 +16,6 @@ const DEFAULT_TRACK: Color = Color([1.0, 1.0, 1.0, 0.18]);
 const DEFAULT_FILL: Color = Color([0.91, 0.66, 0.78, 1.0]);
 const DEFAULT_SCROLLBAR: Color = Color([1.0, 1.0, 1.0, 0.3]);
 
-/// Inherited drawing state.
 #[derive(Clone)]
 struct Ctx {
     xf: Similarity,
@@ -52,7 +49,6 @@ fn mask_draw(spec: Option<&MaskDesc>, progress: f32, invert: bool) -> Option<Mas
 }
 
 impl Ui {
-    /// Builds the draw list for this frame (physical pixels).
     pub fn draw(&mut self, assets: &mut Assets, now: Instant) -> Vec<DrawItem> {
         self.layout_if_needed(assets, now);
         self.hit_order.clear();
@@ -158,13 +154,11 @@ impl Ui {
         now: Instant,
     ) -> Option<(Values, Option<MaskDraw>, Values)> {
         let node = &self.nodes[i];
-        // Enter/exit animation, relative to the resting state.
         let mut anim = Values::default();
         let mut mask = inherited_mask.cloned();
         let mut apply_timed = |timed: &Timed, exiting: bool| {
             let e = timed.progress(now, Ease::EaseOut);
             let s = &timed.spec;
-            // How far from the resting state: entering starts displaced, exiting ends displaced.
             let k = if exiting { e } else { 1.0 - e };
             anim.opacity = lerp(1.0, s.opacity.unwrap_or(1.0), k);
             anim.x = lerp(0.0, s.x.unwrap_or(0.0), k);
@@ -340,7 +334,6 @@ impl Ui {
         now: Instant,
         items: &mut Vec<DrawItem>,
     ) {
-        // Children: clipped by overflow containers and shifted by scrolling.
         let node = &self.nodes[i];
         let rect = node.rect;
         let xf = parent.xf;
@@ -413,7 +406,6 @@ impl Ui {
         let id = node.id.clone();
         let style = &node.text_style;
         let shadow = node.desc.style.text_shadow;
-        // Text sits in the content box (inside border and padding).
         let [pt, pr, _, pl] = node.desc.style.padding.map_or([0.0; 4], Edges::trbl);
         let border = node.desc.style.border_width.unwrap_or(0.0);
         let rect = Rect {
@@ -552,7 +544,6 @@ impl Ui {
     }
 }
 
-/// Returns the destination rectangle and texture coordinates for an image.
 fn fit_image(rect: Rect, iw: f32, ih: f32, fit: Fit) -> (Rect, [f32; 4]) {
     if rect.w <= 0.0 || rect.h <= 0.0 || iw <= 0.0 || ih <= 0.0 {
         return (rect, [0.0, 0.0, 1.0, 1.0]);
@@ -589,7 +580,6 @@ fn fit_image(rect: Rect, iw: f32, ih: f32, fit: Fit) -> (Rect, [f32; 4]) {
     }
 }
 
-/// Applies a fractional crop [x, y, w, h] to both the destination and texture coordinates.
 // The exact identity crop bypasses arithmetic to preserve the original bounds.
 #[allow(clippy::float_cmp)]
 fn crop(dest: Rect, uv: [f32; 4], c: [f32; 4]) -> (Rect, [f32; 4]) {

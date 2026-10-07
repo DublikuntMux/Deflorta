@@ -7,3 +7,9 @@
 /android/app/build
 /android/build
 /android/local.properties
+/docs/.venv/
+/docs/_build/
+
+__pycache__
+Thumbs.db
+.DS_Store

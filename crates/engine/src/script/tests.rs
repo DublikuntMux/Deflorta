@@ -85,7 +85,6 @@ fn story_lifecycle_timers_and_active_translations_regressions() {
     let directory = std::env::temp_dir().join(format!("deflorta-story-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
     ScriptHost::set_data_dir(directory.clone());
-    // Top-level fixture assertions also cover prototype keys and language IDs.
     host.run_main().unwrap();
     ScriptHost::take_commands();
     host.dispatch(&Event::Boot).unwrap();
@@ -226,7 +225,6 @@ fn check_active_translations(host: &mut ScriptHost) {
 
 #[cfg(feature = "dev-console")]
 fn assert_console_diagnostics(engine: &mut crate::engine::Engine) {
-    // Diagnostic snapshots describe the live game without changing its state.
     let assets = engine.loaded_assets();
     assert!(
         assets
@@ -305,7 +303,6 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
         "live"
     );
 
-    // Native commands and promise continuations both update the real engine.
     engine
         .evaluate_console(
             "Promise.resolve().then(() => deflorta.configure({title: 'Console title'}))",
@@ -347,7 +344,6 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
             .contains("SyntaxError")
     );
     assert_eq!(engine.evaluate_console("consoleProbe").unwrap(), "7");
-    // Formatting errors (e.g. circular objects or a throwing toJSON) are contained.
     assert_eq!(
         engine
             .evaluate_console("let cycle = {}; cycle.self = cycle; cycle")
@@ -498,8 +494,6 @@ fn check_native_tooltip_hover() {
         .unwrap();
     assert!(tooltip.children[0].tooltip_text);
 
-    // Entering another slot, repeating its preview, and leaving it produce
-    // no tree commits or screen renders with the default tooltip.
     for text in [
         Some("Saved dialogue"),
         Some("Another slot"),

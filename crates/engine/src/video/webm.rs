@@ -1,5 +1,3 @@
-//! Pure Rust `WebM` demuxing (Symphonia) and VP8/VP9 decoding (`OxideAV`).
-
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
 

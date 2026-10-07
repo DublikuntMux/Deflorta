@@ -1,7 +1,3 @@
-//! Prepares embedded assets: compiles WGSL shaders to SPIR-V and, in release
-//! builds, minifies the JavaScript runtime. Outputs land in `OUT_DIR` under the source file names
-//! (`shaders/<name>.spv`, `runtime/<name>.js`).
-
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

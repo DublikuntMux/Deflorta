@@ -44,7 +44,6 @@ def build(package, release, target):
 
 
 def build_android(abi, release, destination):
-    # cargo-ndk supplies NDK clang/sysroot settings and installs libc++_shared.
     command = [
         "cargo", "ndk", "-t", abi, "--platform", str(ANDROID_API),
         "-o", str(destination), "--link-libcxx-shared",
@@ -65,15 +64,13 @@ def build_android(abi, release, destination):
     library = destination / abi / "libdeflorta_android.so"
     if not library.is_file():
         raise RuntimeError(f"Android build did not produce {library}")
-    # Export templates do not need native debug information. Keep full symbols
-    # in Cargo's build output, while packaging works without an NDK installed.
+    # Keep debug info in Cargo output; exports must not require an NDK.
     strip_name = "llvm-strip.exe" if os.name == "nt" else "llvm-strip"
     strip = list(Path(ndk).glob(f"toolchains/llvm/prebuilt/*/bin/{strip_name}"))
     if len(strip) != 1:
         raise RuntimeError(f"cannot locate {strip_name} in {ndk}")
     subprocess.run([str(strip[0]), "--strip-debug", str(library)], check=True)
-    # cargo-ndk copies dependency cdylibs too, but the Rust dependencies are
-    # statically linked into our engine. Only its C++ runtime is needed.
+    # Rust dependencies are statically linked; only libc++ must ship separately.
     for extra in (destination / abi).glob("*.so"):
         if extra.name not in {"libdeflorta_android.so", "libc++_shared.so"}:
             extra.unlink()

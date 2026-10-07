@@ -1,12 +1,3 @@
-//! `deflorta translate`: extracts translatable text into `tl/<language>.json`
-//! files and reports their progress.
-//!
-//! Translatable text is everything the runtime passes through `_()`: dialogue
-//! (`say`, speakers), speaker names, menu prompts and choices, `prompt`
-//! questions, the game title, explicit `_("…")` calls in game code, and the
-//! engine's own interface strings. Untranslated entries are `null`, which
-//! shows the source text.
-
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -23,7 +14,6 @@ use crate::report::Report;
 pub struct Strings {
     /// Unique translatable strings: the game's in source order, then the engine's.
     pub translatable: Vec<String>,
-    /// Warnings about text that cannot be translated.
     pub report: Report,
     pub sources: HashMap<String, String>,
 }
@@ -80,7 +70,6 @@ pub fn table_path(project: &Project, language: &str) -> PathBuf {
     project.dir.join("tl").join(format!("{language}.json"))
 }
 
-/// Languages with a `tl/<language>.json` file.
 pub fn languages(project: &Project) -> Vec<String> {
     let mut languages: Vec<String> = project
         .files
@@ -94,7 +83,6 @@ pub fn languages(project: &Project) -> Vec<String> {
     languages
 }
 
-/// Entries of a translation file in file order (empty when it does not exist).
 pub fn read_table(path: &Path) -> Result<Vec<(String, Value)>> {
     if !path.exists() {
         return Ok(Vec::new());
@@ -120,7 +108,6 @@ pub fn read_table(path: &Path) -> Result<Vec<(String, Value)>> {
     Ok(entries)
 }
 
-/// A JSON object read with its key order preserved.
 struct OrderedTable(Vec<(String, Value)>);
 
 impl<'de> serde::Deserialize<'de> for OrderedTable {
@@ -175,7 +162,6 @@ pub struct Progress {
     pub translated: usize,
     pub total: usize,
     pub added: usize,
-    /// Entries for text that is no longer in the game.
     pub obsolete: usize,
 }
 
@@ -245,7 +231,6 @@ pub fn status(project: &Project, strings: &[String], language: &str) -> Result<P
     })
 }
 
-/// Strings of `language` without a translation.
 pub fn missing(project: &Project, strings: &[String], language: &str) -> Result<Vec<String>> {
     let existing = read_table(&table_path(project, language))?;
     let known: HashMap<&str, &Value> = existing.iter().map(|(k, v)| (k.as_str(), v)).collect();

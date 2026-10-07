@@ -1,6 +1,3 @@
-//! Windowed front end (winit + gilrs). The loop sleeps until input or a timer
-//! arrives and only redraws continuously while something is animating.
-
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 

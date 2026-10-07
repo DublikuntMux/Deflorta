@@ -1,25 +1,3 @@
-//! Headless front end: plays a scripted sequence of inputs against a game and
-//! saves screenshots, for automated tests and documentation.
-//!
-//! The test script is a JSON array of steps:
-//!
-//! ```json
-//! [
-//!   { "wait": 500 },
-//!   { "move": [640, 360] },
-//!   { "click": [640, 360] },
-//!   { "click": [640, 360], "button": "right" },
-//!   { "release": true },
-//!   { "key": "Enter" },
-//!   { "key": "Control", "down": true },
-//!   { "type": "Alice" },
-//!   { "wheel": -1 },
-//!   { "shot": "out/title.png" }
-//! ]
-//! ```
-//!
-//! Coordinates are in the game's virtual resolution.
-
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 

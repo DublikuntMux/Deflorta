@@ -1,6 +1,3 @@
-// Instanced quads: solid or textured rectangles with rounded corners, borders,
-// rotation and screen-space transition masks.
-
 struct Globals {
     screen: vec2<f32>,
     _pad: vec2<f32>,

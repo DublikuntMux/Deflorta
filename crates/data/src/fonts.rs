@@ -1,8 +1,5 @@
-//! Font discovery shared by static project checks and the engine.
-
 use crate::GameFiles;
 
-/// Loads every supported font file below `fonts/`.
 pub fn load_fonts(files: &GameFiles) -> fontdb::Database {
     let mut db = fontdb::Database::new();
     for path in files.list("fonts") {
@@ -24,7 +21,6 @@ pub fn load_fonts(files: &GameFiles) -> fontdb::Database {
     db
 }
 
-/// Font families shipped with a game, sorted and deduplicated.
 pub fn font_families(files: &GameFiles) -> Vec<String> {
     let db = load_fonts(files);
     let mut families: Vec<String> = db

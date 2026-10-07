@@ -1,9 +1,3 @@
-//! Deflorta — a visual novel engine scripted in JavaScript.
-//!
-//! The engine runs a game from a project directory (development) or from a
-//! `.dm` archive (published games). The CLI delegates execution to the game
-//! launcher, which is a thin front end over [`run`].
-
 // wgpu's nested backend types need this depth for async Send/Sync checks.
 #![recursion_limit = "256"]
 
@@ -38,8 +32,6 @@ pub use script::{BUILTIN_MODULES, GameConfig, is_builtin_module, resolve_specifi
 /// info, third-party crates only when something goes wrong.
 pub const DEFAULT_LOG_FILTER: &str = "warn,deflorta=info";
 
-/// Logs go to stderr with timestamps. `RUST_LOG=deflorta=debug` (or `trace`)
-/// shows more detail; `RUST_LOG=debug` includes wgpu, winit and other crates.
 pub fn init_logging(default_filter: &str) {
     let filter = std::env::var("RUST_LOG").unwrap_or_else(|_| default_filter.to_owned());
     #[cfg(feature = "dev-console")]
@@ -50,12 +42,10 @@ pub fn init_logging(default_filter: &str) {
         .init();
 }
 
-/// Runs a game in a window, or headless with a test script (see `headless.rs`).
 pub fn run(files: GameFiles, test_script: Option<&Path>) -> Result<()> {
     run_with_event_loop(files, test_script, EventLoop::with_user_event())
 }
 
-/// Runs the packaged game with Android's activity and private save directory.
 #[cfg(target_os = "android")]
 pub fn run_android(
     files: GameFiles,
@@ -142,7 +132,6 @@ pub fn boot(files: GameFiles) -> Result<GameConfig> {
     Ok(config)
 }
 
-/// The repository root, where the demo game and test fixtures live.
 #[cfg(test)]
 fn workspace_dir() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

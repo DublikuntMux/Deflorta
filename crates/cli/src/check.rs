@@ -1,5 +1,3 @@
-//! `deflorta check`: finds errors and likely mistakes before players do.
-
 use std::collections::{HashMap, HashSet};
 
 use deflorta_data::GameFiles;
@@ -10,7 +8,6 @@ use crate::graph::Graph;
 use crate::project::{Project, sources};
 use crate::report::Report;
 
-/// The id games get when they never call `configure({ id })`.
 const DEFAULT_ID: &str = "deflorta-game";
 
 pub struct Outcome {
@@ -18,8 +15,6 @@ pub struct Outcome {
     pub sources: HashMap<String, String>,
 }
 
-/// Checks a project. With `boot`, the game's scripts also run once (without
-/// a window) to catch errors thrown while they load.
 pub fn check(project: &Project, boot: bool) -> Outcome {
     let allocator = Allocator::default();
     let graph = project.graph(&allocator);
@@ -52,7 +47,6 @@ fn check_api(graph: &Graph, files: &GameFiles, report: &mut Report) {
 
     check_labels(graph, &facts, report);
 
-    // Images used by name.
     for (name, kind, loc) in &facts.image_uses {
         let mut words = name.split(' ').filter(|w| !w.is_empty());
         let tag = words.next().unwrap_or_default();
@@ -90,7 +84,6 @@ fn check_api(graph: &Graph, files: &GameFiles, report: &mut Report) {
         }
     }
 
-    // Files referenced by path.
     for (path, kind, loc) in &facts.files {
         let file = path.split('?').next().unwrap_or(path);
         if file.starts_with("user:") || files.exists(file) {

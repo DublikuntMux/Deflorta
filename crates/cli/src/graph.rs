@@ -1,11 +1,3 @@
-//! The game's ES module graph: parsing, import resolution and linking.
-//!
-//! Modules are resolved exactly like the engine resolves them at run time
-//! ([`deflorta_data::resolve_specifier`]): `./`, `../` and `/` paths name game files
-//! and the engine's built-in modules (`deflorta`, `deflorta/ui`, …) stay
-//! external. Linking maps every import binding to the declaration it refers
-//! to, following re-exports and `export *` through the graph.
-
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use anyhow::{Context, Result, bail};
@@ -20,14 +12,12 @@ use oxc::span::{GetSpan, SourceType, Span};
 
 use crate::report::Report;
 
-/// What an import or re-export refers to.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ImportName {
     Name(String),
     Namespace,
 }
 
-/// A resolved module request.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Source {
     Module(usize),
@@ -55,13 +45,10 @@ pub enum Export {
     },
 }
 
-/// The declaration a binding refers to after linking.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Target {
     Local(usize, SymbolId),
-    /// The anonymous default export of a module.
     Default(usize),
-    /// The namespace object of a game module.
     Namespace(usize),
     External(String, String),
     ExternalNamespace(String),
@@ -79,12 +66,10 @@ pub struct Module<'a> {
     pub imports: HashMap<SymbolId, Import>,
     pub exports: HashMap<String, Export>,
     pub stars: Vec<usize>,
-    /// Import bindings resolved by `link`.
     pub links: HashMap<SymbolId, Target>,
 }
 
 impl Module<'_> {
-    /// The binding an identifier refers to, if it is declared in this module.
     pub fn symbol_of(&self, ident: &IdentifierReference) -> Option<SymbolId> {
         let reference = ident.reference_id.get()?;
         self.semantic.scoping().get_reference(reference).symbol_id()
@@ -96,7 +81,6 @@ impl Module<'_> {
     }
 }
 
-/// Supplies module sources by module id.
 pub trait Loader {
     fn load(&self, id: &str) -> Result<String>;
 }
@@ -107,7 +91,6 @@ impl Loader for deflorta_data::GameFiles {
     }
 }
 
-/// The engine's built-in modules, loaded from adjacent runtime templates.
 pub struct Builtins;
 
 impl Loader for Builtins {
@@ -248,8 +231,6 @@ impl<'a> Graph<'a> {
         );
     }
 
-    /// Resolves every import binding, reporting missing exports. `builtins`
-    /// lists the exports of each built-in module.
     pub fn link(&mut self, builtins: &HashMap<String, HashSet<String>>) {
         self.builtins.clone_from(builtins);
         let mut errors = Vec::new();
@@ -352,7 +333,6 @@ impl<'a> Graph<'a> {
         }
     }
 
-    /// Resolves `name` exported by module `m`.
     pub fn resolve_export(
         &self,
         m: usize,
@@ -442,7 +422,6 @@ fn export_name(name: &ModuleExportName) -> String {
     name.name().to_string()
 }
 
-/// Records the module's requests, imports and exports from its top-level statements.
 #[allow(clippy::too_many_lines)] // One branch per ES module statement kind.
 fn collect_module_syntax(module: &mut Module, report: &mut Report) {
     let program = module.program;
@@ -551,7 +530,6 @@ fn collect_module_syntax(module: &mut Module, report: &mut Report) {
     }
 }
 
-/// Names and symbols declared by an exported declaration.
 pub fn declaration_bindings(declaration: &Declaration) -> Vec<(String, SymbolId)> {
     match declaration {
         Declaration::VariableDeclaration(var) => var
@@ -574,7 +552,6 @@ pub fn declaration_bindings(declaration: &Declaration) -> Vec<(String, SymbolId)
     }
 }
 
-/// Exported names of every built-in module.
 pub fn builtin_exports() -> Result<HashMap<String, HashSet<String>>> {
     let allocator = Allocator::default();
     let ids: Vec<&str> = deflorta_data::BUILTIN_MODULES

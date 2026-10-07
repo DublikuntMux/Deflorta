@@ -1,5 +1,3 @@
-//! Shared media probing for `WebM` video and soundtracks.
-
 use kira::sound::FromFileError;
 use symphonia::core::formats::{FormatOptions, FormatReader, probe::Hint};
 use symphonia::core::io::{MediaSourceStream, MediaSourceStreamOptions};

@@ -1,5 +1,3 @@
-//! Errors and warnings found in a game, printed with source excerpts.
-
 use std::collections::HashMap;
 use std::fmt::Write;
 
@@ -66,7 +64,6 @@ impl Report {
         self.count(Severity::Error) > 0
     }
 
-    /// Renders every finding; `sources` maps module ids to their text.
     pub fn render(&self, sources: &HashMap<String, String>) -> String {
         let mut out = String::new();
         for item in &self.items {
@@ -92,7 +89,6 @@ impl Report {
         out
     }
 
-    /// One-line totals, e.g. "2 errors, 1 warning".
     pub fn summary(&self) -> String {
         let plural = |n: usize, word: &str| format!("{n} {word}{}", if n == 1 { "" } else { "s" });
         format!(

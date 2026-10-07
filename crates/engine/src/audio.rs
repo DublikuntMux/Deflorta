@@ -1,6 +1,3 @@
-//! Music, sound effects, voice and video soundtracks on separate mixer
-//! tracks (kira).
-
 mod webm;
 
 use std::collections::HashMap;
@@ -53,7 +50,6 @@ fn tween(seconds: f32) -> Tween {
     }
 }
 
-/// Converts a linear amplitude in [0, 1] to decibels.
 fn decibels(volume: f32) -> Decibels {
     if volume <= 0.001 {
         Decibels::SILENCE
@@ -194,7 +190,6 @@ impl Audio {
         }
     }
 
-    /// Plays a voice line, cutting off the previous one.
     pub fn play_voice(&mut self, assets: &Assets, file: Option<&str>) {
         #[cfg(feature = "dev-console")]
         {
@@ -220,7 +215,6 @@ impl Audio {
         }
     }
 
-    /// Keeps the soundtracks of on-screen videos playing; stops the others.
     pub fn sync_videos<'a>(
         &mut self,
         assets: &Assets,
@@ -239,7 +233,6 @@ impl Audio {
             if self.videos.contains_key(src) {
                 continue;
             }
-            // Videos without an audio track simply play silently.
             let Some(path) = assets.game_path(src) else {
                 continue;
             };
@@ -269,7 +262,6 @@ impl Audio {
         track.set_volume(decibels(volume), tween(0.1));
     }
 
-    /// Release handles once the mixer has finished their playback.
     pub fn collect_finished(&mut self) {
         use kira::sound::PlaybackState;
         if self
@@ -297,7 +289,6 @@ impl Audio {
             .retain(|(_, sound)| sound.state() != PlaybackState::Stopped);
     }
 
-    /// Stops every playback allocation with this source ID.
     #[cfg(feature = "dev-console")]
     pub fn unload(&mut self, source: &str) -> bool {
         let mut released = if self.music.as_ref().is_some_and(|(src, _)| src == source) {

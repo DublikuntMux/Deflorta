@@ -1,10 +1,3 @@
-//! JSI-style value bridge: serde types are read straight out of `SpiderMonkey`
-//! values and written back as JS values, so no JSON text crosses the boundary.
-//!
-//! Reads plain data with own enumerable string keys, skips `undefined`
-//! properties, and treats non-finite numbers as `null`. Functions in element
-//! trees become [`Handler`]s. Objects are read directly without calling `toJSON`.
-
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt;
@@ -22,7 +15,6 @@ use num_traits::ToPrimitive;
 use serde::de::{self, DeserializeOwned, DeserializeSeed, IntoDeserializer, Visitor};
 use serde::ser::{self, Serialize};
 
-/// Error converting between a JS value and a Rust type, with the property path.
 #[derive(Debug)]
 pub struct Error {
     path: String,
@@ -37,7 +29,6 @@ impl Error {
         }
     }
 
-    /// Prefixes the path with a property name or `[index]`.
     fn at(mut self, segment: &str) -> Self {
         let separator = if self.path.is_empty() || self.path.starts_with('[') {
             ""
@@ -74,10 +65,6 @@ impl ser::Error for Error {
 }
 
 type Result<T, E = Error> = std::result::Result<T, E>;
-
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
 
 /// A JS function captured from a committed element tree. The function stays in
 /// the script host; Rust holds this id and passes it back in events, where it
@@ -159,10 +146,6 @@ impl<'a> HandlerSink<'a> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Property name atoms
-// ---------------------------------------------------------------------------
-
 type FieldAtoms = HashMap<(usize, usize), Rc<[usize]>>;
 
 thread_local! {
@@ -211,11 +194,6 @@ const fn jsid_from_bits(bits: usize) -> jsid {
     jsid { asBits_: bits }
 }
 
-// ---------------------------------------------------------------------------
-// JS → Rust
-// ---------------------------------------------------------------------------
-
-/// Reads a Rust value from a JS value.
 pub unsafe fn from_js<T: DeserializeOwned>(
     cx: *mut RawJSContext,
     value: Handle<Value>,
@@ -227,7 +205,6 @@ pub unsafe fn from_js<T: DeserializeOwned>(
     })
 }
 
-/// Reads a Rust value whose functions are captured into `sink` as [`Handler`]s.
 pub unsafe fn from_js_with_handlers<T: DeserializeOwned>(
     cx: *mut RawJSContext,
     value: Handle<Value>,
@@ -257,7 +234,6 @@ impl<'s> Deserializer<'_, 's> {
         }
     }
 
-    /// The value as a plain object: not null, not an array and not a function.
     fn object_kind(&self) -> Option<ObjectKind> {
         let value = self.value.get();
         if !value.is_object() {
@@ -492,7 +468,6 @@ struct ObjectReader<'r, 'a, 's> {
     ids: IdVector,
     pos: usize,
     fields: Option<(&'static [&'static str], Rc<[usize]>)>,
-    /// The current key, for error paths.
     key: String,
 }
 
@@ -563,10 +538,6 @@ impl<'de> de::MapAccess<'de> for ObjectReader<'_, '_, '_> {
         Some(self.ids.len() - self.pos)
     }
 }
-
-// ---------------------------------------------------------------------------
-// Rust → JS
-// ---------------------------------------------------------------------------
 
 /// Writes a Rust value as a JS value. `()` becomes `undefined`, `None` becomes `null`.
 pub unsafe fn to_js<T: Serialize + ?Sized>(

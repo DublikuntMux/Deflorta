@@ -1,5 +1,3 @@
-//! `deflorta`: create, check, run, translate, bundle and publish games.
-
 mod android;
 mod api;
 mod bundle;

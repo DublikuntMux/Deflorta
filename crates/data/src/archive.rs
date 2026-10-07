@@ -1,5 +1,4 @@
-//! The `.dm` resource archive: an indexed, block-compressed container in the
-//! style of Unity's asset bundles.
+//! Version 2 `.dm` archive format; all integers are little-endian.
 //!
 //! ```text
 //! header   magic "DEFLORTA" | version u32 | block size u32
@@ -12,10 +11,8 @@
 //!          is an independent LZ4 frame with a content checksum
 //! ```
 //!
-//! All integers are little-endian. A block is an LZ4 frame when its flags
-//! have [`BLOCK_COMPRESSED`] set and stored verbatim otherwise. Blocks of one
-//! file are consecutive, so any byte of a file can be read by decompressing a
-//! single block; media streams straight from the archive.
+//! [`BLOCK_COMPRESSED`] marks LZ4 frames; other blocks are verbatim.
+//! A file's blocks are consecutive.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -54,7 +51,6 @@ pub struct Index {
     pub entries: Vec<Entry>,
 }
 
-/// Number of blocks a file of `size` bytes occupies.
 fn block_count(size: u64, block_size: u32) -> u64 {
     size.div_ceil(u64::from(block_size))
 }
@@ -116,7 +112,6 @@ impl Index {
     }
 }
 
-/// The fixed-size header preceding the index.
 pub fn encode_header(block_size: u32, stored_index: u32, index: u32) -> [u8; HEADER_SIZE] {
     let mut header = [0; HEADER_SIZE];
     header[..8].copy_from_slice(&MAGIC);
@@ -181,14 +176,12 @@ struct EntryInfo {
     first_block: u32,
 }
 
-/// An open archive. Blocks are read on demand; the file stays open.
 pub struct Archive {
     path: PathBuf,
     file: Mutex<File>,
     block_size: u32,
     blocks: Vec<BlockInfo>,
     entries: HashMap<String, EntryInfo>,
-    /// Entry paths in archive order.
     paths: Vec<String>,
 }
 
@@ -299,14 +292,12 @@ impl Archive {
         &self.path
     }
 
-    /// Entry paths and sizes in archive order.
     pub fn entries(&self) -> impl Iterator<Item = (&str, u64)> {
         self.paths
             .iter()
             .map(|path| (path.as_str(), self.entries[path].size))
     }
 
-    /// Stored (compressed) bytes of an entry.
     pub fn stored_size(&self, path: &str) -> Option<u64> {
         let entry = self.entries.get(path)?;
         let first = usize::try_from(entry.first_block).ok()?;
@@ -334,7 +325,6 @@ impl Archive {
         Ok(data)
     }
 
-    /// A seekable reader over one entry.
     pub fn open_entry(self: &Arc<Self>, path: &str) -> io::Result<EntryReader<Arc<Self>>> {
         Self::open_entry_in(self.clone(), path)
     }
@@ -355,7 +345,6 @@ impl Archive {
         })
     }
 
-    /// Decompresses block `index` (of `len` uncompressed bytes).
     fn read_block(&self, index: u32, len: usize) -> io::Result<Vec<u8>> {
         let info = &self.blocks[index as usize];
         let mut stored = vec![0; info.stored_size as usize];
@@ -390,13 +379,11 @@ fn corrupt(block: u32) -> io::Error {
     )
 }
 
-/// Reads one archive entry, decompressing a block at a time.
 pub struct EntryReader<A: AsRef<Archive>> {
     archive: A,
     first_block: u32,
     size: u64,
     position: u64,
-    /// The most recently decompressed block of this entry.
     block: Option<(u64, Vec<u8>)>,
 }
 

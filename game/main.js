@@ -1,5 +1,3 @@
-// Deflorta demo game. Everything — story, characters and UI — is JavaScript.
-
 import {
   bob,
   View,
@@ -55,7 +53,6 @@ configure({
   ],
 });
 
-// UI strings can be translated inline or in tl/<language>.json.
 translations("uk", {
   Start: "Почати",
   Load: "Завантажити",
@@ -65,7 +62,6 @@ translations("uk", {
 
 defaults({ friendship: 0, name: "Alex" });
 
-// A layered image: the face, outfit and blush change independently.
 layeredImage("eileen", [
   { src: "images/eileen/base.png" },
   {
@@ -91,7 +87,6 @@ layeredImage("eileen", [
 const eileen = character("Eileen", { color: "#f4b6d2" });
 const me = character("You", { color: "#9fd3ff" });
 
-// A custom screen: a HUD reading the store. Screens re-render automatically.
 screen(
   "friendship",
   () => (
@@ -195,7 +190,6 @@ label("park", async () => {
 });
 
 label("small_talk", async () => {
-  // random() is deterministic across save/load and rollback.
   const birds = randInt(2, 9);
   await eileen(`Look, I can count ${birds} birds on that tree!`);
   await me("You have sharp eyes.");

@@ -1,13 +1,3 @@
-//! Bundles a game's modules into one ES module.
-//!
-//! Modules are concatenated in evaluation order with their top-level scopes
-//! merged ("scope hoisting"). Import bindings are replaced by the names of the
-//! declarations they resolve to, top-level names that would collide are
-//! renamed, `export` syntax is removed, and modules imported as namespaces get
-//! frozen namespace objects with live getters. Imports of the engine's
-//! built-in modules are kept, deduplicated, at the top. The result is
-//! minified with oxc.
-
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 
@@ -28,7 +18,6 @@ use oxc::str::Str;
 use crate::api;
 use crate::graph::{Export, Graph, Source, Target};
 
-/// ECMAScript reserved words, which generated names must avoid.
 const RESERVED_WORDS: &[&str] = &[
     "await",
     "break",
@@ -89,7 +78,6 @@ fn is_identifier(name: &str) -> bool {
         && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '$')
 }
 
-/// Turns arbitrary text (file names, export names) into an identifier base.
 fn identifier_base(text: &str) -> String {
     let mut base: String = text
         .chars()
@@ -119,7 +107,6 @@ fn quote(text: &str) -> String {
     serde_json::to_string(text).expect("strings serialize")
 }
 
-/// Final top-level names in the bundle.
 struct Names {
     used: HashSet<String>,
     /// Names that must not be kept as-is: declared in a nested scope or global.
@@ -170,7 +157,6 @@ impl Names {
         }
     }
 
-    /// Keeps `base` when it is free, otherwise derives an unused `base$n`.
     fn pick(&mut self, base: &str) -> String {
         let base = identifier_base(base);
         if !self.used.contains(&base) && !self.shadowed.contains(&base) {
@@ -216,7 +202,6 @@ impl Names {
     }
 }
 
-/// A text replacement in a module's source.
 struct Edit {
     start: u32,
     end: u32,
@@ -286,7 +271,6 @@ impl<'a> Visit<'a> for Shorthands {
     }
 }
 
-/// Bundles the linked graph into a single module; minifies when asked.
 pub fn bundle(
     graph: &Graph,
     builtins: &HashMap<String, HashSet<String>>,
@@ -316,7 +300,6 @@ pub fn bundle(
     }
     let mut names = Names::new(graph);
 
-    // Top-level declarations keep their names where possible, in evaluation order.
     for &m in &graph.order {
         let module = &graph.modules[m];
         let scoping = module.semantic.scoping();
@@ -396,7 +379,6 @@ impl<'a> Visit<'a> for DirectEval {
     }
 }
 
-/// Import statements for built-in modules, in first-use order.
 fn external_imports(graph: &Graph, names: &Names) -> String {
     let mut modules: Vec<&str> = Vec::new();
     for &m in &graph.order {
@@ -623,7 +605,6 @@ fn minify_module(code: &str) -> Result<String> {
         .code)
 }
 
-/// Is `expression` a string without substitutions? Returns its value.
 pub fn static_string<'a>(expression: &'a Expression<'a>) -> Option<&'a str> {
     match expression {
         Expression::StringLiteral(s) => Some(s.value.as_str()),

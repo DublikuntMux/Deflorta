@@ -1,7 +1,3 @@
-//! Retained UI: receives element trees from JS, diffs them against the
-//! previous tree (enter/exit/move animations, transforms, typewriter state),
-//! lays them out with taffy, and produces draw lists and hit tests.
-
 mod accessibility;
 pub mod desc;
 mod draw;
@@ -57,7 +53,6 @@ impl Rect {
     }
 }
 
-/// A running enter/exit/move animation.
 #[derive(Clone)]
 struct Timed {
     start: Instant,
@@ -89,22 +84,17 @@ struct Move {
 struct Node {
     id: String,
     desc: NodeDesc,
-    /// Rich text content (plain `text` is converted to a single span).
     spans: Option<Arc<Vec<SpanDesc>>>,
-    /// Native tooltip text is absent, so this text node occupies no space.
     tooltip_hidden: bool,
     parent: Option<usize>,
     children: Vec<usize>,
     text_style: TextStyle,
     /// Layout rectangle in virtual units, absolute (before scrolling).
     rect: Rect,
-    /// Size of the laid-out content, for scroll containers.
     content: (f32, f32),
     /// Retained layout identity; exiting nodes use their frozen rectangles.
     layout_id: Option<taffy::NodeId>,
-    /// Set on the root of a subtree that is playing its exit animation.
     ghost: Option<Timed>,
-    /// Part of an exiting subtree: frozen layout, not interactive.
     in_ghost: bool,
 }
 
@@ -117,7 +107,6 @@ pub struct ImageRef {
     pub frame: Option<(u64, Arc<image::RgbaImage>)>,
 }
 
-/// Screen-space transition mask applied to a quad.
 #[derive(Debug, Clone)]
 pub struct MaskDraw {
     /// 1 = image, 2..=5 = wipe left/right/up/down, 6 = pixellate.
@@ -125,7 +114,6 @@ pub struct MaskDraw {
     pub progress: f32,
     /// Ramp width (image/wipe) or maximum block size in pixels (pixellate).
     pub param: f32,
-    /// Hide instead of reveal (exiting elements).
     pub invert: bool,
     pub src: Option<String>,
 }
@@ -374,10 +362,6 @@ impl Ui {
         released
     }
 
-    // -----------------------------------------------------------------------
-    // Commit
-    // -----------------------------------------------------------------------
-
     /// Replaces the UI tree, starting enter/exit/move animations for changed keyed elements.
     pub fn commit(
         &mut self,
@@ -401,7 +385,6 @@ impl Ui {
         let built = self.nodes.len();
         self.keep_exits(&old_nodes, &old_index, instant, exits, now);
 
-        // Enter animations for new keyed elements; moves for keyed elements that existed.
         if instant {
             self.enters.clear();
             self.moves.clear();
@@ -523,7 +506,6 @@ impl Ui {
     }
 
     fn sync_content(&mut self, built: usize, assets: &Assets, now: Instant, instant: bool) {
-        // Transforms restart when their program changes.
         let mut transforms = HashMap::new();
         for node in &self.nodes[..built] {
             let Some(program) = &node.desc.transform else {
@@ -537,7 +519,6 @@ impl Ui {
         }
         self.transforms = transforms;
 
-        // Typewriter state survives re-renders while the text is unchanged.
         let mut reveals = HashMap::new();
         for node in &self.nodes[..built] {
             let (Some(spans), Some(cps)) = (&node.spans, node.desc.cps) else {
@@ -557,7 +538,6 @@ impl Ui {
             self.reveal_event_pending = false;
         }
 
-        // Videos keep playing across re-renders of the same element and source.
         let mut videos = HashMap::new();
         for node in &self.nodes[..built] {
             if node.desc.kind() != NodeKind::Video {
@@ -660,10 +640,6 @@ impl Ui {
         idx
     }
 
-    // -----------------------------------------------------------------------
-    // State queries
-    // -----------------------------------------------------------------------
-
     /// True while any animation, typewriter effect or video is running.
     pub fn is_animating(&self, now: Instant) -> bool {
         self.enters.values().any(|a| !a.finished(now))
@@ -683,7 +659,6 @@ impl Ui {
             || self.reveals.values().any(|r| r.is_typing(now))
     }
 
-    /// True while enter, exit or move transitions are playing.
     pub fn is_transitioning(&self, now: Instant) -> bool {
         self.enters.values().any(|a| !a.finished(now))
             || self
@@ -707,7 +682,6 @@ impl Ui {
         }
     }
 
-    /// Returns true once when all typewriter text has finished revealing.
     pub fn take_revealed_event(&mut self, now: Instant) -> bool {
         if self.reveal_event_pending && !self.is_revealing(now) {
             self.reveal_event_pending = false;
@@ -716,7 +690,6 @@ impl Ui {
         false
     }
 
-    /// Handlers of videos that finished since the last call.
     pub fn take_ended_videos(&mut self) -> Vec<Handler> {
         let mut ended = Vec::new();
         for (id, player) in &mut self.videos {
@@ -735,7 +708,6 @@ impl Ui {
         self.videos.values().map(|v| (v.src(), v.looping()))
     }
 
-    /// Drops finished animations so the tree stays small.
     pub fn prune(&mut self, now: Instant) {
         self.enters.retain(|_, a| !a.finished(now));
         self.moves

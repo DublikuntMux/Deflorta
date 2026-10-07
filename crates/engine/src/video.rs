@@ -1,8 +1,3 @@
-//! Video playback: H.264 in MP4 and VP8/VP9 in `WebM`, decoded on a background
-//! thread. Demuxing and decoding use pure Rust libraries.
-//! Frames are timed against the wall clock;
-//! the engine plays the file's audio track separately.
-
 mod h264;
 mod webm;
 
@@ -20,7 +15,6 @@ use log::{debug, error, info, warn};
 
 use crate::files::GameFiles;
 
-/// Decoded frames buffered ahead of playback.
 const QUEUE_AHEAD: usize = 4;
 
 struct Frame {
@@ -165,7 +159,6 @@ fn probe_size(files: &GameFiles, path: &str) -> Result<(u32, u32)> {
     h264::probe_size(files, path)
 }
 
-/// Decodes frames until the end (or until the player is dropped). Returns the frame count.
 fn decode(
     files: &GameFiles,
     path: &str,

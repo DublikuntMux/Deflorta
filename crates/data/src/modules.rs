@@ -4,7 +4,6 @@ use anyhow::{Result, anyhow, bail};
 
 use crate::files::normalize_game_path;
 
-/// Built-in module specifiers and the names of their runtime source files.
 pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", "deflorta.js"),
     ("deflorta/core", "core.js"),
@@ -17,12 +16,10 @@ pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta/screens", "screens.js"),
 ];
 
-/// True for the engine's built-in modules (`deflorta`, `deflorta/ui`, …).
 pub fn is_builtin_module(specifier: &str) -> bool {
     BUILTIN_MODULES.iter().any(|(name, _)| *name == specifier)
 }
 
-/// Resolves an import specifier to a builtin name or a path in the game.
 /// Specifiers name files exactly; no extensions are added.
 pub fn resolve_specifier(referrer: &str, specifier: &str) -> Result<String> {
     if is_builtin_module(specifier) {

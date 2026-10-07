@@ -1,8 +1,3 @@
-//! `SpiderMonkey` host: ES module loading, the microtask queue, and the
-//! synchronous bridge to the JavaScript runtime. Events are passed to JS as
-//! objects, and JS calls typed native modules (`native.rs`) whose values are
-//! read in place (`value.rs`); no JSON crosses the boundary.
-
 mod native;
 #[cfg(test)]
 mod tests;
@@ -40,15 +35,12 @@ use mozjs::rust::{
 use crate::files::GameFiles;
 pub use deflorta_data::{is_builtin_module, resolve_specifier};
 
-/// Embeds a runtime module prepared by the build script (minified in release).
 macro_rules! runtime_module {
     ($name:literal) => {
         include_str!(concat!(env!("OUT_DIR"), "/runtime/", $name, ".js"))
     };
 }
 
-/// Built-in modules, importable by bare specifier: `(specifier, source)`.
-/// Sources are minified in release builds.
 pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", runtime_module!("deflorta")),
     ("deflorta/core", runtime_module!("core")),
@@ -63,22 +55,18 @@ pub const BUILTIN_MODULES: &[(&str, &str)] = &[
 
 const BOOT_MODULE: &str = "import \"deflorta\";\nimport \"./main.js\";\n";
 
-/// Per-thread state shared with native callbacks and the module loader hook.
 struct HostState {
     files: GameFiles,
     data_dir: Option<PathBuf>,
     modules: HashMap<String, RootedTraceableBox<Heap<*mut JSObject>>>,
     load_error: Option<String>,
-    /// The runtime's `dispatch(event)` and `flush()` functions.
     entry_points: Option<[RootedTraceableBox<Heap<Value>>; 2]>,
-    /// Commands queued by native calls since the engine last took them.
     commands: Vec<Command>,
     /// Functions of committed trees, oldest first, until the engine releases them.
     handlers: VecDeque<HandlerTable>,
     generation: u32,
 }
 
-/// The functions captured from one `ui.commit`, as a JS array.
 struct HandlerTable {
     generation: u32,
     functions: RootedTraceableBox<Heap<*mut JSObject>>,
@@ -148,7 +136,6 @@ impl ScriptHost {
                 bail!("failed to create the global object");
             }
             let global = RootedTraceableBox::from_box(Heap::boxed(global));
-            // The engine lives in a single realm for the whole program.
             jsapi::EnterRealm(cx, global.get());
             if !jsapi::InitRealmStandardClasses(cx) {
                 bail!("failed to init standard classes");
@@ -171,7 +158,6 @@ impl ScriptHost {
         unsafe { self.runtime.cx().raw_cx() }
     }
 
-    /// Loads the runtime and `main.js`, evaluates the module graph and drains jobs.
     pub fn run_main(&mut self) -> Result<()> {
         let started = Instant::now();
         let cx = self.cx();
@@ -241,7 +227,6 @@ impl ScriptHost {
         result
     }
 
-    /// Exposes the public module namespace for commands in the debug console.
     #[cfg(feature = "dev-console")]
     pub fn enable_console(&mut self) -> Result<()> {
         let cx = self.cx();
@@ -292,7 +277,6 @@ impl ScriptHost {
         result.and_then(|value| flushed.map(|()| value))
     }
 
-    /// Commands queued by native module calls, in call order.
     pub fn take_commands() -> Vec<Command> {
         with_state(|s| std::mem::take(&mut s.commands))
     }
@@ -324,7 +308,6 @@ impl ScriptHost {
         with_state(|s| s.data_dir = Some(dir));
     }
 
-    /// Calls `dispatch` (0) or `flush` (1) as registered by `native.connect`.
     unsafe fn call_entry_point(&mut self, which: usize, arg: Option<Handle<Value>>) -> Result<()> {
         let global = self.global.get();
         let cx = self.cx();
@@ -388,10 +371,6 @@ impl Drop for ScriptHost {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Promise job queue
-// ---------------------------------------------------------------------------
-
 static JOB_QUEUE_TRAPS: mozjs::glue::JobQueueTraps = mozjs::glue::JobQueueTraps {
     getHostDefinedData: Some(job_queue_host_defined_data),
     getHostDefinedGlobal: Some(job_queue_host_defined_global),
@@ -449,10 +428,6 @@ unsafe fn run_jobs(cx: *mut RawJSContext) {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Module loading
-// ---------------------------------------------------------------------------
 
 /// Compiles a module. On a syntax error the exception is left pending so the
 /// module loader can propagate the original `SyntaxError`.
@@ -570,10 +545,6 @@ unsafe extern "C" fn on_modules_failed(
     true
 }
 
-// ---------------------------------------------------------------------------
-// Error helpers
-// ---------------------------------------------------------------------------
-
 unsafe fn throw_error(cx: *mut RawJSContext, message: &str) {
     let message = CString::new(message.replace('\0', " ")).unwrap_or_default();
     unsafe { mozjs::glue::ReportErrorUTF8(cx, message.as_ptr()) };
@@ -668,7 +639,6 @@ unsafe fn get_property_string(
     }
 }
 
-/// Formats a thrown value with its location and stack when available.
 unsafe fn describe_error(cx: *mut RawJSContext, value: Handle<Value>) -> String {
     unsafe {
         let mut text = value_to_string(cx, value);

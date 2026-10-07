@@ -1,5 +1,3 @@
-//! Shared JSX lowering for source games, bundled games and embedded screens.
-
 use std::borrow::Cow;
 use std::path::Path;
 

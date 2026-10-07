@@ -1,5 +1,3 @@
-//! Element tree types read from the JS runtime.
-
 use num_traits::{AsPrimitive, ToPrimitive};
 use serde::Deserialize;
 
@@ -59,7 +57,7 @@ pub struct NodeDesc {
     /// Announce changes to this subtree to assistive technology.
     #[serde(default)]
     pub live: bool,
-    /// Modal screen wrapper: excludes underlying screens from accessibility.
+    /// Modal screens hide underlying accessibility nodes.
     #[serde(default)]
     pub modal: bool,
     #[serde(default)]
@@ -86,19 +84,14 @@ pub struct NodeDesc {
     pub anchor: Option<[f32; 2]>,
     pub enter: Option<AnimDesc>,
     pub exit: Option<AnimDesc>,
-    /// Animate layout position changes of this keyed element.
     pub r#move: Option<AnimDesc>,
-    /// ATL-style animation program.
     pub transform: Option<TransformDesc>,
-    // Slider
     pub value: Option<serde_json::Value>,
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub step: Option<f32>,
-    // Input
     pub placeholder: Option<String>,
     pub max_length: Option<usize>,
-    // Video
     #[serde(default)]
     pub r#loop: bool,
 }
@@ -162,7 +155,6 @@ pub struct SpanDesc {
     pub fast: bool,
 }
 
-/// Easing curves
 #[allow(clippy::enum_variant_names)]
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -269,7 +261,6 @@ pub enum WipeDir {
     Down,
 }
 
-/// Animatable properties of a transform step.
 #[derive(Deserialize, Clone, Default, Debug, PartialEq)]
 pub struct TransformProps {
     pub x: Option<f32>,
@@ -288,7 +279,6 @@ pub enum RepeatCount {
     Times(u32),
 }
 
-/// One instruction of an ATL-style program.
 #[derive(Deserialize, Clone, Debug, PartialEq)]
 #[serde(untagged)]
 pub enum TransformStep {
@@ -362,7 +352,6 @@ pub enum Edges {
 }
 
 impl Edges {
-    /// Returns (top, right, bottom, left).
     pub const fn trbl(self) -> [f32; 4] {
         match self {
             Self::All(v) => [v; 4],
@@ -500,7 +489,6 @@ string_enum!(TextAlign { Left = "left", Center = "center", Right = "right", Just
 #[derive(Deserialize, Clone, Default, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Style {
-    // Layout
     pub display: Option<Display>,
     pub position: Option<Position>,
     pub left: Option<Dim>,
@@ -527,7 +515,6 @@ pub struct Style {
     pub grid_columns: Option<u16>,
     pub grid_rows: Option<u16>,
     pub overflow: Option<Overflow>,
-    // Paint
     pub background: Option<Color>,
     pub radius: Option<f32>,
     pub border_width: Option<f32>,

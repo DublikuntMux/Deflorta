@@ -1,7 +1,3 @@
-// deflorta — the public scripting API. Games import everything from here:
-//
-//   import { configure, character, label, say, scene, show, menu } from "deflorta";
-
 export {
   clearTimer,
   config,

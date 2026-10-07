@@ -1,9 +1,3 @@
-//! Read-only access to a game's files.
-//!
-//! Files come from a project directory during development or from a `.dm`
-//! archive in published games. Paths are relative to the game root, use `/`
-//! separators and may not escape the root.
-
 use std::fs::File;
 use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
@@ -13,7 +7,6 @@ use anyhow::{Context, Result, bail};
 
 use crate::archive::{Archive, EntryReader};
 
-/// Normalizes a relative path, refusing anything that leaves the game root.
 pub fn normalize_game_path(path: &Path) -> Option<String> {
     let mut parts: Vec<&str> = Vec::new();
     for component in path.components() {
@@ -34,7 +27,6 @@ enum Source {
     Archive(Arc<Archive>),
 }
 
-/// A game's files. Cheap to clone and shareable across threads.
 #[derive(Clone)]
 pub struct GameFiles(Arc<Source>);
 
@@ -99,7 +91,6 @@ impl GameFiles {
         Ok(Self(Arc::new(Source::Archive(Arc::new(archive)))))
     }
 
-    /// The archive behind these files, if any.
     pub fn as_archive(&self) -> Option<&Archive> {
         match &*self.0 {
             Source::Directory(_) => None,
@@ -107,7 +98,6 @@ impl GameFiles {
         }
     }
 
-    /// The game directory or archive file.
     pub fn location(&self) -> &Path {
         match &*self.0 {
             Source::Directory(dir) => dir,
@@ -147,7 +137,6 @@ impl GameFiles {
         })
     }
 
-    /// Opens a file for streaming (media, image headers).
     pub fn open_file(&self, path: &str) -> io::Result<GameReader> {
         let path = normalize(path)?;
         let inner = match &*self.0 {
@@ -163,7 +152,6 @@ impl GameFiles {
         Ok(GameReader(inner))
     }
 
-    /// All files below `dir` (recursively), as game paths.
     pub fn list(&self, dir: &str) -> Vec<String> {
         let Ok(dir) = normalize(dir) else {
             return Vec::new();
@@ -214,7 +202,6 @@ enum Reader {
     Entry(EntryReader<Arc<Archive>>),
 }
 
-/// A seekable game file.
 pub struct GameReader(Reader);
 
 impl GameReader {

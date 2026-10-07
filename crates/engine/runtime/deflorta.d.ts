@@ -1,21 +1,4 @@
-// Type declarations for the Deflorta scripting API.
-//
-// Games import from "deflorta"; the "deflorta/*" modules expose the runtime's
-// building blocks for advanced use. Keep this file next to main.js (the
-// `deflorta create` and `deflorta types` commands write it) and add a
-// jsconfig.json with "checkJs" for type checking in editors.
-//
-// Store, persistent data and preferences can be typed per game:
-//
-//   declare module "deflorta" {
-//     interface Store { trust: number; name: string }
-//   }
-
 declare module "deflorta" {
-  // -------------------------------------------------------------------------
-  // Configuration and engine services
-  // -------------------------------------------------------------------------
-
   export interface Language {
     /** Translation id (`tl/<id>.json`); null is the language the script is written in. */
     id: string | null;
@@ -38,11 +21,8 @@ declare module "deflorta" {
     /** Delay between lines while skipping, in milliseconds. */
     skipDelay: number;
     clearColor: Color;
-    /** Set to false to disable autosaves. */
     autosave?: boolean;
-    /** Languages offered in the preferences. */
     languages?: Language[];
-    /** Main menu background image. */
     menuBackground?: string;
     /** Main menu background video (loops). */
     menuVideo?: string;
@@ -129,7 +109,6 @@ declare module "deflorta" {
     tooltip: TooltipEvent;
     /** Clicks that no element handled, and non-primary buttons. */
     backgroundClick: ClickEvent;
-    /** Errors thrown by game code. */
     error: unknown;
   }
 
@@ -189,12 +168,7 @@ declare module "deflorta" {
     };
   }
 
-  /** Low-level engine modules. */
   export const native: NativeModules;
-
-  // -------------------------------------------------------------------------
-  // Text and translation
-  // -------------------------------------------------------------------------
 
   export interface Span {
     text: string;
@@ -219,18 +193,11 @@ declare module "deflorta" {
     markup: unknown,
     options?: { baseSize?: number },
   ): { spans: Span[]; noWait: boolean };
-  /** Text with all tags removed. */
   export function plainText(markup: unknown): string;
-  /** Adds translations: `{ "source text": "translated text" }`. */
   export function translations(language: string, table: Record<string, string | null>): void;
   /** Translates into the current language (unchanged when untranslated). */
   export function _(source: string): string;
-  /** Strings looked up but missing in the current language. */
   export function missingTranslations(): string[];
-
-  // -------------------------------------------------------------------------
-  // UI
-  // -------------------------------------------------------------------------
 
   /** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa`. */
   export type Color = string;
@@ -340,7 +307,6 @@ declare module "deflorta" {
   export interface BoxElement extends ElementProps {
     t: "box";
     children: NativeElement[];
-    /** Scroll containers start scrolled to the end. */
     startAtEnd?: boolean;
   }
 
@@ -486,12 +452,10 @@ declare module "deflorta" {
   export function Text(props: TextProps): TextElement;
   /** Text with text tags (`{b}`, `{color=…}`, `{ruby=…}`, …). */
   export function RichText(props: TextProps): TextElement;
-  /** Set alt to describe an image action; use onPress and hoverSrc for image buttons. */
   export function Image(props: ImageProps): ImageElement;
   export function Video(props: VideoProps): VideoElement;
   export function Slider(props: SliderProps): SliderElement;
   export function TextInput(props: TextInputProps): InputElement;
-  /** A clickable container with arbitrary children and hover/focus feedback. */
   export function Pressable(props: ViewProps): BoxElement;
 
   export function Fragment(props: { children?: Child; key?: string | number }): Child;
@@ -545,12 +509,7 @@ declare module "deflorta" {
   export function invalidate(): void;
   /** Tooltip of the hovered or focused element, or null. */
   export function tooltip(): string | null;
-  /** Shows a short message in the corner of the screen. */
   export function notify(message: string, seconds?: number): void;
-
-  // -------------------------------------------------------------------------
-  // Scene: images, positions, transitions, transforms, audio
-  // -------------------------------------------------------------------------
 
   /** Places the image's anchor at xalign/yalign of the screen. */
   export interface Position {
@@ -631,7 +590,6 @@ declare module "deflorta" {
     easeOut(dur: number, props: TransformProps): Atl;
     bounce(dur: number, props: TransformProps): Atl;
     pause(seconds: number): Atl;
-    /** Appends another program. */
     after(program: Atl): Atl;
     /** Repeats the program `times` times, or forever. */
     repeat(times?: number | true): Atl;
@@ -639,7 +597,6 @@ declare module "deflorta" {
   }
 
   export function atl(): Atl;
-  /** Runs programs at the same time. */
   export function parallel(...programs: Atl[]): Atl;
   export function shake(strength?: number, dur?: number): Atl;
   export function bob(height?: number, period?: number): Atl;
@@ -656,7 +613,6 @@ declare module "deflorta" {
     | { group: string; options: Record<string, string>; default?: string }
     | { attribute: string; src: string };
 
-  /** Declares an image composed from attribute groups: `show("eileen sad blush")`. */
   export function layeredImage(tag: string, layers: Layer[], options?: { zoom?: number }): void;
 
   export interface ShowOptions {
@@ -669,11 +625,9 @@ declare module "deflorta" {
 
   /** Shows an image, replacing the image with the same tag. `-attribute` removes a layered attribute. */
   export function show(name: string, options?: ShowOptions): void;
-  /** Hides the image with the given tag. */
   export function hide(name: string, options?: { with?: Transition }): void;
   /** Clears the scene, optionally showing a background, and hides the dialogue window. */
   export function scene(name?: string | null, options?: { with?: Transition }): void;
-  /** Decodes images ahead of time. */
   export function preload(...names: string[]): void;
 
   /** Background music; saved with the scene. */
@@ -689,10 +643,6 @@ declare module "deflorta" {
   export const sound: {
     play(file: string, options?: { volume?: number }): void;
   };
-
-  // -------------------------------------------------------------------------
-  // Story
-  // -------------------------------------------------------------------------
 
   /** Game variables; augment to type them. Must stay JSON-serializable. */
   export interface Store {
@@ -753,7 +703,6 @@ declare module "deflorta" {
   }
 
   export interface SayOptions {
-    /** A voice file to play with the line. */
     voice?: string;
     [prop: string]: unknown;
   }
@@ -770,13 +719,11 @@ declare module "deflorta" {
     name: string | null,
     options?: { color?: Color; nvl?: boolean; [prop: string]: unknown },
   ): Speaker;
-  /** The narrator on the NVL page. */
   export const nvlNarrator: Speaker;
   export function nvlClear(): void;
   /** Plays a voice file with the next line. */
   export function voice(file: string): void;
 
-  /** Narrates a line, or shows a line by a speaker, and waits for the player. */
   export function say(text: string): Promise<void>;
   export function say(who: string | Who | null, text: string, options?: SayOptions): Promise<void>;
 
@@ -788,7 +735,6 @@ declare module "deflorta" {
     | [text: string, value?: T]
     | { text: string; value?: T; if?: unknown };
 
-  /** Presents choices and resolves with the chosen value. */
   export function menu<T = string>(choices: Choice<T>[]): Promise<T>;
   export function menu<T = string>(prompt: string | null, choices: Choice<T>[]): Promise<T>;
 
@@ -819,7 +765,6 @@ declare module "deflorta" {
     options?: { record?: boolean; rollback?: boolean },
   ): Promise<T>;
 
-  /** Hides the dialogue window until the next line. */
   export function windowHide(): void;
 
   export interface HistoryEntry {
@@ -831,23 +776,16 @@ declare module "deflorta" {
     index: number;
   }
 
-  /** The dialogue backlog, oldest first. */
   export const history: HistoryEntry[];
 
-  /** True while a game is in progress. */
   export function inGame(): boolean;
   export function isSkipping(): boolean;
-  /** Starts or stops skip mode. */
   export function toggleSkip(on?: boolean): void;
-  /** Continues past the current line, pause or movie. */
   export function advance(): void;
   /** Starts a new game at `start` (default "start"). */
   export function newGame(start?: string): void;
-  /** Leaves the current game for the main menu. */
   export function endGame(): void;
-  /** Steps back to the previous line or choice. */
   export function rollback(): boolean;
-  /** Rolls back to a backlog entry. */
   export function rollbackTo(entry: HistoryEntry): boolean;
 
   /** True when the story is waiting for the player and can be saved. */
@@ -855,7 +793,6 @@ declare module "deflorta" {
   /** Saves to a slot name (letters, digits, `-`, `_`), with a thumbnail by default. */
   export function saveGame(slot: string, options?: { thumbnail?: boolean }): boolean;
   export function loadGame(slot: string): boolean;
-  /** Save metadata, or null for an empty slot. */
   export function saveInfo(slot: string): { time: number; preview: string; thumbnail: string } | null;
   export function deleteSave(slot: string): void;
   export function quickSave(): boolean;
@@ -876,9 +813,7 @@ declare module "deflorta" {
     | "fullscreen"
     | "selfVoicing";
 
-  /** Key bindings: key name → action. */
   export const keymap: Record<string, ActionName | string>;
-  /** Actions that keys and the default screens trigger. */
   export const actions: Record<ActionName, (event?: KeyEvent | ClickEvent | WheelEvent) => void> &
     Record<string, (event?: unknown) => void>;
 }
@@ -897,9 +832,7 @@ declare module "deflorta/core" {
   } from "deflorta";
   /** Calls listeners of `type`; returns true when one handled the event. */
   export function emit(type: string, event?: unknown): boolean;
-  /** Logs an error and shows the error screen. */
   export function reportError(error: unknown): void;
-  /** Runs `fn` at the end of every turn to commit output. */
   export function onFlush(fn: () => void): void;
 }
 
@@ -946,7 +879,6 @@ declare module "deflorta/ui" {
   export function markInstant(): void;
   /** Plays `spec` when the element with `key` disappears in the next commit. */
   export function exitWith(key: string, spec: Animation | undefined): void;
-  /** Installs the renderer of the scene below all screens. */
   export function setSceneLayer(render: () => Element | null): void;
   /** Hides all screens until the next click or key. */
   export function setUiHidden(hidden: boolean): void;
@@ -1025,7 +957,6 @@ declare module "deflorta/scene" {
   export function setReplayCheck(fn: () => boolean): void;
   /** Clears the scene and optionally shows a background (keeps the dialogue window). */
   export function setScene(name?: string | null, options?: { with?: Transition }): void;
-  /** Image files an image name needs. */
   export function imageSources(name: string): string[];
 }
 
@@ -1093,7 +1024,6 @@ declare module "deflorta/screens" {
 }
 
 // Globals provided by the engine.
-/** JSX types shared by the automatic runtime and classic createElement factory. */
 declare namespace JSX {
   type Element = import("deflorta/jsx-runtime").JSX.Element;
   type ElementType = import("deflorta/jsx-runtime").JSX.ElementType;

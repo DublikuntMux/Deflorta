@@ -1,5 +1,3 @@
-//! Exercise the real CLI, including `SpiderMonkey` evaluation of published bundles.
-
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::OnceLock;

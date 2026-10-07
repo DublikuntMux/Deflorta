@@ -1,5 +1,3 @@
-//! Geometry transforms and the ATL-style animation interpreter.
-
 use num_traits::AsPrimitive;
 
 use crate::util::math::lerp;
@@ -81,7 +79,6 @@ impl Similarity {
         )
     }
 
-    /// Axis-aligned bounds of the transformed rectangle.
     pub fn bounds(&self, r: Rect) -> Rect {
         let corners = [
             (r.x, r.y),
@@ -103,7 +100,6 @@ impl Similarity {
     }
 }
 
-/// Current values of animatable properties.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Values {
     pub x: f32,
@@ -154,7 +150,6 @@ impl Values {
     }
 }
 
-/// Walks through a list of transform steps
 fn walk(steps: &[TransformStep], add: &mut dyn FnMut(&TransformProps)) {
     for step in steps {
         match step {
@@ -237,8 +232,6 @@ pub fn duration(steps: &[TransformStep]) -> Option<f32> {
     Some(total)
 }
 
-/// Evaluates a program at `time` seconds, updating `values`. Returns true once
-/// the program has finished.
 pub fn evaluate(steps: &[TransformStep], time: f32, values: &mut Values) -> bool {
     let mut time = time;
     for step in steps {
@@ -285,7 +278,6 @@ pub fn evaluate(steps: &[TransformStep], time: f32, values: &mut Values) -> bool
                 };
                 let iteration = (time / period).floor();
                 if count.is_none_or(|n| iteration < n.as_()) {
-                    // Later iterations start from where the previous one ended.
                     if iteration >= 1.0 {
                         let mut end = *values;
                         evaluate(steps, period, &mut end);

@@ -1,5 +1,3 @@
-//! Gradle exports using prebuilt native runtimes, independent of Rust sources.
-
 use std::path::Path;
 use std::process::Command;
 
@@ -82,7 +80,6 @@ pub fn publish(
         template.join("gradlew").is_file(),
         "Android export template not found; rebuild the distribution"
     );
-    // Keep this generated project for inspection and custom Gradle builds.
     // Clear it so a second export cannot retain another ABI or stale assets.
     if project.exists() {
         ensure!(

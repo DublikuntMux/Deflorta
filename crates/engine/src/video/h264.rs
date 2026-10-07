@@ -1,5 +1,3 @@
-//! MP4 demuxing and H.264 decoding, including reordered and delayed frames.
-
 use std::io::BufReader;
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;

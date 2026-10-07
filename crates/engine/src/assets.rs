@@ -1,8 +1,3 @@
-//! Image sources and background image decoding. Sources are game file paths
-//! (see [`GameFiles`]); `user:` paths refer to the per-game data directory
-//! (save thumbnails). A `?query` suffix is ignored when resolving, so scripts
-//! can bust caches of rewritten files.
-
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -14,18 +9,14 @@ use log::{debug, info, trace, warn};
 
 use crate::files::{GameFiles, normalize_game_path};
 
-/// Background decoding threads.
 const DECODE_THREADS: usize = 2;
 
 /// Unreferenced image data, metadata and textures expire together.
 pub const ASSET_IDLE_LIMIT: Duration = Duration::from_secs(60);
 
-/// Where an image source lives.
 #[derive(Clone)]
 pub enum AssetPath {
-    /// A normalized path in the game's files.
     Game(String),
-    /// A file in the user data directory.
     User(PathBuf),
 }
 
@@ -187,7 +178,6 @@ impl Assets {
         None
     }
 
-    /// Image dimensions in pixels, read from the file header and cached.
     pub fn image_size(&mut self, src: &str) -> Option<(u32, u32)> {
         self.touch(src);
         if let Some(size) = self.sizes.get(src) {
@@ -203,7 +193,6 @@ impl Assets {
         size
     }
 
-    /// Starts decoding `src` in the background if it is not loaded yet.
     pub fn request(&mut self, src: &str) {
         self.touch(src);
         if self.images.contains_key(src) {
@@ -234,7 +223,6 @@ impl Assets {
         }
     }
 
-    /// Collects finished decodes.
     pub fn poll(&mut self) -> bool {
         let mut changed = false;
         while let Ok((src, generation, image)) = self.results.try_recv() {
@@ -275,7 +263,6 @@ impl Assets {
         }
     }
 
-    /// Forgets an image whose texture was released (or whose file changed).
     pub fn forget(&mut self, src: &str) -> bool {
         let image = self.images.remove(src).is_some();
         let size = self.sizes.remove(src).is_some();
@@ -286,7 +273,6 @@ impl Assets {
         image || size
     }
 
-    /// Releases unused preloads, failed loads and dimensions as well as uploaded images.
     pub fn collect_unused(&mut self, retained: &HashSet<String>, now: Instant) -> Vec<String> {
         let mut expired = Vec::new();
         self.last_used.retain(|src, used| {
@@ -357,7 +343,6 @@ mod tests {
         ));
         assert!(assets.sizes.is_empty());
         assert_eq!(assets.last_used.len(), 1);
-        // The unused preload expires only after it is no longer retained.
         assert_eq!(
             assets.collect_unused(
                 &HashSet::new(),

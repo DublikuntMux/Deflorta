@@ -1,5 +1,3 @@
-//! Debug launcher console. Shares the game's GPU and JavaScript realm.
-
 mod commands;
 pub mod diagnostics;
 mod inspectors;
@@ -32,7 +30,6 @@ struct LogBuffer {
 
 impl LogBuffer {
     fn push(&mut self, level: Level, mut text: String) {
-        // Keep a noisy script from consuming unbounded memory.
         if let Some((end, _)) = text.char_indices().nth(16_384) {
             text.truncate(end);
             text.push_str("… [truncated]");
@@ -190,7 +187,6 @@ impl DevConsole {
         }
     }
 
-    /// Refresh asynchronous log messages without continuously redrawing the game.
     pub fn refresh(&mut self, window: &Window) -> Option<Instant> {
         if !self.open && !self.inspectors.any_open() {
             return None;

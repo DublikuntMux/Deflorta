@@ -1,5 +1,3 @@
-//! Built-ins are recognized before JavaScript evaluation.
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Inspector {
     Accessibility,

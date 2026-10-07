@@ -1,14 +1,3 @@
-// deflorta/story — labels, dialogue, choices, history, saves and rollback.
-//
-// Story code is ordinary async JavaScript. Every interaction (say, menu,
-// pause, prompt, movie) is a numbered *checkpoint*. Saving records the state
-// at the start of the current label (the *root*) plus the inputs given at
-// each checkpoint since then. Loading or rolling back restores the root
-// state and re-runs the label, resolving checkpoints instantly until the
-// target is reached. Story code must therefore be deterministic: keep game
-// state in `store`, use `random()` instead of Math.random(), and only await
-// engine functions.
-
 import {
   clearTimer,
   config,
@@ -38,15 +27,9 @@ import {
   setScene,
 } from "deflorta/scene";
 
-// ---------------------------------------------------------------------------
-// Game state
-// ---------------------------------------------------------------------------
-
-/** Game variables. Must stay JSON-serializable; it is saved and rolled back. */
 export const store = {};
 const storeDefaults = {};
 
-/** Declares default store values, applied when a new game starts. */
 export function defaults(values) {
   Object.assign(storeDefaults, clone(values));
   for (const [k, v] of Object.entries(values))
@@ -62,7 +45,6 @@ function replaceContents(target, source) {
   Object.assign(target, source);
 }
 
-/** Data shared by all playthroughs (unlocked endings, gallery…). Not rolled back. */
 export const persistent = {};
 let persistentJson = "{}";
 
@@ -73,7 +55,6 @@ export function savePersistent() {
   storage.write("persistent", persistent);
 }
 
-/** Preferences persist across games and are not rolled back. */
 export const prefs = {
   textSpeed: null,
   autoForward: false,
@@ -105,17 +86,14 @@ function applyPrefs() {
   invalidate();
 }
 
-/** Switches the game language (null = the language the script is written in). */
 export function setLanguage(language) {
   console.info(`Language: ${language ?? "source"}`);
   prefs.language = language;
   savePrefs();
 }
 
-/** Text speed slider maximum; at this value text appears instantly. */
 export const INSTANT_SPEED = 200;
 
-/** Characters per second for dialogue (0 = instant). */
 export function textSpeed() {
   const speed = prefs.textSpeed ?? config.textSpeed;
   return speed >= INSTANT_SPEED ? 0 : speed;
@@ -124,7 +102,6 @@ export function textSpeed() {
 // Deterministic random numbers (mulberry32), part of the saved state.
 let rngState = 1 >>> 0;
 
-/** Returns a random number in [0, 1) that replays identically after load/rollback. */
 export function random() {
   rngState = (rngState + 0x6d2b79f5) >>> 0;
   let t = rngState;
@@ -133,14 +110,9 @@ export function random() {
   return ((t ^ (t >>> 14)) >>> 0) / 0x100000000;
 }
 
-/** Returns a random integer in [min, max]. */
 export function randInt(min, max) {
   return min + Math.floor(random() * (max - min + 1));
 }
-
-// ---------------------------------------------------------------------------
-// Seen text (for skipping only what was already read)
-// ---------------------------------------------------------------------------
 
 let seen = {};
 let seenDirty = 0;
@@ -168,13 +140,8 @@ function flushSeen() {
   storage.write("seen", seen);
 }
 
-// ---------------------------------------------------------------------------
-// Labels and the story runner
-// ---------------------------------------------------------------------------
-
 const labels = new Map();
 
-/** Declares a label: a named async function that story flow can jump to. */
 export function label(name, fn) {
   labels.set(name, fn);
 }
@@ -185,15 +152,12 @@ class Jump {
   }
 }
 
-/** Raised when a save no longer matches the script it was made with. */
 class ReplayMismatch extends Error {}
 
-/** Transfers control to another label. Ends the current label (and any calls). */
 export function jump(name) {
   throw new Jump(name);
 }
 
-/** Runs another label and returns to the caller when it finishes. */
 export async function call(name, ...args) {
   const fn = labels.get(name);
   if (!fn) throw new Error(`unknown label '${name}'`);
@@ -222,7 +186,6 @@ const run = {
 const replaying = () => run.target >= 0;
 setReplayCheck(replaying);
 
-/** Dialogue history (backlog): { who, what, voice, root, index }. */
 export const history = [];
 
 // Screens managed by the runtime; every other shown screen is game state and
@@ -309,10 +272,6 @@ async function runStory(start, resume = false) {
   }
 }
 
-/**
- * A save or rollback no longer matches the script (the game was updated):
- * restart the scene from its beginning instead of failing.
- */
 function recover(error) {
   console.warn(
     `cannot restore position (${error?.message ?? error}); restarting the scene`,
@@ -328,7 +287,6 @@ function recover(error) {
 
 let noticeFn = () => {};
 
-/** Installed by the default screens to show recovery notices. */
 export function setNoticeHandler(fn) {
   noticeFn = fn;
 }
@@ -341,17 +299,10 @@ function startRun(start, resume) {
   runStory(start, resume).catch((e) => reportError(e));
 }
 
-/** True while a game is in progress. */
 export function inGame() {
   return run.root !== null;
 }
 
-/**
- * Suspends the story until the player responds. `present` shows the UI and
- * receives the pending checkpoint; call `pending.resolve(value)` to continue.
- * options.record    the resolved value is saved and replayed (choices, text input)
- * options.rollback  rollback may stop here
- */
 export function checkpoint(
   kind,
   present,
@@ -416,10 +367,6 @@ function cancelCheckpoint() {
   run.pending = null;
   pending?.cleanup?.();
 }
-
-// ---------------------------------------------------------------------------
-// Dialogue
-// ---------------------------------------------------------------------------
 
 let skipHeld = false;
 let skipToggled = false;
@@ -499,7 +446,6 @@ on("screensChanged", syncAutomaticAdvance);
 
 export const isSkipping = () => skipHeld || skipToggled;
 
-/** Starts or stops skip mode (Tab / the quick menu). */
 export function toggleSkip(on = !skipToggled) {
   skipToggled = on;
   if (on && !storyBlocked()) advance();
@@ -507,10 +453,6 @@ export function toggleSkip(on = !skipToggled) {
   invalidate();
 }
 
-/**
- * Creates a speaking character. Call it with text: `await eileen("Hi!")` or eileen`Hi!`.
- * options: color, nvl (lines go to the full-screen NVL page), any extra props for custom say screens.
- */
 export function character(name, options = {}) {
   const who = { name, color: "#ffffff", ...options };
   const speak = (first, ...rest) =>
@@ -521,24 +463,17 @@ export function character(name, options = {}) {
   return speak;
 }
 
-/** The narrator on the NVL page. */
 export const nvlNarrator = character(null, { nvl: true });
 
-/** Plays a voice file with the next line of dialogue. */
 export function voice(file) {
   nextVoice = file;
 }
 
-/** Clears the NVL page. */
 export function nvlClear() {
   scene.nvl = [];
   invalidate();
 }
 
-/**
- * Shows a line of dialogue (with text tags) and waits for the player.
- * `say("text")` narrates. options.voice plays a voice file with the line.
- */
 export function say(who, what, options = {}) {
   if (what === undefined) {
     what = who;
@@ -598,7 +533,6 @@ export function say(who, what, options = {}) {
   });
 }
 
-/** Continues past the current line, pause or movie. */
 export function advance() {
   const pending = run.pending;
   if (
@@ -612,7 +546,6 @@ export function advance() {
   }
 }
 
-/** Waits for `seconds` (or until click when omitted). */
 export function pause(seconds) {
   return checkpoint(
     "pause",
@@ -633,10 +566,6 @@ function normalizeChoice(choice) {
   return { value: choice.text, ...choice };
 }
 
-/**
- * Presents choices and resolves with the chosen value.
- *   await menu("Where to?", ["Left", ["Right", "r"], { text: "Secret", value: 3, if: store.key }])
- */
 export async function menu(prompt, choices) {
   if (Array.isArray(prompt)) {
     choices = prompt;
@@ -689,10 +618,6 @@ export async function menu(prompt, choices) {
   return items[index].value;
 }
 
-/**
- * Asks the player to type text. Resolves with the (trimmed) answer.
- *   const name = await prompt("What is your name?", { default: "Alex", maxLength: 16 })
- */
 export function prompt(
   question,
   { default: initial = "", maxLength = 32, allowEmpty = false } = {},
@@ -716,7 +641,6 @@ export function prompt(
   );
 }
 
-/** Plays a full-screen video and waits until it ends (or the player clicks, if skippable). */
 export function playMovie(src, { skippable = true } = {}) {
   return checkpoint(
     "movie",
@@ -729,22 +653,16 @@ export function playMovie(src, { skippable = true } = {}) {
   );
 }
 
-/** Clears the screen and optionally shows a background; hides the dialogue window. */
 export function sceneStatement(name = null, options = {}) {
   setScene(name, options);
   hideScreen("say");
   hideScreen("nvl");
 }
 
-/** Hides the dialogue window until the next line. */
 export function windowHide() {
   hideScreen("say");
   hideScreen("nvl");
 }
-
-// ---------------------------------------------------------------------------
-// Game lifecycle
-// ---------------------------------------------------------------------------
 
 function resetPresentation() {
   for (const name of [
@@ -762,7 +680,6 @@ function resetPresentation() {
   invalidate();
 }
 
-/** Starts a new game at `start`. */
 export function newGame(start = "start") {
   console.info(`New game at label '${start}'`);
   cancelCheckpoint();
@@ -786,7 +703,6 @@ export function newGame(start = "start") {
   startRun(start);
 }
 
-/** Leaves the current game and returns to the main menu. */
 export function endGame() {
   console.info("Returning to the main menu");
   run.gen++;
@@ -825,7 +741,6 @@ function restart(root, inputs, target, expected) {
   run.pending = null;
   run.autosaveDue = false;
   skipToggled = false;
-  // Lines from this root on are re-added while replaying.
   const kept = history.filter((h) => h.root < root.id);
   history.splice(0, history.length, ...kept);
   resetPresentation();
@@ -835,7 +750,6 @@ function restart(root, inputs, target, expected) {
   startRun(root.label, true);
 }
 
-/** Steps back to the previous line or choice. Returns false if there is nothing to roll back to. */
 export function rollback() {
   if (!run.pending || !run.root) return false;
   console.debug("Rolling back");
@@ -857,7 +771,6 @@ export function rollback() {
   return false;
 }
 
-/** Rolls back to a history entry (clicking a line in the backlog). */
 export function rollbackTo(entry) {
   if (!run.root || entry.root == null) return false;
   console.debug("Rolling back to a history entry");
@@ -873,21 +786,12 @@ export function rollbackTo(entry) {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Saving and loading
-// ---------------------------------------------------------------------------
-
 export const SAVE_VERSION = 2;
 
-/** True when the game can be saved (the story is waiting for the player). */
 export function canSave() {
   return !!(run.pending && run.root);
 }
 
-/**
- * Saves to a slot name (letters, digits, "-" and "_"): "1-1", "quick", "auto-2"…
- * A thumbnail of the game screen is stored alongside.
- */
 export function saveGame(slot, { thumbnail = true } = {}) {
   if (!canSave()) return false;
   const target = run.pending.index;
@@ -934,7 +838,6 @@ export function loadGame(slot) {
   return true;
 }
 
-/** Save metadata for `slot`: { time, preview, thumbnail } or null. */
 export function saveInfo(slot) {
   const data = storage.read(`save-${slot}`);
   return (
@@ -952,23 +855,17 @@ export function deleteSave(slot) {
   console.info(`Deleted slot '${slot}'`);
 }
 
-/** Saves to the quick slot (F5). */
 export function quickSave() {
   native.ui.captureThumbnail(false);
   return saveGame("quick");
 }
 
-/** Loads the quick slot (F9). */
 export function quickLoad() {
   return loadGame("quick");
 }
 
 export const AUTOSAVE_SLOTS = 6;
 
-/**
- * Saves to the oldest of the autosave slots. The thumbnail shows the screen
- * once it settles (a scene that is starting), or with `now`, as it is.
- */
 export function autosave({ now = false } = {}) {
   if (!canSave()) return false;
   const index = ((persistent._autosave ?? 0) % AUTOSAVE_SLOTS) + 1;
@@ -977,11 +874,6 @@ export function autosave({ now = false } = {}) {
   return saveGame(`auto-${index}`);
 }
 
-// ---------------------------------------------------------------------------
-// Input
-// ---------------------------------------------------------------------------
-
-/** Default key bindings; games may modify this object. */
 export const keymap = {
   Enter: "advance",
   " ": "advance",
@@ -997,7 +889,6 @@ export const keymap = {
 
 let gameMenuNotice = () => {};
 
-/** Installed by the default screens to report quick save/load results. */
 export function setQuickNotice(fn) {
   gameMenuNotice = fn;
 }
@@ -1077,7 +968,6 @@ on("key", (event) => {
 
 on("wheel", (event) => {
   if (!inGame() || storyBlocked()) return;
-  // Wheel up rolls back, wheel down advances.
   if (event.dy < 0) rollback();
   else if (event.dy > 0) actions.advance(event);
 });
@@ -1119,7 +1009,6 @@ on("error", () => {
   cancelCheckpoint();
 });
 
-// The input screen edits its value through screen props.
 export function updatePromptValue(value) {
   const props = screenProps("input");
   if (props) props.value = value;

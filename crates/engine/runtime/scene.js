@@ -1,7 +1,3 @@
-// deflorta/scene — images, layered images, positions, transitions, ATL
-// transforms, and the serializable scene state (background, sprites, music,
-// NVL page) that saves and rollback restore.
-
 import { native, onFlush } from "deflorta/core";
 import {
   FILL,
@@ -12,11 +8,6 @@ import {
   setSceneLayer,
 } from "deflorta/ui";
 
-// ---------------------------------------------------------------------------
-// Scene state
-// ---------------------------------------------------------------------------
-
-/** Serializable scene state; saved and rolled back with the store. */
 export const scene = { bg: null, sprites: [], music: null, nvl: [] };
 
 export function resetScene() {
@@ -33,47 +24,23 @@ export function restoreScene(data) {
 
 let isReplaying = () => false;
 
-/** Installed by the story runner: sound effects are muted while fast-forwarding. */
 export function setReplayCheck(fn) {
   isReplaying = fn;
 }
 
-// ---------------------------------------------------------------------------
-// Images
-// ---------------------------------------------------------------------------
-
 const images = new Map();
 const layered = new Map();
 
-/**
- * Declares an image. The first word of the name is its tag: showing
- * "eileen happy" replaces any shown "eileen ..." image.
- * Undeclared names resolve to `images/<name>.png`.
- */
 export function image(name, src, options = {}) {
   images.set(name, { src, ...options });
 }
 
-/**
- * Declares a layered image composed from attributes:
- *
- *   layeredImage("eileen", [
- *     { src: "images/eileen/base.png" },                               // always shown
- *     { group: "outfit", options: { casual: "…", formal: "…" }, default: "casual" },
- *     { group: "face", options: { happy: "…", sad: "…" }, default: "happy" },
- *     { attribute: "blush", src: "…" },                               // toggled with "blush" / "-blush"
- *   ]);
- *   show("eileen sad blush");
- *
- * The first layer defines the size; all layers must have the same dimensions.
- */
 export function layeredImage(tag, layers, options = {}) {
   layered.set(tag, { layers, ...options });
 }
 
 const tagOf = (name) => name.split(" ")[0];
 
-/** Resolves new attributes for a layered image, keeping unmentioned groups from `previous`. */
 function layeredAttributes(def, requested, previous) {
   const groupOf = new Map();
   for (const layer of def.layers) {
@@ -94,7 +61,6 @@ function layeredAttributes(def, requested, previous) {
   return attrs;
 }
 
-/** Image sources of a layered image for the given attributes, bottom to top. */
 function layeredSources(def, attrs) {
   const sources = [];
   for (const layer of def.layers) {
@@ -112,28 +78,18 @@ function layeredSources(def, attrs) {
   return sources;
 }
 
-// ---------------------------------------------------------------------------
-// Positions, transitions and transforms
-// ---------------------------------------------------------------------------
-
-/** Positions: xalign/yalign place the image's anchor point relative to the screen. */
 export const left = { xalign: 0.2, yalign: 1 };
 export const center = { xalign: 0.5, yalign: 1 };
 export const right = { xalign: 0.8, yalign: 1 };
 export const truecenter = { xalign: 0.5, yalign: 0.5 };
 export const offscreenleft = { xalign: -0.3, yalign: 1 };
 export const offscreenright = { xalign: 1.3, yalign: 1 };
-/** A custom position; `extra` may set `zoom` and `rotate` (degrees). */
 export const at = (xalign, yalign = 1, extra = {}) => ({
   xalign,
   yalign,
   ...extra,
 });
 
-/**
- * Transitions describe how elements enter and leave: `in` gives starting
- * values, `out` final values (opacity, x, y, scale, rotate, mask).
- */
 export const dissolve = (dur = 0.5) => ({
   dur,
   in: { opacity: 0 },
@@ -165,13 +121,11 @@ export const zoomin = (dur = 0.5) => ({
   in: { scale: 0.6, opacity: 0 },
   out: { scale: 0.6, opacity: 0 },
 });
-/** Slides a shown image to its new position (`show(name, { at, with: move() })`). */
 export const move = (dur = 0.5, ease = "easeinout") => ({
   dur,
   move: true,
   ease,
 });
-/** Reveals the new image in the order of the mask's brightness (dark first). */
 export const imageDissolve = (mask, dur = 1, ramp = 0.1) => {
   const m = { mask: { kind: "image", src: mask, ramp } };
   return { dur, ease: "linear", in: m, out: m };
@@ -202,16 +156,6 @@ const exitSpec = (t, hold = false) => {
     : { dur: t.dur, ease: t.ease, ...t.out };
 };
 
-/**
- * ATL-style animation programs:
- *
- *   const bob = atl().ease(1, { y: -12 }).ease(1, { y: 0 }).repeat();
- *   show("eileen happy", { transform: bob });
- *
- * Properties: x, y (offsets in pixels), opacity, scale, rotate (degrees),
- * crop ([x, y, w, h] fractions). Programs are immutable; each method returns
- * a new program.
- */
 export class Atl {
   constructor(steps = []) {
     this.steps = steps;
@@ -243,11 +187,9 @@ export class Atl {
   pause(seconds) {
     return this.#add({ pause: seconds });
   }
-  /** Appends another program. */
   after(program) {
     return new Atl([...this.steps, ...program.steps]);
   }
-  /** Repeats the whole program `times` times, or forever. */
   repeat(times = true) {
     return new Atl([{ repeat: times, steps: this.steps }]);
   }
@@ -258,11 +200,9 @@ export class Atl {
 
 export const atl = () => new Atl();
 
-/** Runs programs at the same time. */
 export const parallel = (...programs) =>
   new Atl([{ parallel: programs.map((p) => p.steps) }]);
 
-/** Ready-made transforms. */
 export const shake = (strength = 12, dur = 0.4) =>
   atl()
     .linear(dur / 8, { x: strength })
@@ -276,10 +216,6 @@ export const bob = (height = 10, period = 2) =>
     .ease(period / 2, { y: 0 })
     .repeat();
 
-// ---------------------------------------------------------------------------
-// Scene statements
-// ---------------------------------------------------------------------------
-
 const pendingEnters = new Map();
 const pendingMoves = new Map();
 let musicFade = { fadeIn: 0, fadeOut: 0 };
@@ -287,7 +223,6 @@ let sentMusic = "null";
 
 const spriteKey = (s) => `sprite:${s.tag}:${s.name}`;
 
-/** Clears the screen and optionally shows a background. */
 export function setScene(name = null, options = {}) {
   const t = options.with;
   if (scene.bg) exitWith(`bg:${scene.bg}`, exitSpec(t, true));
@@ -298,10 +233,6 @@ export function setScene(name = null, options = {}) {
   invalidate();
 }
 
-/**
- * Shows an image, replacing any image with the same tag.
- * options: at (position), with (transition), zorder, transform (Atl or null to clear).
- */
 export function show(name, options = {}) {
   const [tag, ...requested] = name.split(" ").filter(Boolean);
   const t = options.with;
@@ -338,7 +269,6 @@ export function show(name, options = {}) {
   invalidate();
 }
 
-/** Hides the image with the given tag (or full name). */
 export function hide(name, options = {}) {
   const tag = tagOf(name);
   const previous = scene.sprites.find((s) => s.tag === tag);
@@ -348,7 +278,6 @@ export function hide(name, options = {}) {
   invalidate();
 }
 
-/** Image files the current scene will need (for preloading). */
 export function imageSources(name) {
   const [tag, ...attrs] = name.split(" ");
   const def = layered.get(tag);
@@ -356,7 +285,6 @@ export function imageSources(name) {
   return [(images.get(name) ?? { src: `images/${name}.png` }).src];
 }
 
-/** Starts decoding images before they are shown (e.g. at the start of a chapter). */
 export function preload(...names) {
   native.ui.preload(names.flatMap(imageSources));
 }
@@ -444,11 +372,6 @@ onFlush(() => {
   musicFade = { fadeIn: 0, fadeOut: 0 };
 });
 
-// ---------------------------------------------------------------------------
-// Audio
-// ---------------------------------------------------------------------------
-
-/** Background music. State is part of the scene, so it survives save/load. */
 export const music = {
   play(file, { loop = true, fadeIn = 0, fadeOut = 0.5, volume = 1 } = {}) {
     scene.music = { file, loop, volume };
@@ -460,7 +383,6 @@ export const music = {
   },
 };
 
-/** One-shot sound effects. Skipped while fast-forwarding a load or rollback. */
 export const sound = {
   play(file, { volume = 1 } = {}) {
     if (!isReplaying()) native.audio.sound(file, volume);

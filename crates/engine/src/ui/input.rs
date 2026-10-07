@@ -1,5 +1,3 @@
-//! Pointer, wheel, keyboard-focus and text-input handling.
-
 use std::collections::HashSet;
 
 use super::desc::{NodeKind, Overflow};
@@ -7,7 +5,6 @@ use super::{Rect, Ui};
 use crate::script::Handler;
 use crate::util::math::snap;
 
-/// Interaction results the engine forwards to script handlers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum InputEvent {
     Click { h: Handler },
@@ -57,7 +54,6 @@ impl Ui {
     /// Returns whether a redraw is needed and any events for scripts.
     pub fn pointer_moved(&mut self, position: Option<(f32, f32)>) -> (bool, Vec<InputEvent>) {
         if position != self.cursor && position.is_some() && self.focused_input().is_none() {
-            // Mouse use takes over from keyboard focus.
             self.focused = None;
         }
         self.cursor = position;
@@ -120,7 +116,6 @@ impl Ui {
         (value != node.desc.number_value()).then_some(InputEvent::Change { h, value })
     }
 
-    /// Press at the current pointer position.
     pub fn mouse_down(&mut self) -> Vec<InputEvent> {
         let Some((x, y)) = self.cursor else {
             return Vec::new();
@@ -158,7 +153,6 @@ impl Ui {
         events
     }
 
-    /// The click handler under the pointer, bubbling up from the topmost element.
     pub fn click_target(&self) -> Option<Handler> {
         let (x, y) = self.cursor?;
         let target = self.topmost_at(x, y)?;
@@ -196,11 +190,6 @@ impl Ui {
         false
     }
 
-    // -----------------------------------------------------------------------
-    // Keyboard / gamepad focus
-    // -----------------------------------------------------------------------
-
-    /// Focusable nodes that are visible and not covered by something on top.
     fn focus_candidates(&self) -> Vec<(usize, Rect)> {
         self.hit_order
             .iter()
@@ -313,7 +302,6 @@ impl Ui {
         self.focused = None;
     }
 
-    /// Activates the focused element (Enter / gamepad A).
     pub fn activate(&self) -> Option<InputEvent> {
         let i = self.id_index(self.focused.as_deref())?;
         let desc = &self.nodes[i].desc;
@@ -326,10 +314,6 @@ impl Ui {
         }
         desc.on_click.map(|h| InputEvent::Click { h })
     }
-
-    // -----------------------------------------------------------------------
-    // Text input
-    // -----------------------------------------------------------------------
 
     pub fn focused_input(&self) -> Option<usize> {
         self.id_index(self.focused.as_deref())
@@ -357,7 +341,6 @@ impl Ui {
         self.set_input_value(i, value)
     }
 
-    /// Appends typed text to the focused input.
     pub fn type_text(&mut self, text: &str) -> Option<InputEvent> {
         let i = self.focused_input()?;
         let desc = &mut self.nodes[i].desc;
@@ -386,7 +369,6 @@ impl Ui {
         if desc.string_value() == value {
             return None;
         }
-        // Show the edit immediately; the script's re-render confirms it.
         desc.value = Some(serde_json::Value::String(value.clone()));
         self.layout_dirty = true;
         if let Some(id) = self.nodes[i].layout_id {
