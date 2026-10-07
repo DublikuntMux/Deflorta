@@ -11,6 +11,8 @@ dist/deflorta run path/to/game  # play your game
 
 Building needs a Rust toolchain and clang (bindgen). 
 A prebuilt SpiderMonkey is downloaded automatically for common targets.
+Linux builds also need the Speech Dispatcher development library (for example,
+`libspeechd-dev` on Debian/Ubuntu).
 
 The workspace has four crates: `crates/data` (shared file/archive and module
 resolution code), `crates/engine` (the `deflorta` library), `crates/cli` (the
@@ -275,6 +277,36 @@ inputs, so story code must be deterministic:
 | Navigate menus | arrow keys + Enter | D-pad / left stick + A |
 | Quick save / load | F5 / F9 | |
 | Fullscreen | F11 | |
+| Self-voicing | F6 | |
+
+### Accessibility
+
+The window exposes the retained UI through `accesskit` and `accesskit_winit`.
+Screen readers receive control names, roles, bounds, focus, slider ranges and
+text-field values, and can focus, activate and edit controls. Modal screens
+expose their own content while open. Dialogue uses polite live regions and
+exposes complete text while the typewriter animation runs.
+
+Press **F6** on any game screen to toggle self-voicing, or use **Preferences →
+Self-voicing**. The preference is saved. Self-voicing reads dialogue, changed
+screen content and hovered or focused controls with the system speech service.
+Linux players need Speech Dispatcher running with a configured speech engine;
+Windows and macOS use their system voices. Speech initialization failures are
+logged and the game continues. Headless tests do not initialize speech.
+
+Use `label` to name sliders, text fields and controls whose visible text is
+ambiguous. Set `alt` on image-only controls to describe their action. An empty
+`alt` marks a decorative image. Tooltip text supplies a name when other text
+is absent. Names should be translated just like visible UI text:
+
+```js
+imageButton("images/save.png", "images/save-hover.png", quickSave, { alt: _("Save") });
+slider(prefs.musicVolume, value => { prefs.musicVolume = value; savePrefs(); }, { label: _("Music volume") });
+```
+
+Set `live: true` on a custom dialogue or status container to announce changes
+through the player's screen reader. Self-voicing can also be controlled with
+`prefs.selfVoicing` + `savePrefs()` or `actions.selfVoicing()`.
 
 ## Logs
 

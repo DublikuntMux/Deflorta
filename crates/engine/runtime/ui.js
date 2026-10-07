@@ -96,7 +96,7 @@ export function img(src, props = {}) {
   return { t: "image", src, ...props };
 }
 
-/** An image that swaps to `hoverSrc` while hovered or focused and acts as a button. */
+/** An image button. Set `alt` to describe the action, e.g. { alt: _("Save") }. */
 export function imageButton(src, hoverSrc, onClick, props = {}) {
   return img(src, { hoverSrc, onClick, ...props });
 }
@@ -160,6 +160,7 @@ export function button(label, onClick, props = {}) {
         : { background: theme.buttonHover, color: "#ffffff", ...hover },
       onClick: disabled ? undefined : onClick,
       focusable: !disabled,
+      disabled: !!disabled,
       ...rest,
     },
     text(label, { style: textStyle }),
@@ -294,6 +295,7 @@ function renderRoot() {
               style: FILL,
               onClick: () => {},
               focusable: false,
+              modal: true,
             },
             content,
           ),
@@ -351,6 +353,8 @@ on("tooltip", (event) => {
 
 on("key", (event) => {
   if (!event.down) return;
+  // Self-voicing is available on every screen, including modal dialogs.
+  if (event.key === "F6") return;
   if (hidden) {
     setUiHidden(false);
     return true;

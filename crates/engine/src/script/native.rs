@@ -121,6 +121,9 @@ pub enum Command {
     Fullscreen {
         on: bool,
     },
+    SelfVoicing {
+        on: bool,
+    },
     Quit,
     /// A new element tree from `ui.commit`.
     Commit(Box<UiCommit>),
@@ -220,6 +223,7 @@ const MODULES: &[(&CStr, Module)] = &[
         &[
             (c"configure", app_configure, 1),
             (c"fullscreen", app_fullscreen, 1),
+            (c"selfVoicing", app_self_voicing, 1),
             (c"quit", app_quit, 0),
         ],
     ),
@@ -449,6 +453,11 @@ native! {
 
     fn app_fullscreen(args) {
         queue(Command::Fullscreen { on: args.get(0)? });
+        Ok(())
+    }
+
+    fn app_self_voicing(args) {
+        queue(Command::SelfVoicing { on: args.get(0)? });
         Ok(())
     }
 

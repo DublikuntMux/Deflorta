@@ -2,6 +2,7 @@
 //! previous tree (enter/exit/move animations, transforms, typewriter state),
 //! lays them out with taffy, and produces draw lists and hit tests.
 
+mod accessibility;
 pub mod desc;
 mod draw;
 mod input;
@@ -184,6 +185,7 @@ pub struct Ui {
     /// Interactive nodes in draw order with their on-screen (clipped) bounds, from the last frame.
     hit_order: Vec<(usize, Rect)>,
     was_revealing: bool,
+    accessibility: accessibility::Accessibility,
 }
 
 impl Ui {
@@ -212,6 +214,7 @@ impl Ui {
             tooltip: None,
             hit_order: Vec::new(),
             was_revealing: false,
+            accessibility: accessibility::Accessibility::default(),
         }
     }
 

@@ -70,7 +70,7 @@ enum Command {
         /// Archive to write (default: <project>/build/game.dm).
         #[arg(short, long)]
         output: Option<PathBuf>,
-        /// Compression level: 1 fast, 2–12 LZ4HC (default: 9).
+        /// Compression level: 1 fast, 2–12 LZ4HC.
         #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
         level: u8,
         /// Keep the bundled JavaScript readable.
@@ -96,7 +96,7 @@ enum Command {
         /// Executable name (default: the game's id).
         #[arg(long)]
         name: Option<String>,
-        /// Compression level: 1 fast, 2–12 LZ4HC (default: 9).
+        /// Compression level: 1 fast, 2–12 LZ4HC.
         #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
         level: u8,
     },
@@ -215,12 +215,18 @@ fn run(command: Command) -> Result<ExitCode> {
     Ok(ExitCode::SUCCESS)
 }
 
-#[allow(clippy::cast_precision_loss)]
+fn format_unit(bytes: u64, divisor: u64, unit: &str) -> String {
+    let bytes = u128::from(bytes);
+    let divisor = u128::from(divisor);
+    let tenths = (bytes * 10 + divisor / 2) / divisor;
+    format!("{}.{:01} {unit}", tenths / 10, tenths % 10)
+}
+
 fn size(bytes: u64) -> String {
     match bytes {
         0..1024 => format!("{bytes} B"),
-        1024..1_048_576 => format!("{:.1} KiB", bytes as f64 / 1024.0),
-        _ => format!("{:.1} MiB", bytes as f64 / 1_048_576.0),
+        1024..1_048_576 => format_unit(bytes, 1024, "KiB"),
+        _ => format_unit(bytes, 1_048_576, "MiB"),
     }
 }
 

@@ -68,6 +68,20 @@ impl Ui {
             mask: None,
         };
         self.draw_node(0, &ctx, assets, now, &mut items);
+        if self
+            .focused
+            .as_ref()
+            .and_then(|key| self.index.get(key))
+            .is_some_and(|&i| {
+                !self.nodes[i].desc.is_focusable()
+                    || self
+                        .ancestors(i)
+                        .any(|a| self.nodes[a].desc.style.display == Some(Display::None))
+                    || self.hit_order.iter().any(|(n, _)| *n == i) && !self.accessibility_exposed(i)
+            })
+        {
+            self.focused = None;
+        }
         items
     }
 

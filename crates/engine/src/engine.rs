@@ -57,6 +57,7 @@ pub struct PlatformRequests {
     pub capture: bool,
     /// Enable IME/text input while a text field is focused.
     pub text_input: Option<bool>,
+    pub self_voicing: Option<bool>,
 }
 
 /// A tree waiting for its images (or for a thumbnail capture) before it is shown.
@@ -227,6 +228,7 @@ impl Engine {
                     self.delete_thumbnail(&name);
                 }
                 Command::Fullscreen { on } => self.requests.fullscreen = Some(on),
+                Command::SelfVoicing { on } => self.requests.self_voicing = Some(on),
                 Command::Quit => {
                     info!("Game requested quit");
                     self.requests.quit = true;
@@ -569,10 +571,16 @@ impl Engine {
         }
     }
 
+    pub fn accessibility_action(&mut self, request: accesskit::ActionRequest) {
+        let events = self.ui.accessibility_action(request);
+        self.handle_ui_events(events, "left");
+        self.requests.redraw = true;
+    }
+
     pub fn key(&mut self, key: &str, down: bool, repeat: bool, modifiers: &KeyModifiers) {
         if down {
             // A focused text field consumes editing keys.
-            if self.ui.focused_input().is_some() {
+            if self.ui.focused_input().is_some() && key != "F6" {
                 let event = match key {
                     "Backspace" => self.ui.backspace(),
                     "Enter" => self.ui.activate(),

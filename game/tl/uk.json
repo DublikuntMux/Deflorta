@@ -14,6 +14,9 @@
   "Music volume": "Гучність музики",
   "Sound volume": "Гучність звуків",
   "Voice volume": "Гучність голосу",
+  "Self-voicing": "Самоозвучення",
+  "Off": "Вимкнено",
+  "On": "Увімкнено",
   "Return": "Повернутися",
   "What is your name?": "Як тебе звати?",
   "It's a quiet afternoon. Somebody knocks on the door, {w=0.4}twice.": "Тихий день. Хтось стукає у двері, {w=0.4}двічі."

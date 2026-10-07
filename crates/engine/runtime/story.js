@@ -82,6 +82,7 @@ export const prefs = {
   soundVolume: 0.8,
   voiceVolume: 1,
   voiceSustain: false,
+  selfVoicing: false,
   skipUnseen: false,
   fullscreen: false,
   language: null,
@@ -97,6 +98,7 @@ function applyPrefs() {
   native.audio.volume("sound", prefs.soundVolume);
   native.audio.volume("voice", prefs.voiceVolume);
   native.app.fullscreen(prefs.fullscreen);
+  native.app.selfVoicing(prefs.selfVoicing);
   useLanguage(prefs.language);
   invalidate();
 }
@@ -906,6 +908,7 @@ export const keymap = {
   Tab: "skip",
   h: "history",
   F5: "quickSave",
+  F6: "selfVoicing",
   F9: "quickLoad",
   F11: "fullscreen",
 };
@@ -918,6 +921,11 @@ export function setQuickNotice(fn) {
 }
 
 export const actions = {
+  selfVoicing(event) {
+    if (event?.repeat) return;
+    prefs.selfVoicing = !prefs.selfVoicing;
+    savePrefs();
+  },
   advance(event) {
     if (event?.revealing) native.ui.revealSkip();
     else advance();
@@ -963,7 +971,7 @@ export const actions = {
   },
 };
 
-const GLOBAL_ACTIONS = new Set(["fullscreen"]);
+const GLOBAL_ACTIONS = new Set(["fullscreen", "selfVoicing"]);
 
 on("backgroundClick", (event) => {
   if (event.button === "right") actions.menu(event);

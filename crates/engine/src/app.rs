@@ -10,7 +10,7 @@ use num_traits::AsPrimitive;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, ControlFlow};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::keyboard::{Key, ModifiersState, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
@@ -34,6 +34,11 @@ pub struct App {
     fullscreen: bool,
     booted: bool,
     error: Option<anyhow::Error>,
+    accessibility: Option<accesskit_winit::Adapter>,
+    accessibility_active: bool,
+    accessibility_tree: Option<accesskit::TreeUpdate>,
+    proxy: EventLoopProxy<accesskit_winit::Event>,
+    self_voicing: crate::self_voicing::SelfVoicing,
     #[cfg(all(debug_assertions, feature = "dev-console"))]
     console: Option<crate::dev_console::DevConsole>,
     #[cfg(all(debug_assertions, feature = "dev-console"))]
@@ -41,7 +46,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(engine: Engine) -> Self {
+    pub fn new(engine: Engine, proxy: EventLoopProxy<accesskit_winit::Event>) -> Self {
         let gamepads = Gilrs::new()
             .map_err(|e| warn!("Gamepads unavailable: {e}"))
             .ok();
@@ -66,6 +71,11 @@ impl App {
             fullscreen: false,
             booted: false,
             error: None,
+            accessibility: None,
+            accessibility_active: false,
+            accessibility_tree: None,
+            proxy,
+            self_voicing: crate::self_voicing::SelfVoicing::default(),
             #[cfg(all(debug_assertions, feature = "dev-console"))]
             console: None,
             #[cfg(all(debug_assertions, feature = "dev-console"))]
@@ -81,6 +91,7 @@ impl App {
     fn create_window(&mut self, event_loop: &ActiveEventLoop) -> anyhow::Result<()> {
         let config = self.engine.config();
         let attributes = Window::default_attributes()
+            .with_visible(false)
             .with_title(&config.title)
             .with_inner_size(LogicalSize::new(
                 f64::from(config.width),
@@ -89,6 +100,11 @@ impl App {
             .with_min_inner_size(LogicalSize::new(320.0, 180.0))
             .with_fullscreen(self.fullscreen.then_some(Fullscreen::Borderless(None)));
         let window = Arc::new(event_loop.create_window(attributes)?);
+        self.accessibility = Some(accesskit_winit::Adapter::with_event_loop_proxy(
+            event_loop,
+            &window,
+            self.proxy.clone(),
+        ));
         let size = window.inner_size();
         info!(
             "Window created: {}x{} physical, scale factor {:.2}, monitor {:?}",
@@ -110,12 +126,19 @@ impl App {
         self.engine.resize(w, h);
         self.renderer = Some(renderer);
         self.window = Some(window);
+        self.window.as_ref().unwrap().set_visible(true);
         Ok(())
     }
 
     /// Carries out window changes, captures and redraw/quit requests made by the engine.
     fn handle_requests(&mut self, event_loop: &ActiveEventLoop) {
         let requests = self.engine.take_requests();
+        if let Some(on) = requests.self_voicing {
+            self.self_voicing.set_enabled(on);
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        }
         if requests.capture {
             let image = self.renderer.as_mut().and_then(|renderer| {
                 let items = self.engine.frame(Instant::now());
@@ -180,6 +203,21 @@ impl App {
             self.console.as_mut(),
         ) {
             error!("Render failed: {err:#}");
+        }
+        if self.accessibility_active
+            && let Some(adapter) = &mut self.accessibility
+        {
+            let update = self
+                .engine
+                .ui
+                .accessibility_update(&self.engine.config().title.clone());
+            if self.accessibility_tree.as_ref() != Some(&update) {
+                self.accessibility_tree = Some(update.clone());
+                adapter.update_if_active(|| update);
+            }
+        }
+        if self.self_voicing.enabled() {
+            self.self_voicing.update(self.engine.ui.speech_snapshot());
         }
         // The renderer adopts the window's real size when the surface was suboptimal.
         let resized = renderer.size() != size;
@@ -317,7 +355,33 @@ fn key_name(key: &Key) -> Option<String> {
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<accesskit_winit::Event> for App {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+        if self
+            .window
+            .as_ref()
+            .is_none_or(|window| window.id() != event.window_id)
+        {
+            return;
+        }
+        match event.window_event {
+            accesskit_winit::WindowEvent::InitialTreeRequested => {
+                self.accessibility_active = true;
+                self.accessibility_tree = None;
+            }
+            accesskit_winit::WindowEvent::ActionRequested(request) => {
+                self.engine.accessibility_action(request);
+            }
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => {
+                self.accessibility_active = false;
+            }
+        }
+        self.handle_requests(event_loop);
+        if let Some(window) = &self.window {
+            window.request_redraw();
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.renderer.is_some() {
             return;
@@ -340,6 +404,9 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
+        if let (Some(adapter), Some(window)) = (&mut self.accessibility, &self.window) {
+            adapter.process_event(window, &event);
+        }
         #[cfg(all(debug_assertions, feature = "dev-console"))]
         if self.console_event(&event) {
             self.handle_requests(event_loop);

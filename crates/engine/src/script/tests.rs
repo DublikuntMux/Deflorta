@@ -111,6 +111,92 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
 }
 
 #[test]
+fn self_voicing_toggle_works_in_modal_screens_and_persists() {
+    if std::env::var_os("DEFLORTA_ACCESSIBILITY_TEST_CHILD").is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "script::tests::self_voicing_toggle_works_in_modal_screens_and_persists",
+            ])
+            .env("DEFLORTA_ACCESSIBILITY_TEST_CHILD", "1")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let files = GameFiles::open(&crate::workspace_dir().join("tests/accessibility")).unwrap();
+    let mut host = ScriptHost::new(files).unwrap();
+    host.run_main().unwrap();
+    let directory =
+        std::env::temp_dir().join(format!("deflorta-accessibility-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).unwrap();
+    ScriptHost::set_data_dir(directory.clone());
+    ScriptHost::take_commands();
+    host.dispatch(&Event::Boot).unwrap();
+    let commands = ScriptHost::take_commands();
+    assert!(
+        commands
+            .iter()
+            .any(|c| matches!(c, Command::SelfVoicing { on: false }))
+    );
+    let commit = commands
+        .iter()
+        .find_map(|c| match c {
+            Command::Commit(commit) => Some(commit),
+            _ => None,
+        })
+        .unwrap();
+    let controls = commit
+        .tree
+        .children
+        .iter()
+        .find(|node| node.key.as_deref() == Some("screen:accessibility-test"))
+        .unwrap();
+    assert!(controls.modal);
+    assert_eq!(
+        controls.children[0].children[0].alt.as_deref(),
+        Some("Save game")
+    );
+    assert_eq!(
+        controls.children[0].children[1].label.as_deref(),
+        Some("Your name")
+    );
+
+    let key = |repeat| Event::Key {
+        key: "F6",
+        down: true,
+        repeat,
+        ctrl: false,
+        shift: false,
+        alt: false,
+        revealing: false,
+    };
+    host.dispatch(&key(false)).unwrap();
+    assert!(
+        ScriptHost::take_commands()
+            .iter()
+            .any(|c| matches!(c, Command::SelfVoicing { on: true }))
+    );
+    let prefs: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(directory.join("prefs.json")).unwrap())
+            .unwrap();
+    assert_eq!(prefs["selfVoicing"], true);
+    host.dispatch(&key(true)).unwrap();
+    assert!(ScriptHost::take_commands().is_empty());
+    host.dispatch(&key(false)).unwrap();
+    assert!(
+        ScriptHost::take_commands()
+            .iter()
+            .any(|c| matches!(c, Command::SelfVoicing { on: false }))
+    );
+    let prefs: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(directory.join("prefs.json")).unwrap())
+            .unwrap();
+    assert_eq!(prefs["selfVoicing"], false);
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
 fn native_tooltip_hover_skips_commits_and_custom_tooltips_still_render() {
     // SpiderMonkey can initialize only once per process; isolate this second
     // scripting scenario from the existing bridge test.

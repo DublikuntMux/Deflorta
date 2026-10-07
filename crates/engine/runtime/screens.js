@@ -88,6 +88,7 @@ screen(
     box(
       {
         key: "say-window",
+        live: true,
         enter: { dur: 0.2, opacity: 0, y: 16 },
         exit: { dur: 0.15, opacity: 0 },
         style: {
@@ -130,7 +131,7 @@ screen(
       },
       lines.map((line, i) =>
         box(
-          { key: `nvl-${i}`, style: { flexDirection: "column", gap: 2 } },
+          { key: `nvl-${i}`, live: i === lines.length - 1, style: { flexDirection: "column", gap: 2 } },
           line.who?.name != null && nameText(line.who),
           dialogueText(_(line.what), {
             cps: i === lines.length - 1 ? cps : undefined,
@@ -257,6 +258,7 @@ screen(
         text(props.question, { style: { fontSize: 24, color: theme.text } }),
         input(props.value, (value) => updatePromptValue(value), {
           key: "answer",
+          label: props.question,
           autofocus: true,
           maxLength: props.maxLength,
           onSubmit: (value) => props.submit(value),
@@ -573,6 +575,7 @@ function slotCard(slot, mode) {
           },
           hover: { background: "#ff5050aa" },
           tooltip: _("Delete"),
+          label: `${_("Delete")}: ${slotLabel(slot)}`,
           onClick: () =>
             confirm(_("Delete this save?"), () => deleteSave(slot)),
         },
@@ -632,6 +635,7 @@ function choiceRow(label, options, current, apply) {
     text(label, { style: { width: 240, fontSize: 21, color: "#ffffffcc" } }),
     options.map(([name, value]) =>
       button(name, () => apply(value), {
+        label: `${label}: ${name}`,
         style: {
           padding: [8, 18],
           background: value === current ? "#e8a8c840" : "#ffffff10",
@@ -657,6 +661,7 @@ function sliderRow(label, value, display, apply, options) {
     text(label, { style: { width: 240, fontSize: 21, color: "#ffffffcc" } }),
     slider(value, apply, {
       ...options,
+      label,
       style: { width: 380 },
       hover: { thumbColor: theme.accent },
     }),
@@ -681,6 +686,12 @@ function prefsPage() {
   const languages = config.languages ?? [];
   return scroll(
     { key: "prefs-scroll", style: { gap: 20, flexGrow: 1, flexShrink: 1 } },
+    choiceRow(
+      _("Self-voicing"),
+      [[_("Off"), false], [_("On"), true]],
+      prefs.selfVoicing,
+      setPref("selfVoicing"),
+    ),
     choiceRow(
       _("Display"),
       [
@@ -948,6 +959,7 @@ screen(
     box(
       {
         key: "notify",
+        live: true,
         enter: { dur: 0.2, opacity: 0, y: -10 },
         exit: { dur: 0.3, opacity: 0 },
         style: {

@@ -45,7 +45,7 @@ impl Ui {
     }
 
     /// The node and its ancestors, innermost first.
-    fn ancestors(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
+    pub(super) fn ancestors(&self, i: usize) -> impl Iterator<Item = usize> + '_ {
         std::iter::successors(Some(i), |&n| self.nodes[n].parent)
     }
 
@@ -91,7 +91,7 @@ impl Ui {
         (redraw, events)
     }
 
-    fn update_tooltip(&mut self) -> Option<InputEvent> {
+    pub(super) fn update_tooltip(&mut self) -> Option<InputEvent> {
         let source = self.id_index(self.focused.as_deref()).or_else(|| {
             let (x, y) = self.cursor?;
             self.topmost_at(x, y)
@@ -206,7 +206,11 @@ impl Ui {
             .iter()
             .filter(|(i, r)| {
                 let node = &self.nodes[*i];
-                if !node.desc.is_focusable() || node.in_ghost || r.w < 1.0 || r.h < 1.0 {
+                if !node.desc.is_focusable()
+                    || !self.accessibility_exposed(*i)
+                    || r.w < 1.0
+                    || r.h < 1.0
+                {
                     return false;
                 }
                 let (cx, cy) = r.center();
@@ -278,7 +282,7 @@ impl Ui {
         (true, self.update_tooltip().into_iter().collect())
     }
 
-    fn scroll_into_view(&mut self, i: usize) {
+    pub(super) fn scroll_into_view(&mut self, i: usize) {
         let rect = self.nodes[i].rect;
         let containers: Vec<usize> = self
             .ancestors(i)
@@ -356,7 +360,7 @@ impl Ui {
         self.set_input_value(i, value)
     }
 
-    fn set_input_value(&mut self, i: usize, value: String) -> Option<InputEvent> {
+    pub(super) fn set_input_value(&mut self, i: usize, value: String) -> Option<InputEvent> {
         let desc = &mut self.nodes[i].desc;
         if desc.string_value() == value {
             return None;

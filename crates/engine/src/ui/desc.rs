@@ -52,6 +52,18 @@ pub struct NodeDesc {
     #[serde(default)]
     pub autofocus: bool,
     pub tooltip: Option<String>,
+    /// Accessible name, overriding text and image alternative text.
+    pub label: Option<String>,
+    /// Image alternative text; an empty string marks a decorative image.
+    pub alt: Option<String>,
+    /// Announce changes to this subtree to assistive technology.
+    #[serde(default)]
+    pub live: bool,
+    /// Modal screen wrapper: excludes underlying screens from accessibility.
+    #[serde(default)]
+    pub modal: bool,
+    #[serde(default)]
+    pub disabled: bool,
     /// Scroll containers: start scrolled to the end (chat logs, history).
     #[serde(default)]
     pub start_at_end: bool,
@@ -109,6 +121,9 @@ impl NodeDesc {
     }
 
     pub fn is_focusable(&self) -> bool {
+        if self.disabled {
+            return false;
+        }
         self.focusable.unwrap_or_else(|| {
             self.on_click.is_some() || self.on_change.is_some() || self.kind() == NodeKind::Input
         })
@@ -147,7 +162,7 @@ pub struct SpanDesc {
     pub fast: bool,
 }
 
-/// Easing curves, named like Ren'Py warpers (`easein`, `easeout`, …).
+/// Easing curves
 #[allow(clippy::enum_variant_names)]
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
 #[serde(rename_all = "lowercase")]

@@ -17,6 +17,7 @@ mod headless;
 mod media;
 mod render;
 mod script;
+mod self_voicing;
 mod ui;
 mod util;
 mod video;
@@ -78,8 +79,9 @@ pub fn run(files: GameFiles, test_script: Option<&Path>) -> Result<()> {
 
     let engine = engine::Engine::new(script, assets, ui, audio::Audio::new());
     info!("Startup took {:.0?}", started.elapsed());
-    let mut app = app::App::new(engine);
-    EventLoop::new()?.run_app(&mut app)?;
+    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event().build()?;
+    let mut app = app::App::new(engine, event_loop.create_proxy());
+    event_loop.run_app(&mut app)?;
     app.take_error().map_or_else(|| Ok(()), Err)
 }
 

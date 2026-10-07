@@ -156,7 +156,7 @@ declare module "deflorta" {
       list(): StorageEntry[];
     };
     timers: { set(id: number, ms: number): void; clear(id: number): void };
-    app: { configure(config: Config): void; fullscreen(on: boolean): void; quit(): void };
+    app: { configure(config: Config): void; fullscreen(on: boolean): void; selfVoicing(on: boolean): void; quit(): void };
     audio: {
       music(
         music: { file: string; loop?: boolean; volume?: number } | null,
@@ -318,6 +318,10 @@ declare module "deflorta" {
     hover?: Style;
     onClick?: (event: ClickEvent) => void;
     tooltip?: string | null;
+    /** Accessible control name. Defaults to text content or image alt text. */
+    label?: string;
+    /** Politely announce changes to this subtree through the screen reader. */
+    live?: boolean;
     focusable?: boolean;
     autofocus?: boolean;
     enter?: Animation;
@@ -348,6 +352,8 @@ declare module "deflorta" {
   export interface ImageElement extends ElementProps {
     t: "image";
     src: string;
+    /** Describe the image or button action; "" marks a decorative image. */
+    alt?: string;
     hoverSrc?: string;
     fit?: Fit;
     /** Point of the image placed at its position, as fractions: [0.5, 1] is bottom center. */
@@ -425,7 +431,7 @@ declare module "deflorta" {
   /** Text with text tags (`{b}`, `{color=…}`, `{ruby=…}`, …). */
   export function richText(markup: unknown, props?: Omit<Partial<TextElement>, "t" | "spans">): TextElement;
   export function img(src: string, props?: Omit<Partial<ImageElement>, "t" | "src">): ImageElement;
-  /** An image that swaps to `hoverSrc` while hovered or focused. */
+  /** An image button. Set `alt` to a translated description of its action. */
   export function imageButton(
     src: string,
     hoverSrc: string,
@@ -660,6 +666,8 @@ declare module "deflorta" {
     voiceVolume: number;
     /** Keep voice playing into the next line. */
     voiceSustain: boolean;
+    /** Read dialogue and controls with the system speech service (F6 toggles). */
+    selfVoicing: boolean;
     skipUnseen: boolean;
     fullscreen: boolean;
     language: string | null;
@@ -812,7 +820,8 @@ declare module "deflorta" {
     | "hideUi"
     | "quickSave"
     | "quickLoad"
-    | "fullscreen";
+    | "fullscreen"
+    | "selfVoicing";
 
   /** Key bindings: key name → action. */
   export const keymap: Record<string, ActionName | string>;
