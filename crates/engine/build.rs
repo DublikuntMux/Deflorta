@@ -31,10 +31,12 @@ fn main() -> Result<()> {
         },
     )?;
     build_dir(RUNTIME_DIR, "js", &out_dir.join("runtime"), "js", |path| {
+        let source = fs::read_to_string(path)?;
+        let source = deflorta_data::compile_jsx(&path.to_string_lossy(), &source)?;
         if release {
-            minify_js(path).map(String::into_bytes)
+            minify_js(&source).map(String::into_bytes)
         } else {
-            Ok(fs::read(path)?)
+            Ok(source.into_owned().into_bytes())
         }
     })?;
     Ok(())
@@ -77,10 +79,9 @@ fn compile_shader(path: &Path) -> Result<Vec<u32>> {
     Ok(spv::write_vec(&module, &info, &options, None)?)
 }
 
-fn minify_js(path: &Path) -> Result<String> {
-    let source = fs::read_to_string(path)?;
+fn minify_js(source: &str) -> Result<String> {
     let allocator = Allocator::default();
-    let parsed = Parser::new(&allocator, &source, SourceType::mjs()).parse();
+    let parsed = Parser::new(&allocator, source, SourceType::mjs()).parse();
     if !parsed.diagnostics.is_empty() {
         let errors: Vec<_> = parsed.diagnostics.iter().map(ToString::to_string).collect();
         bail!(errors.join("\n"));

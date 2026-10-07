@@ -54,6 +54,7 @@ dirs = "7.0.0"
 accesskit_consumer = "0.39.1"
 
 [build-dependencies]
+deflorta-data.workspace = true
 anyhow.workspace = true
 naga = { version = "30.0.1", features = ["wgsl-in", "spv-out"] }
 oxc.workspace = true

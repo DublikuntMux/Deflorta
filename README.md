@@ -77,8 +77,11 @@ also boots the scripts without a window to catch startup exceptions;
 
 `bundle` resolves static game imports from `main.js`, including default,
 named and namespace imports and re-exports. Paths name files exactly:
-`./chapter.js`, `../characters.js`, or `/screens.js`; npm package resolution,
+`./chapter.js`, `../characters.js`, or `/screens.jsx`; npm package resolution,
 dynamic `import()`, direct `eval()` and TypeScript compilation are not supported.
+JSX is supported in `.js` and `.jsx` modules, including the `main.js` entry.
+The engine and CLI compile it automatically with Oxc's automatic JSX runtime;
+no npm packages or separate build step are required.
 Direct eval is rejected with its source location because bundling merges module
 scopes. Use ordinary functions to read local state. Game scripts
 become one `main.js`, minified with oxc; engine imports refer to the runtime
@@ -261,7 +264,7 @@ WebM soundtracks require the container's duration metadata.
 | `random()`, `randInt(a, b)` | deterministic randomness, safe across load/rollback |
 | `history` | the dialogue backlog |
 
-**Text tags** (in dialogue, menus, `richText`): `{b}`, `{i}`, `{u}`, `{s}`,
+**Text tags** (in dialogue, menus, `RichText`): `{b}`, `{i}`, `{u}`, `{s}`,
 `{color=#f88}`, `{size=32}` / `{size=+4}` / `{size=*1.5}`, `{font=Name}`,
 `{ruby=furigana}base{/ruby}`, close with `{/b}` etc. Typewriter control:
 `{w}` (wait for click), `{w=0.5}` (pause), `{p}` (wait, then line break),
@@ -284,19 +287,46 @@ WebM soundtracks require the container's duration metadata.
 | `preload(...names)` | decode images ahead of time |
 | `music.play(file, { loop, fadeIn, fadeOut, volume })`, `music.stop()`, `sound.play(file)` | audio |
 
-**UI.** Screens are functions returning elements. Call `invalidate()` after
-changing state they read (story functions do this for you).
+**UI.** Screens are JSX function components, with hooks for local UI state:
+
+```jsx
+import { screen, showScreen, View, Text, Pressable, useState } from "deflorta";
+
+function Counter({ title }) {
+  const [count, setCount] = useState(0);
+  return <View style={{ padding: 24, gap: 12, flexDirection: "column" }}>
+    <Text>{title}: {count}</Text>
+    <Pressable onPress={() => setCount(value => value + 1)}>
+      <Text>Add one</Text>
+    </Pressable>
+  </View>;
+}
+screen("counter", Counter, { z: 20 });
+showScreen("counter", { title: "Clicks" });
+```
+
+Hook setters schedule rendering automatically. `useState`, `useReducer`,
+`useEffect`, `useRef`, `useMemo` and `useCallback` follow component identity and
+dependency arrays. Call hooks unconditionally at the top of a component or
+custom hook. Effects run after native commits, with cleanup before changed
+dependencies and on unmount. Define component functions outside render functions
+and use stable keys in lists to retain state across reordering. Hiding a screen
+unmounts it; temporarily hiding the whole interface preserves its state.
+Local hook state is not saved or rolled back: keep story state in `store`.
+Call `invalidate()` after changing external state read by a component (story
+functions already do this). `style` and `hover` accept objects or nested arrays,
+merged from left to right.
 
 | | |
 |---|---|
-| `box`, `grid(columns, …)`, `scroll`, `text`, `richText`, `img`, `imageButton(src, hoverSrc, onClick)`, `button(label, onClick)`, `slider(value, onChange, { min, max, step })`, `input(value, onInput, { onSubmit, placeholder, maxLength })`, `video(src, { loop, onEnd })` | elements |
+| `View`, `Grid` (`columns`), `ScrollView`, `Text`, `RichText`, `Image` (`src`, `hoverSrc`, `onPress`), `Pressable`, `Slider` (`value`, `onValueChange`, `min`, `max`, `step`), `TextInput` (`value`, `onChangeText`, `onSubmit`, `placeholder`, `maxLength`), `Video` (`src`, `loop`, `onEnd`) | native JSX components; text uses children |
 | `screen(name, render, { z, modal, keys })` | define/replace a screen; overriding `say`, `nvl`, `choice`, `input`, `history`, `quick_menu`, `main_menu`, `game_menu` restyles the game |
 | `showScreen(name, props)`, `hideScreen(name)`, `isShown(name)` | screen stack (game screens are saved and rolled back) |
 | `theme` | colors and sizes used by the default screens |
 | `tooltip()`, `notify(message)` | current tooltip text, toast |
 
 Element props: `key`, `style`, `hover` (style overrides while hovered *or
-focused*), `onClick`, `tooltip`, `focusable`, `autofocus`, `enter`/`exit`
+focused*), `onPress`, `tooltip`, `focusable`, `autofocus`, `enter`/`exit`
 (`{ dur, ease, opacity, x, y, scale, rotate, mask }`), `move`, `transform`;
 images: `fit` (`fill`/`cover`/`contain`), `anchor: [x, y]`; text: `cps`
 (typewriter speed), `tooltipText: true` (instant native tooltip text, hidden
@@ -380,9 +410,12 @@ ambiguous. Set `alt` on image-only controls to describe their action. An empty
 `alt` marks a decorative image. Tooltip text supplies a name when other text
 is absent. Names should be translated just like visible UI text:
 
-```js
-imageButton("images/save.png", "images/save-hover.png", quickSave, { alt: _("Save") });
-slider(prefs.musicVolume, value => { prefs.musicVolume = value; savePrefs(); }, { label: _("Music volume") });
+```jsx
+<Image src="images/save.png" hoverSrc="images/save-hover.png" onPress={quickSave} alt={_("Save")} />
+<Slider value={prefs.musicVolume} onValueChange={value => {
+  prefs.musicVolume = value;
+  savePrefs();
+}} label={_("Music volume")} />
 ```
 
 Set `live: true` on a custom dialogue or status container to announce changes

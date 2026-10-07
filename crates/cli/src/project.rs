@@ -13,7 +13,7 @@ use crate::graph::{Graph, builtin_exports};
 pub const OUTPUT_DIRS: &[&str] = &["build", "dist", "node_modules"];
 
 /// Script and tooling files, which are replaced by the bundle in archives.
-const SOURCE_EXTENSIONS: &[&str] = &["js", "mjs", "cjs", "ts", "mts", "cts", "map"];
+const SOURCE_EXTENSIONS: &[&str] = &["js", "jsx", "mjs", "cjs", "ts", "mts", "cts", "map"];
 const TOOLING_FILES: &[&str] = &[
     "jsconfig.json",
     "tsconfig.json",

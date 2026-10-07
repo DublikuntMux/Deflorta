@@ -151,15 +151,20 @@ properties, with `undefined` omitted and non-finite numbers treated as null;
 ### Scripting runtime (`crates/engine/runtime/*.js`, embedded)
 
 Games are ES modules. `main.js` imports the public API from `"deflorta"`;
-relative imports load other game files. Release builds minify the runtime
-with oxc before embedding it; `build.rs` also compiles `src/render/*.wgsl` to
+relative imports load other game files. JSX in `.js` and `.jsx` files is lowered
+by shared `deflorta-data` tooling, using the automatic `deflorta/jsx-runtime`.
+The source loader, CLI graph and runtime build use the same compiler. Release
+builds minify the compiled runtime with oxc before embedding it;
+`build.rs` also compiles `src/render/*.wgsl` to
 SPIR-V with naga. Modules are layered:
 
 | Module | Responsibility |
 |---|---|
 | `deflorta/core` | native modules, timers (`setTimeout`), config, storage, event bus, error reporting |
 | `deflorta/text` | text-tag parser (`{b}`, `{w}`, `{ruby=…}` → spans), translations (`_()`, `tl/*.json`) |
-| `deflorta/ui` | elements and widgets, theme, screen stack (z-order, modal, per-screen keys), tooltips, UI commits |
+| `deflorta/components` | JSX elements, keyed function component reconciliation, hook state, effect lifecycle |
+| `deflorta/jsx-runtime` | automatic JSX helpers and fragments |
+| `deflorta/ui` | native JSX components, theme, screen stack (z-order, modal, per-screen keys), tooltips, UI commits |
 | `deflorta/scene` | images, layered images, positions, transitions, ATL builder, scene state, music/sound |
 | `deflorta/story` | labels, `say`/`menu`/`prompt`/`pause`/`playMovie`, NVL, voice, history, store, persistent data, seen text, rollback, save/load/autosave, input bindings, preferences |
 | `deflorta/screens` | default screens: dialogue, NVL, quick menu, choices, input, movie, history, main menu, game menu (paged saves with thumbnails, sliders in preferences), confirm, notifications, tooltips, errors |
@@ -167,6 +172,16 @@ SPIR-V with naga. Modules are layered:
 
 Any default screen is replaced by calling `screen(name, render, options)` with
 the same name from game code.
+
+The JavaScript renderer resolves function components and fragments into the
+existing native tree before a commit. Component type, parent and key determine
+hook identity; stable keys preserve state across list reordering. Hook setters
+batch updates until flush, and effects run after the native commit. Cleanup
+runs on dependency changes or unmount, and setters of unmounted components do
+nothing. A temporarily hidden interface retains its mounted screens without
+rendering them. Hook state stays local to the UI; saved story state remains in
+`store`. The Rust layout, input, animation and accessibility paths consume the
+same native descriptors as before.
 
 ### Story model, saves and rollback
 

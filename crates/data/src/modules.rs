@@ -9,6 +9,8 @@ pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", "deflorta.js"),
     ("deflorta/core", "core.js"),
     ("deflorta/ui", "ui.js"),
+    ("deflorta/components", "components.js"),
+    ("deflorta/jsx-runtime", "jsx-runtime.js"),
     ("deflorta/text", "text.js"),
     ("deflorta/scene", "scene.js"),
     ("deflorta/story", "story.js"),

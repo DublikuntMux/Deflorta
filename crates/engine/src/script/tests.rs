@@ -316,7 +316,7 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
         engine.take_requests().title.as_deref(),
         Some("Console title")
     );
-    engine.evaluate_console("deflorta.screen('console-probe', () => deflorta.text('Live console UI')); deflorta.showScreen('console-probe')").unwrap();
+    engine.evaluate_console("deflorta.screen('console-probe', () => deflorta.createElement(deflorta.Text, null, 'Live console UI')); deflorta.showScreen('console-probe')").unwrap();
     engine.resize(1280, 720);
     assert!(engine.frame(Instant::now()).iter().any(|item| match item {
         crate::ui::DrawItem::Text(text) => engine.ui.text.entry(&text.id).is_some_and(|entry| {

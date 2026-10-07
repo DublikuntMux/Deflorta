@@ -53,6 +53,8 @@ pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", runtime_module!("deflorta")),
     ("deflorta/core", runtime_module!("core")),
     ("deflorta/ui", runtime_module!("ui")),
+    ("deflorta/components", runtime_module!("components")),
+    ("deflorta/jsx-runtime", runtime_module!("jsx-runtime")),
     ("deflorta/text", runtime_module!("text")),
     ("deflorta/scene", runtime_module!("scene")),
     ("deflorta/story", runtime_module!("story")),
@@ -477,9 +479,10 @@ fn module_source(id: &str) -> Result<String> {
         return Ok((*src).to_owned());
     }
     let files = with_state(|s| s.files.clone());
-    files
+    let source = files
         .read_to_string(id)
-        .map_err(|e| anyhow!("cannot read module '{id}': {e}"))
+        .map_err(|e| anyhow!("cannot read module '{id}': {e}"))?;
+    Ok(deflorta_data::compile_jsx(id, &source)?.into_owned())
 }
 
 unsafe extern "C" fn module_load_hook(

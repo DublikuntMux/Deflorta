@@ -384,11 +384,26 @@ impl<'a> Analyzer<'_, 'a> {
                 self.file(arg(1), FileKind::Image);
             }
             "layeredImage" => self.layered_image(args),
-            "playMovie" | "video" => self.file(arg(0), FileKind::Video),
-            "img" | "imageDissolve" => self.file(arg(0), FileKind::Image),
-            "imageButton" => {
-                self.file(arg(0), FileKind::Image);
-                self.file(arg(1), FileKind::Image);
+            "playMovie" => self.file(arg(0), FileKind::Video),
+            "imageDissolve" => self.file(arg(0), FileKind::Image),
+            "Image" | "Video" => {
+                if let Some(Expression::ObjectExpression(props)) = arg(0) {
+                    self.component_files(name, props);
+                }
+            }
+            "jsx" | "jsxs" | "createElement" => {
+                if let Some(component) = arg(0)
+                    && let Callee::Api(component) = classify(
+                        self.graph,
+                        self.module,
+                        self.characters,
+                        self.builtins,
+                        component,
+                    )
+                    && let Some(Expression::ObjectExpression(props)) = arg(1)
+                {
+                    self.component_files(&component, props);
+                }
             }
             "voice" => self.file(arg(0), FileKind::Audio),
             "readText" => self.file(arg(0), FileKind::Text),
@@ -425,6 +440,17 @@ impl<'a> Analyzer<'_, 'a> {
                     self.choices(arg(1));
                 }
             }
+            _ => {}
+        }
+    }
+
+    fn component_files(&mut self, name: &str, props: &ObjectExpression<'a>) {
+        match name {
+            "Image" => {
+                self.file(property(props, "src"), FileKind::Image);
+                self.file(property(props, "hoverSrc"), FileKind::Image);
+            }
+            "Video" => self.file(property(props, "src"), FileKind::Video),
             _ => {}
         }
     }

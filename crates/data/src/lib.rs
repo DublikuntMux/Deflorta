@@ -3,10 +3,12 @@
 pub mod archive;
 pub mod files;
 pub mod fonts;
+mod jsx;
 mod modules;
 
 pub use files::GameFiles;
 pub use fonts::font_families;
+pub use jsx::compile_jsx;
 pub use modules::{BUILTIN_MODULES, is_builtin_module, resolve_specifier};
 
 /// Startup information returned by the launcher's `--inspect` command.

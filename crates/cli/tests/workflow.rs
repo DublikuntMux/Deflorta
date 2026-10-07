@@ -272,6 +272,78 @@ label("start", async () => { await say("Working!"); });
 }
 
 #[test]
+fn jsx_screens_check_translate_bundle_and_boot() {
+    let project = Project::new();
+    project.write("screens.jsx", r#"
+import { View, Text, Pressable, useState, useEffect, _ } from "deflorta";
+export default function Panel({ title }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => { setCount(value => value + 1); }, []);
+  return <View key="panel" style={[{ padding: 12 }, { gap: 8 }]}>
+    <Text>{_("JSX title")}: {title}: {count}</Text>
+    <Pressable onPress={() => setCount(value => value + 1)}><Text>{_("Increment")}</Text></Pressable>
+  </View>;
+}
+"#);
+    project.write(
+        "main.js",
+        r#"
+import { configure, screen, showScreen, label, say, Text } from "deflorta";
+import Panel from "./screens.jsx";
+configure({ id: "jsx-workflow", title: "JSX workflow", font: "Noto Sans" });
+screen("panel", () => <><Panel title="works" /><Text key="sibling">Fragment</Text></>, { z: 1000 });
+showScreen("panel");
+label("start", async () => { await say("Hello JSX"); });
+"#,
+    );
+    success(&cli(["check", project.path()]));
+    success(&cli(["translate", "update", "uk", "-p", project.path()]));
+    let table: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(project.0.join("tl/uk.json")).unwrap())
+            .unwrap();
+    assert!(table.get("JSX title").is_some());
+    assert!(table.get("Increment").is_some());
+    for readable in [true, false] {
+        if readable {
+            success(&cli(["bundle", project.path(), "--no-minify"]));
+        } else {
+            success(&cli(["bundle", project.path()]));
+        }
+        let files = GameFiles::open(&project.0.join("build/game.dm")).unwrap();
+        assert!(!files.exists("screens.jsx"));
+        let code = files.read_to_string("main.js").unwrap();
+        assert!(!code.contains("<View"));
+        assert!(code.contains("deflorta/jsx-runtime"));
+    }
+    success(&project.publish("dist/jsx"));
+    project.write(
+        "screens.jsx",
+        r#"
+import { Image as Picture, Video, createElement } from "deflorta";
+export default () => <>
+  <Picture src="missing.png" hoverSrc="missing-hover.png" />
+  <Video src="missing.mp4" />
+  {createElement(Picture, { src: "missing-classic.png" })}
+</>;
+"#,
+    );
+    let output = cli(["check", project.path(), "--no-boot"]);
+    assert!(!output.status.success());
+    let errors = String::from_utf8_lossy(&output.stdout);
+    for file in [
+        "missing.png",
+        "missing-hover.png",
+        "missing.mp4",
+        "missing-classic.png",
+    ] {
+        assert!(errors.contains(file), "{errors}");
+    }
+    project.write("screens.jsx", "export default () => <View>;");
+    assert!(!cli(["check", project.path(), "--no-boot"]).status.success());
+    assert!(!cli(["bundle", project.path()]).status.success());
+}
+
+#[test]
 fn check_and_bundle_reject_broken_imports_and_dynamic_imports() {
     let project = Project::new();
     project.write("main.js", "import { missing } from './missing.js';");

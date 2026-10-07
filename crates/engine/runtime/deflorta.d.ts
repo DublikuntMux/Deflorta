@@ -156,7 +156,14 @@ declare module "deflorta" {
       list(): StorageEntry[];
     };
     timers: { set(id: number, ms: number): void; clear(id: number): void };
-    app: { configure(config: Config): void; fullscreen(on: boolean): void; selfVoicing(on: boolean): void; quit(): void };
+    app: {
+      /** Operating system of the running engine (e.g. "android", "linux", "windows", "macos"). */
+      platform(): string;
+      configure(config: Config): void;
+      fullscreen(on: boolean): void;
+      selfVoicing(on: boolean): void;
+      quit(): void;
+    };
     audio: {
       music(
         music: { file: string; loop?: boolean; volume?: number } | null,
@@ -169,7 +176,7 @@ declare module "deflorta" {
     };
     ui: {
       commit(
-        tree: Element,
+        tree: NativeElement,
         options?: { instant?: boolean; exits?: Record<string, Animation | null | undefined> },
       ): void;
       /** Shows typewriter text up to the next click-wait. */
@@ -332,7 +339,7 @@ declare module "deflorta" {
 
   export interface BoxElement extends ElementProps {
     t: "box";
-    children: Element[];
+    children: NativeElement[];
     /** Scroll containers start scrolled to the end. */
     startAtEnd?: boolean;
   }
@@ -386,7 +393,7 @@ declare module "deflorta" {
     maxLength?: number;
   }
 
-  export type Element =
+  export type NativeElement =
     | BoxElement
     | TextElement
     | ImageElement
@@ -394,8 +401,61 @@ declare module "deflorta" {
     | SliderElement
     | InputElement;
 
-  /** Children may be nested arrays; null, undefined and booleans are skipped. */
-  export type Child = Element | Child[] | null | undefined | boolean;
+  export interface ComponentElement {
+    readonly $$typeof: symbol;
+    readonly type: Component<any>;
+    readonly props: Record<string, any>;
+    readonly key?: string | number;
+  }
+  export type Element = NativeElement | ComponentElement;
+  /** Nested arrays and fragments are supported; empty children are skipped. */
+  export type Child = Element | string | number | Child[] | null | undefined | boolean;
+  export type Component<P = {}> = (props: P) => Child;
+  export type TextChild = string | number | TextChild[] | null | undefined | boolean;
+  export type StyleProp = Style | StyleProp[] | null | undefined | false;
+  export interface UIProps extends Omit<ElementProps, "key" | "style" | "hover" | "onClick"> {
+    key?: string | number;
+    style?: StyleProp;
+    hover?: StyleProp;
+    onPress?: (event: ClickEvent) => void;
+  }
+  export interface ViewProps extends UIProps {
+    children?: Child;
+    startAtEnd?: boolean;
+    disabled?: boolean;
+  }
+  export interface TextProps extends UIProps {
+    children?: TextChild;
+    cps?: number;
+    tooltipText?: boolean;
+  }
+  export interface ImageProps extends UIProps {
+    src: string;
+    alt?: string;
+    hoverSrc?: string;
+    fit?: Fit;
+    anchor?: [number, number];
+  }
+  export interface VideoProps extends UIProps {
+    src: string;
+    loop?: boolean;
+    onEnd?: () => void;
+    fit?: Fit;
+  }
+  export interface SliderProps extends UIProps {
+    value: number;
+    onValueChange: (value: number) => void;
+    min?: number;
+    max?: number;
+    step?: number;
+  }
+  export interface TextInputProps extends UIProps {
+    value: string;
+    onChangeText: (value: string) => void;
+    onSubmit?: (value: string) => void;
+    placeholder?: string;
+    maxLength?: number;
+  }
 
   export interface Theme {
     font: string | null;
@@ -418,46 +478,35 @@ declare module "deflorta" {
   /** Absolute positioning that fills the parent. */
   export const FILL: Style;
 
-  export function box(props?: Omit<Partial<BoxElement>, "t" | "children">, ...children: Child[]): BoxElement;
+  export function View(props: ViewProps): BoxElement;
   /** A grid with `columns` equal columns. */
-  export function grid(
-    columns: number,
-    props?: Omit<Partial<BoxElement>, "t" | "children">,
-    ...children: Child[]
-  ): BoxElement;
+  export function Grid(props: ViewProps & { columns: number }): BoxElement;
   /** A vertical container that scrolls with the wheel and focus. */
-  export function scroll(props?: Omit<Partial<BoxElement>, "t" | "children">, ...children: Child[]): BoxElement;
-  export function text(content: unknown, props?: Omit<Partial<TextElement>, "t" | "text">): TextElement;
+  export function ScrollView(props: ViewProps): BoxElement;
+  export function Text(props: TextProps): TextElement;
   /** Text with text tags (`{b}`, `{color=…}`, `{ruby=…}`, …). */
-  export function richText(markup: unknown, props?: Omit<Partial<TextElement>, "t" | "spans">): TextElement;
-  export function img(src: string, props?: Omit<Partial<ImageElement>, "t" | "src">): ImageElement;
-  /** An image button. Set `alt` to a translated description of its action. */
-  export function imageButton(
-    src: string,
-    hoverSrc: string,
-    onClick: (event: ClickEvent) => void,
-    props?: Omit<Partial<ImageElement>, "t" | "src" | "hoverSrc" | "onClick">,
-  ): ImageElement;
-  export function video(src: string, props?: Omit<Partial<VideoElement>, "t" | "src">): VideoElement;
-  export function slider(
-    value: number,
-    onChange: (value: number) => void,
-    options?: { min?: number; max?: number; step?: number } & Omit<
-      Partial<SliderElement>,
-      "t" | "value" | "onChange"
-    >,
-  ): SliderElement;
-  export function input(
-    value: unknown,
-    onInput: (text: string) => void,
-    options?: Omit<Partial<InputElement>, "t" | "value" | "onInput">,
-  ): InputElement;
-  /** A clickable labelled box with hover and focus feedback. */
-  export function button(
-    label: string,
-    onClick: ((event: ClickEvent) => void) | undefined,
-    props?: Omit<Partial<BoxElement>, "t" | "children"> & { textStyle?: Style; disabled?: boolean },
-  ): BoxElement;
+  export function RichText(props: TextProps): TextElement;
+  /** Set alt to describe an image action; use onPress and hoverSrc for image buttons. */
+  export function Image(props: ImageProps): ImageElement;
+  export function Video(props: VideoProps): VideoElement;
+  export function Slider(props: SliderProps): SliderElement;
+  export function TextInput(props: TextInputProps): InputElement;
+  /** A clickable container with arbitrary children and hover/focus feedback. */
+  export function Pressable(props: ViewProps): BoxElement;
+
+  export function Fragment(props: { children?: Child; key?: string | number }): Child;
+  export function createElement<P>(type: Component<P>, props: P | null, ...children: Child[]): ComponentElement;
+  export type StateSetter<S> = (value: S | ((previous: S) => S)) => void;
+  /** Local UI state; setters schedule rendering automatically. Use store for saved story state. */
+  export function useState<S>(initial: S | (() => S)): [S, StateSetter<S>];
+  export function useState<S = undefined>(): [S | undefined, StateSetter<S | undefined>];
+  export function useReducer<S, A>(reducer: (state: S, action: A) => S, initial: S): [S, (action: A) => void];
+  export function useReducer<S, A, I>(reducer: (state: S, action: A) => S, initial: I, init: (value: I) => S): [S, (action: A) => void];
+  /** Runs after native commits; cleanup runs before changed dependencies and on unmount. */
+  export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
+  export function useRef<T>(initial: T): { current: T };
+  export function useMemo<T>(factory: () => T, deps?: readonly unknown[]): T;
+  export function useCallback<T extends (...args: any[]) => any>(callback: T, deps?: readonly unknown[]): T;
 
   export interface ScreenOptions {
     /** Stacking order; higher is on top. */
@@ -478,7 +527,7 @@ declare module "deflorta" {
    */
   export function screen<P = any>(
     name: string,
-    render: (props: P) => Element | null | undefined | false,
+    render: Component<P>,
     options?: ScreenOptions,
   ): void;
   export function showScreen(name: string, props?: unknown): void;
@@ -492,7 +541,7 @@ declare module "deflorta" {
     filter?: (name: string) => boolean,
   ): void;
   export function screenProps<P = any>(name: string): P | undefined;
-  /** Re-renders screens before the next frame; call after changing state they read. */
+  /** Re-renders external state such as store/theme; hook setters already schedule rendering. */
   export function invalidate(): void;
   /** Tooltip of the hovered or focused element, or null. */
   export function tooltip(): string | null;
@@ -864,17 +913,24 @@ declare module "deflorta/ui" {
   export {
     theme,
     FILL,
-    box,
-    grid,
-    scroll,
-    text,
-    richText,
-    img,
-    imageButton,
-    video,
-    slider,
-    input,
-    button,
+    View,
+    Grid,
+    ScrollView,
+    Text,
+    RichText,
+    Image,
+    Video,
+    Slider,
+    TextInput,
+    Pressable,
+    Fragment,
+    createElement,
+    useState,
+    useReducer,
+    useEffect,
+    useRef,
+    useMemo,
+    useCallback,
     screen,
     showScreen,
     hideScreen,
@@ -895,6 +951,19 @@ declare module "deflorta/ui" {
   /** Hides all screens until the next click or key. */
   export function setUiHidden(hidden: boolean): void;
   export function isUiHidden(): boolean;
+}
+
+declare module "deflorta/jsx-runtime" {
+  export { Fragment } from "deflorta";
+  import type { Component, ComponentElement } from "deflorta";
+  export function jsx<P>(type: Component<P>, props: P, key?: string | number): ComponentElement;
+  export const jsxs: typeof jsx;
+  export namespace JSX {
+    export type Element = import("deflorta").Element;
+    export type ElementType = Component<any>;
+    export interface ElementChildrenAttribute { children: {}; }
+    export interface IntrinsicAttributes { key?: string | number; }
+  }
 }
 
 declare module "deflorta/scene" {
@@ -1024,6 +1093,14 @@ declare module "deflorta/screens" {
 }
 
 // Globals provided by the engine.
+/** JSX types shared by the automatic runtime and classic createElement factory. */
+declare namespace JSX {
+  type Element = import("deflorta/jsx-runtime").JSX.Element;
+  type ElementType = import("deflorta/jsx-runtime").JSX.ElementType;
+  type ElementChildrenAttribute = import("deflorta/jsx-runtime").JSX.ElementChildrenAttribute;
+  type IntrinsicAttributes = import("deflorta/jsx-runtime").JSX.IntrinsicAttributes;
+}
+
 declare var console: {
   log(...values: unknown[]): void;
   info(...values: unknown[]): void;

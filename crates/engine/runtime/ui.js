@@ -1,7 +1,7 @@
 // deflorta/ui — declarative UI elements, widgets and the screen stack.
 //
-// Screens are functions returning an element tree. Whenever state changes,
-// call invalidate(); at the end of the turn the whole tree is re-rendered and
+// Screens are JSX function components. Hook setters schedule rendering;
+// external story state uses invalidate(). At the end of the turn the tree is
 // committed to the engine, which reads it in place, lays it out
 // (flexbox/grid), animates and draws it. Handler functions stay in JS; the
 // engine hands them back in click and handler events. Keyboard and
@@ -10,6 +10,22 @@
 
 import { emit, native, on, onFlush } from "deflorta/core";
 import { parseMarkup } from "deflorta/text";
+import {
+  createElement,
+  createRenderer,
+  setComponentScheduler,
+} from "deflorta/components";
+
+export {
+  Fragment,
+  createElement,
+  useState,
+  useReducer,
+  useRef,
+  useMemo,
+  useCallback,
+  useEffect,
+} from "deflorta/components";
 
 // ---------------------------------------------------------------------------
 // Theme: shared look of all default screens
@@ -35,15 +51,6 @@ export const theme = {
 // Elements
 // ---------------------------------------------------------------------------
 
-function flatten(children, out = []) {
-  for (const child of children) {
-    if (Array.isArray(child)) flatten(child, out);
-    else if (child != null && child !== false && child !== true)
-      out.push(child);
-  }
-  return out;
-}
-
 export const FILL = {
   position: "absolute",
   left: 0,
@@ -52,119 +59,172 @@ export const FILL = {
   bottom: 0,
 };
 
-/** A flexbox container. `box({ style, onClick, hover, tooltip, key }, ...children)` */
-export function box(props = {}, ...children) {
-  return { t: "box", ...props, children: flatten(children) };
+/** A native flexbox container. */
+export function View({ children, style, hover, onPress, ...props } = {}) {
+  return {
+    t: "box",
+    ...props,
+    onClick: onPress,
+    style: mergeStyle(style),
+    hover: mergeStyle(hover),
+    children,
+  };
 }
 
 /** A grid container with `columns` equal columns. */
-export function grid(columns, props = {}, ...children) {
-  return box(
-    { ...props, style: { gridColumns: columns, ...props.style } },
-    ...children,
-  );
+export function Grid({ columns, style, ...props }) {
+  return View({
+    ...props,
+    style: { gridColumns: columns, ...mergeStyle(style) },
+  });
 }
 
 /** A container that scrolls vertically with the mouse wheel and focus. */
-export function scroll(props = {}, ...children) {
-  return box(
-    {
-      ...props,
-      style: { overflow: "scroll", flexDirection: "column", ...props.style },
+export function ScrollView({ style, ...props } = {}) {
+  return View({
+    ...props,
+    style: {
+      overflow: "scroll",
+      flexDirection: "column",
+      ...mergeStyle(style),
     },
-    ...children,
-  );
+  });
 }
 
 /** Plain text. Style props: color, fontSize, fontFamily, fontWeight, italic, lineHeight, textAlign, textShadow. */
-export function text(content, props = {}) {
-  return { t: "text", text: String(content ?? ""), ...props };
+export function Text({ children, style, hover, onPress, ...props } = {}) {
+  return {
+    t: "text",
+    text: textContent(children),
+    ...props,
+    onClick: onPress,
+    style: mergeStyle(style),
+    hover: mergeStyle(hover),
+  };
 }
 
 /** Text with text tags ({b}, {color=…}, {ruby=…}, …). */
-export function richText(markup, props = {}) {
-  const size = props.style?.fontSize;
+export function RichText({ children, style, hover, onPress, ...props } = {}) {
+  style = mergeStyle(style);
   return {
     t: "text",
-    spans: parseMarkup(markup, { baseSize: size }).spans,
+    spans: parseMarkup(textContent(children), { baseSize: style?.fontSize })
+      .spans,
     ...props,
+    onClick: onPress,
+    style,
+    hover: mergeStyle(hover),
   };
 }
 
 /** An image from the game directory. `fit`: "cover" | "contain" | "fill". */
-export function img(src, props = {}) {
-  return { t: "image", src, ...props };
-}
-
-/** An image button. Set `alt` to describe the action, e.g. { alt: _("Save") }. */
-export function imageButton(src, hoverSrc, onClick, props = {}) {
-  return img(src, { hoverSrc, onClick, ...props });
+export function Image({ style, hover, onPress, ...props }) {
+  return {
+    t: "image",
+    ...props,
+    onClick: onPress,
+    style: mergeStyle(style),
+    hover: mergeStyle(hover),
+  };
 }
 
 /** A video (H.264 MP4). `loop`, `onEnd`, `fit`. */
-export function video(src, props = {}) {
-  return { t: "video", src, ...props };
+export function Video({ style, hover, onPress, ...props }) {
+  return {
+    t: "video",
+    ...props,
+    onClick: onPress,
+    style: mergeStyle(style),
+    hover: mergeStyle(hover),
+  };
 }
 
-/** A horizontal slider. Calls `onChange(value)` while dragged or adjusted with arrow keys. */
-export function slider(
-  value,
-  onChange,
-  { min = 0, max = 1, step, ...props } = {},
-) {
-  return { t: "slider", value, onChange, min, max, step, ...props };
+/** A horizontal slider. Calls onValueChange while dragged or adjusted with arrow keys. */
+export function Slider({
+  min = 0,
+  max = 1,
+  onValueChange,
+  style,
+  hover,
+  ...props
+}) {
+  return {
+    t: "slider",
+    ...props,
+    min,
+    max,
+    onChange: onValueChange,
+    style: mergeStyle(style),
+    hover: mergeStyle(hover),
+  };
 }
 
-/** A single-line text field. Calls `onInput(text)` on edits and `onSubmit(text)` on Enter. */
-export function input(
-  value,
-  onInput,
-  { onSubmit, placeholder, maxLength, ...props } = {},
-) {
+/** A controlled single-line field. Calls onChangeText on edits, onSubmit on Enter. */
+export function TextInput({ value, onChangeText, style, hover, ...props }) {
   return {
     t: "input",
-    value: String(value ?? ""),
-    onInput,
-    onSubmit,
-    placeholder,
-    maxLength,
     ...props,
+    value: String(value ?? ""),
+    onInput: onChangeText,
     style: {
       padding: [8, 12],
       radius: 8,
       background: "#00000066",
       borderWidth: 1,
       borderColor: "#ffffff33",
-      ...props.style,
+      ...mergeStyle(style),
     },
-    hover: { borderColor: theme.accent, ...props.hover },
+    hover: { borderColor: theme.accent, ...mergeStyle(hover) },
   };
 }
 
-/** A clickable box with a text label and hover/focus feedback. */
-export function button(label, onClick, props = {}) {
-  const { style, hover, textStyle, disabled, ...rest } = props;
-  return box(
-    {
-      style: {
-        padding: [10, 24],
-        radius: 8,
-        background: theme.button,
-        justifyContent: "center",
-        alignItems: "center",
-        color: disabled ? "#ffffff55" : theme.text,
-        ...style,
-      },
-      hover: disabled
-        ? undefined
-        : { background: theme.buttonHover, color: "#ffffff", ...hover },
-      onClick: disabled ? undefined : onClick,
-      focusable: !disabled,
-      disabled: !!disabled,
-      ...rest,
+/** A clickable container with hover/focus feedback and arbitrary children. */
+export function Pressable({
+  children,
+  onPress,
+  style,
+  hover,
+  disabled,
+  ...props
+}) {
+  return View({
+    style: {
+      padding: [10, 24],
+      radius: 8,
+      background: theme.button,
+      justifyContent: "center",
+      alignItems: "center",
+      color: disabled ? "#ffffff55" : theme.text,
+      ...mergeStyle(style),
     },
-    text(label, { style: textStyle }),
-  );
+    hover: disabled
+      ? undefined
+      : {
+          background: theme.buttonHover,
+          color: "#ffffff",
+          ...mergeStyle(hover),
+        },
+    ...props,
+    onPress: disabled ? undefined : onPress,
+    focusable: !disabled && (props.focusable ?? true),
+    disabled: !!disabled,
+    children,
+  });
+}
+
+/** Style arrays are flattened left to right, like React Native. */
+function mergeStyle(style) {
+  if (!Array.isArray(style)) return style || undefined;
+  return Object.assign({}, ...style.map(mergeStyle));
+}
+
+function textContent(children) {
+  if (children == null || typeof children === "boolean") return "";
+  if (Array.isArray(children)) return children.map(textContent).join("");
+  if (typeof children !== "string" && typeof children !== "number") {
+    throw new Error("Text and RichText children must be strings or numbers");
+  }
+  return String(children);
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +241,12 @@ let tooltipText = null;
 let tooltipObserved = false;
 let sceneLayer = () => null;
 const exits = {};
+const renderer = createRenderer();
+setComponentScheduler(invalidate);
+
+function screenRoot(name) {
+  return `root/children/${JSON.stringify(["key", `screen:${name}`])}`;
+}
 
 /**
  * Defines (or replaces) a screen.
@@ -214,6 +280,7 @@ export function hideScreen(name) {
   const before = shown.length;
   shown = shown.filter((s) => s.name !== name);
   if (shown.length !== before) {
+    renderer.unmount(screenRoot(name));
     invalidate();
     emit("screensChanged");
   }
@@ -232,7 +299,11 @@ export function shownScreens(filter = () => true) {
 
 /** Replaces every shown screen accepted by `filter` with `list`. */
 export function replaceScreens(list, filter = () => true) {
-  shown = shown.filter((s) => !filter(s.name));
+  shown = shown.filter((entry) => {
+    if (!filter(entry.name)) return true;
+    renderer.unmount(screenRoot(entry.name));
+    return false;
+  });
   for (const { name, props } of list) showScreen(name, props);
   invalidate();
   emit("screensChanged");
@@ -291,47 +362,52 @@ function renderRoot() {
     for (const entry of shown) {
       const def = screens.get(entry.name);
       if (!def) continue;
-      const content = def.render(entry.props);
+      const content = createElement(def.render, {
+        ...entry.props,
+        key: `screen:${entry.name}`,
+      });
       if (def.modal) {
         children.push(
-          box(
-            {
-              key: `screen:${entry.name}`,
-              style: FILL,
-              onClick: () => {},
-              focusable: false,
-              modal: true,
-            },
-            content,
-          ),
+          View({
+            key: `screen:${entry.name}`,
+            style: FILL,
+            onPress: () => {},
+            focusable: false,
+            modal: true,
+            children: content,
+          }),
         );
-      } else if (content) {
-        children.push({
-          ...content,
-          key: content.key ?? `screen:${entry.name}`,
-        });
+      } else {
+        children.push(content);
       }
     }
   }
-  return box(
-    {
-      key: "root",
-      style: { ...FILL, fontFamily: theme.font ?? undefined },
-      onClick: (e) => emit("backgroundClick", e),
-      focusable: false,
-    },
+  return View({
+    key: "root",
+    style: { ...FILL, fontFamily: theme.font ?? undefined },
+    onPress: (e) => emit("backgroundClick", e),
+    focusable: false,
     children,
-  );
+  });
 }
 
 onFlush(() => {
-  if (!dirty) return;
-  dirty = false;
-  const tree = renderRoot();
-  const options = { instant, exits: { ...exits } };
-  instant = false;
-  for (const k of Object.keys(exits)) delete exits[k];
-  native.ui.commit(tree, options);
+  let passes = 0;
+  while (dirty) {
+    if (++passes > 25)
+      throw new Error("Too many UI updates; check effect dependencies");
+    dirty = false;
+    // Temporarily hiding the interface retains mounted screen state.
+    const retainedRoots = hidden
+      ? shown.map(({ name }) => screenRoot(name))
+      : [];
+    const tree = renderer.render(renderRoot(), retainedRoots);
+    const options = { instant, exits: { ...exits } };
+    native.ui.commit(tree, options);
+    instant = false;
+    for (const k of Object.keys(exits)) delete exits[k];
+    renderer.commit();
+  }
 });
 
 on("click", (event) => {

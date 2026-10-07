@@ -5,9 +5,9 @@
 import { native, onFlush } from "deflorta/core";
 import {
   FILL,
-  box,
+  View,
   exitWith,
-  img,
+  Image,
   invalidate,
   setSceneLayer,
 } from "deflorta/ui";
@@ -387,20 +387,26 @@ function renderSprite(s) {
       width: "100%",
       height: "100%",
     };
-    return box(
-      {
-        ...props,
-        style: { ...style, scale: (at.zoom ?? 1) * (def.zoom ?? 1) },
-      },
-      first && img(first, {}),
-      rest.map((src) => img(src, { style: layerStyle })),
+    return (
+      <View
+        {...props}
+        style={{ ...style, scale: (at.zoom ?? 1) * (def.zoom ?? 1) }}
+      >
+        {first && <Image src={first} />}
+        {rest.map((src, i) => (
+          <Image key={`layer-${i}`} src={src} style={layerStyle} />
+        ))}
+      </View>
     );
   }
   const spec = images.get(s.name) ?? { src: `images/${s.name}.png` };
-  return img(spec.src, {
-    ...props,
-    style: { ...style, scale: (at.zoom ?? 1) * (spec.zoom ?? 1) },
-  });
+  return (
+    <Image
+      src={spec.src}
+      {...props}
+      style={{ ...style, scale: (at.zoom ?? 1) * (spec.zoom ?? 1) }}
+    />
+  );
 }
 
 function renderScene() {
@@ -409,16 +415,21 @@ function renderScene() {
     const key = `bg:${scene.bg}`;
     const spec = images.get(scene.bg) ?? { src: `images/${scene.bg}.png` };
     children.push(
-      img(spec.src, {
-        key,
-        fit: "cover",
-        style: FILL,
-        enter: pendingEnters.get(key),
-      }),
+      <Image
+        src={spec.src}
+        key={key}
+        fit="cover"
+        style={FILL}
+        enter={pendingEnters.get(key)}
+      />,
     );
   }
   for (const s of scene.sprites) children.push(renderSprite(s));
-  return box({ key: "scene", style: FILL }, children);
+  return (
+    <View key="scene" style={FILL}>
+      {children}
+    </View>
+  );
 }
 
 setSceneLayer(renderScene);

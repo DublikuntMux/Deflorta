@@ -2,7 +2,7 @@
 
 import {
   bob,
-  box,
+  View,
   call,
   character,
   configure,
@@ -36,7 +36,7 @@ import {
   showScreen,
   sound,
   store,
-  text,
+  Text,
   translations,
   voice,
   wipeleft,
@@ -94,37 +94,37 @@ const me = character("You", { color: "#9fd3ff" });
 // A custom screen: a HUD reading the store. Screens re-render automatically.
 screen(
   "friendship",
-  () =>
-    box(
-      {
-        key: "hud",
-        enter: { dur: 0.3, opacity: 0, y: -10 },
-        exit: { dur: 0.3, opacity: 0 },
-        tooltip: "How much Eileen likes you",
-        style: {
-          position: "absolute",
-          top: 20,
-          left: 20,
-          padding: [8, 16],
-          radius: 20,
-          background: "#00000088",
-          flexDirection: "row",
-          gap: 8,
-        },
-      },
-      box({
-        style: {
+  () => (
+    <View
+      key="hud"
+      enter={{ dur: 0.3, opacity: 0, y: -10 }}
+      exit={{ dur: 0.3, opacity: 0 }}
+      tooltip="How much Eileen likes you"
+      style={{
+        position: "absolute",
+        top: 20,
+        left: 20,
+        padding: [8, 16],
+        radius: 20,
+        background: "#00000088",
+        flexDirection: "row",
+        gap: 8,
+      }}
+    >
+      <View
+        style={{
           width: 12,
           height: 12,
           radius: 6,
           background: "#f4b6d2",
           alignSelf: "center",
-        },
-      }),
-      text(`Friendship ${store.friendship}`, {
-        style: { color: "#ffffff", fontSize: 18 },
-      }),
-    ),
+        }}
+      />
+      <Text style={{ color: "#ffffff", fontSize: 18 }}>
+        Friendship {store.friendship}
+      </Text>
+    </View>
+  ),
   { z: 5 },
 );
 

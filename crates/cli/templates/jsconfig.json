@@ -6,8 +6,10 @@
     "lib": ["ES2022"],
     "checkJs": true,
     "noEmit": true,
-    "skipLibCheck": false
+    "skipLibCheck": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "deflorta"
   },
-  "include": ["**/*.js", "deflorta.d.ts"],
+  "include": ["**/*.js", "**/*.jsx", "deflorta.d.ts"],
   "exclude": ["build", "dist", "node_modules"]
 }

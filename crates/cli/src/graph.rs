@@ -163,7 +163,10 @@ impl<'a> Graph<'a> {
         if let Some(&index) = self.index.get(id) {
             return Ok(index);
         }
-        let source = self.allocator.alloc_str(&loader.load(id)?);
+        let source_text = loader.load(id)?;
+        let source = self
+            .allocator
+            .alloc_str(&deflorta_data::compile_jsx(id, &source_text)?);
         let index = self.modules.len();
         self.index.insert(id.to_owned(), index);
         self.parse(id, source);

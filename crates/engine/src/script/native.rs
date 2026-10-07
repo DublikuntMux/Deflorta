@@ -221,6 +221,7 @@ const MODULES: &[(&CStr, Module)] = &[
     (
         c"app",
         &[
+            (c"platform", app_platform, 0),
             (c"configure", app_configure, 1),
             (c"fullscreen", app_fullscreen, 1),
             (c"selfVoicing", app_self_voicing, 1),
@@ -444,6 +445,10 @@ native! {
     fn timers_clear(args) {
         queue(Command::ClearTimer { id: args.get(0)? });
         Ok(())
+    }
+
+    fn app_platform(_args) {
+        Ok(std::env::consts::OS)
     }
 
     fn app_configure(args) {
