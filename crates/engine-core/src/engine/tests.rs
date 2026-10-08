@@ -1,5 +1,8 @@
 use super::*;
 
+mod frame_events;
+mod notifications;
+
 fn key(engine: &mut Engine, name: &str) {
     engine.key(name, true, false, &KeyModifiers::default());
 }

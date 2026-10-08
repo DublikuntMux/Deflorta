@@ -100,6 +100,8 @@ runtime JavaScript with Oxc before embedding it. ``build.rs`` also compiles
      - Responsibility
    * - ``deflorta/core``
      - Native modules, timers, config, storage, event bus, error reporting.
+   * - ``deflorta/notifications``
+     - Notification handles, message/state updates, duration, and dismissal.
    * - ``deflorta/text``
      - Text-tag parsing and translations.
    * - ``deflorta/components``
@@ -115,7 +117,7 @@ runtime JavaScript with Oxc before embedding it. ``build.rs`` also compiles
        rollback, saves, input bindings, preferences.
    * - ``deflorta/screens``
      - Dialogue/NVL, quick menu, choices, input, movie, history, main/game
-       menus, saves, preferences, confirmation, notifications, tooltips, errors.
+       menus, saves, preferences, confirmation, tooltips, errors.
    * - ``deflorta``
      - Public re-exports.
 

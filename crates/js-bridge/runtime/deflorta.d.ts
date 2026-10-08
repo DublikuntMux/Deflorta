@@ -22,6 +22,8 @@ declare module "deflorta" {
     skipDelay: number;
     clearColor: Color;
     autosave?: boolean;
+    /** Continuous window redraws with `frame` events. Disabled by default. */
+    frameEvents?: boolean;
     languages?: Language[];
     menuBackground?: string;
     /** Main menu background video (loops). */
@@ -105,6 +107,10 @@ declare module "deflorta" {
     boot: { type: "boot" };
     quit: { type: "quit" };
     revealed: { type: "revealed" };
+    /** Interval between successful window presentations, from a monotonic clock.
+     * Headless simulation does not emit this event. Requires `frameEvents: true`.
+     */
+    frame: { type: "frame"; frameMs: number };
     key: KeyEvent;
     click: ClickEvent;
     wheel: WheelEvent;
@@ -141,6 +147,11 @@ declare module "deflorta" {
       list(): StorageEntry[];
     };
     timers: { set(id: number, ms: number): void; clear(id: number): void };
+    notifications: {
+      create(message: string, options: NotificationOptions): number;
+      update(id: number, message: string, options: NotificationOptions): void;
+      dismiss(id: number): void;
+    };
     app: {
       /** Operating system of the running engine (e.g. "android", "linux", "windows", "macos"). */
       platform(): string;
@@ -515,7 +526,29 @@ declare module "deflorta" {
   export function invalidate(): void;
   /** Tooltip of the hovered or focused element, or null. */
   export function tooltip(): string | null;
-  export function notify(message: string, seconds?: number): void;
+  export type NotificationState = "info" | "loading" | "success" | "error";
+
+  export interface NotificationOptions {
+    /** Plain message by default; loading shows an animated spinner. */
+    state?: NotificationState;
+    /** Seconds until dismissal, or null to keep it open. Defaults to 2; loading defaults to null. */
+    duration?: number | null;
+  }
+
+  export interface NotificationUpdate extends NotificationOptions {
+    message?: string;
+  }
+
+  export interface NotificationHandle {
+    readonly id: number;
+    /** Updates this notification and restarts its lifetime. A new state uses its default duration. */
+    update(changes: NotificationUpdate): void;
+    /** Dismisses only this notification. Repeated calls are harmless. */
+    dismiss(): void;
+  }
+
+  /** Creates a centered notification pill, separate from saved story screens. */
+  export function notify(message: string, options?: NotificationOptions): NotificationHandle;
 
   /** Places the image's anchor at xalign/yalign of the screen. */
   export interface Position {
@@ -1025,8 +1058,8 @@ declare module "deflorta/story" {
   export function updatePromptValue(value: string): void;
 }
 
-declare module "deflorta/screens" {
-  export { notify } from "deflorta";
+declare module "deflorta/notifications" {
+  export { notify, NotificationHandle, NotificationOptions, NotificationState, NotificationUpdate } from "deflorta";
 }
 
 // Globals provided by the engine.

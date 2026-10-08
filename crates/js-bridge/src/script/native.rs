@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::value::{self, Handler, HandlerSink, from_js, from_js_with_handlers, to_js};
 use super::{HandlerTable, throw_error, with_state};
 use deflorta_common::desc::{AnimDesc, Color, NodeDesc};
+use deflorta_common::notification::{NotificationId, NotificationOptions, next_notification_id};
 
 #[derive(Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -21,6 +22,11 @@ pub enum Event<'a> {
     Boot,
     Quit,
     Revealed,
+    /// Time between successful window presentations; enabled by `frameEvents`.
+    Frame {
+        #[serde(rename = "frameMs")]
+        frame_ms: f64,
+    },
     Click {
         /// The clicked element's `onClick`, or null for the background.
         handler: Option<Handler>,
@@ -107,6 +113,19 @@ pub enum Command {
     SelfVoicing {
         on: bool,
     },
+    Notify {
+        id: NotificationId,
+        message: String,
+        options: NotificationOptions,
+    },
+    UpdateNotification {
+        id: NotificationId,
+        message: String,
+        options: NotificationOptions,
+    },
+    DismissNotification {
+        id: NotificationId,
+    },
     Quit,
     Commit(Box<UiCommit>),
 }
@@ -132,6 +151,9 @@ pub struct GameConfig {
     pub version: Option<serde_json::Value>,
     #[serde(default)]
     pub clear_color: Option<Color>,
+    /// Request continuous redraws and report successful presentation intervals.
+    #[serde(default)]
+    pub frame_events: bool,
 }
 
 #[derive(Deserialize)]
@@ -196,6 +218,14 @@ const MODULES: &[(&CStr, Module)] = &[
             (c"fullscreen", app_fullscreen, 1),
             (c"selfVoicing", app_self_voicing, 1),
             (c"quit", app_quit, 0),
+        ],
+    ),
+    (
+        c"notifications",
+        &[
+            (c"create", notification_create, 2),
+            (c"update", notification_update, 3),
+            (c"dismiss", notification_dismiss, 1),
         ],
     ),
     (
@@ -419,6 +449,29 @@ native! {
 
     fn app_quit(_args) {
         queue(Command::Quit);
+        Ok(())
+    }
+
+    fn notification_create(args) {
+        let message: String = args.get(0)?;
+        let options: NotificationOptions = args.get(1)?;
+        options.deadline(std::time::Instant::now()).map_err(anyhow::Error::msg)?;
+        let id = next_notification_id();
+        queue(Command::Notify { id, message, options });
+        Ok(id)
+    }
+
+    fn notification_update(args) {
+        let id: NotificationId = args.get(0)?;
+        let message: String = args.get(1)?;
+        let options: NotificationOptions = args.get(2)?;
+        options.deadline(std::time::Instant::now()).map_err(anyhow::Error::msg)?;
+        queue(Command::UpdateNotification { id, message, options });
+        Ok(())
+    }
+
+    fn notification_dismiss(args) {
+        queue(Command::DismissNotification { id: args.get(0)? });
         Ok(())
     }
 

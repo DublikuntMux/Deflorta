@@ -234,6 +234,14 @@ an entry existed in the snapshot. Disk failures are logged and reported to
 value unless a newer operation is pending. Normal shutdown finishes queued
 writes. Changes made outside the engine are read on the next session.
 
+``configure({ frameEvents: true })`` requests continuous window redraws and
+enables ``on("frame", ({ frameMs }) => ...)``. ``frameMs`` is the monotonic
+interval between successful window presentations in milliseconds; the first
+presentation establishes the baseline. Disabling the option resets it.
+Skipped surface acquisitions and headless simulation ticks do not emit frame
+events. This measures presentation cadence, including VSync and CPU work,
+rather than GPU execution time. The option is disabled by default.
+
 ``native`` exposes low-level ``app``, ``audio``, ``ui``, ``timers``, ``files``,
 and ``storage`` modules, plus logging and runtime connection functions.
 Examples are ``native.app.quit()`` and ``native.audio.voice(file)``.

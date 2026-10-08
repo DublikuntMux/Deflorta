@@ -50,7 +50,41 @@ for saved story state. ``invalidate()`` schedules rendering after external
 state changes.
 
 ``theme`` supplies colors and sizes for default screens. ``tooltip()`` returns
-the current tooltip, and ``notify(message)`` shows a toast.
+the current tooltip.
+
+Notifications
+-------------
+
+``notify(message, options?)`` shows a compact pill at the top center of the
+screen and returns a handle for updating or dismissing that notification:
+
+.. code-block:: javascript
+
+   import { notify } from "deflorta";
+
+   const notice = notify("Downloading…", { state: "loading" });
+   notice.update({ message: "Finishing download…" });
+   notice.update({ message: "Download complete", state: "success" });
+   // Or dismiss it explicitly:
+   notice.dismiss();
+
+``state`` is ``"info"`` (plain text), ``"loading"`` (spinner), ``"success"``
+(check mark), or ``"error"`` (warning mark). ``duration`` is seconds until
+dismissal, or ``null`` to keep the pill open. The default is two seconds;
+loading notifications stay open until updated or dismissed.
+
+``handle.update({ message?, state?, duration? })`` keeps the same notification
+identity and restarts its lifetime. Changing state uses the new state's
+default duration unless the update specifies one. ``handle.id`` is read-only.
+Updating a dismissed or expired handle does not bring its notification back.
+Each handle operates independently. Multiple notifications form an equal-width
+stack below the top edge, newest first. Only the top and bottom outer corners
+are rounded, using the same curves as a single pill; middle rows are square.
+The stack shows as many notifications as fit on the screen. Text wraps on
+narrow screens, with an ellipsis for messages longer than three lines.
+Notifications survive screen changes and remain outside saves and rollback.
+They announce through screen readers and self-voicing. The engine's self-voicing
+startup indicator uses this same notification system.
 
 Common element props
 --------------------

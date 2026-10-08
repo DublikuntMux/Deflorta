@@ -201,7 +201,6 @@ export const SYSTEM_SCREENS = new Set([
   "game_menu",
   "main_menu",
   "confirm",
-  "notify",
   "tooltip",
   "error",
 ]);

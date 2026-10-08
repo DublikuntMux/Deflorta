@@ -3,8 +3,8 @@ pub use deflorta_common::desc;
 mod draw;
 mod input;
 mod layout;
+mod notifications;
 pub mod reveal;
-mod status;
 pub mod text;
 pub mod transform;
 
@@ -127,7 +127,8 @@ pub struct Quad {
     pub rect: Rect,
     pub rotation: f32,
     pub color: Color,
-    pub radius: f32,
+    /// Corner radii in pixels: top left, top right, bottom right, bottom left.
+    pub radii: [f32; 4],
     pub border_width: f32,
     pub border_color: Color,
     pub image: Option<ImageRef>,
@@ -164,6 +165,7 @@ pub struct Ui {
     pub text: TextSystem,
     default_font: String,
     virtual_size: (f32, f32),
+    surface_bounds: Rect,
     scale: f32,
     offset: (f32, f32),
     layout_dirty: bool,
@@ -177,7 +179,7 @@ pub struct Ui {
     hit_order: Vec<(usize, Rect)>,
     reveal_event_pending: bool,
     accessibility: accessibility::Accessibility,
-    self_voicing_initializing: Option<Instant>,
+    notifications: Vec<notifications::Notification>,
 }
 
 impl Ui {
@@ -200,6 +202,11 @@ impl Ui {
             text,
             default_font: String::new(),
             virtual_size: (1280.0, 720.0),
+            surface_bounds: Rect {
+                w: 1280.0,
+                h: 720.0,
+                ..Rect::default()
+            },
             scale: 1.0,
             offset: (0.0, 0.0),
             layout_dirty: true,
@@ -212,7 +219,7 @@ impl Ui {
             hit_order: Vec::new(),
             reveal_event_pending: false,
             accessibility: accessibility::Accessibility::default(),
-            self_voicing_initializing: None,
+            notifications: Vec::new(),
         }
     }
 
@@ -279,6 +286,11 @@ impl Ui {
     /// Updates the letterboxed mapping from virtual units to the physical surface.
     // Any change to the mapping must invalidate layout, even below an epsilon.
     pub fn set_surface_size(&mut self, width: f32, height: f32) {
+        self.surface_bounds = Rect {
+            w: width,
+            h: height,
+            ..Rect::default()
+        };
         let (vw, vh) = self.virtual_size;
         let scale = (width / vw).min(height / vh).max(0.01);
         let offset = (
@@ -463,7 +475,8 @@ impl Ui {
         }
 
         let live: HashSet<&str> = self.nodes.iter().map(|n| n.id.as_str()).collect();
-        self.text.retain(|id| live.contains(id));
+        self.text
+            .retain(|id| live.contains(id) || self.notifications.iter().any(|n| n.text_id == id));
         self.hovered.clear();
         self.hit_order.clear();
         self.layout_dirty |= !self.pending_moves.is_empty();
@@ -652,7 +665,9 @@ impl Ui {
 
     /// True while any animation, typewriter effect or video is running.
     pub fn is_animating(&self, now: Instant) -> bool {
-        self.self_voicing_initializing.is_some()
+        self.notifications
+            .iter()
+            .any(|n| n.state == deflorta_common::notification::NotificationState::Loading)
             || self.enters.values().any(|a| !a.finished(now))
             || self
                 .moves

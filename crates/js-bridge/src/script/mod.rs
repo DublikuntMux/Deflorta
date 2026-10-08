@@ -47,6 +47,7 @@ macro_rules! runtime_module {
 pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", runtime_module!("deflorta")),
     ("deflorta/core", runtime_module!("core")),
+    ("deflorta/notifications", runtime_module!("notifications")),
     ("deflorta/ui", runtime_module!("ui")),
     ("deflorta/components", runtime_module!("components")),
     ("deflorta/jsx-runtime", runtime_module!("jsx-runtime")),

@@ -51,7 +51,7 @@ impl Cache {
         let index = project.dir.join(CACHE_INDEX);
         let mut temporary =
             tempfile::NamedTempFile::new_in(index.parent().context("cache index has no parent")?)?;
-        serde_json::to_writer_pretty(temporary.as_file_mut(), self)?;
+        serde_json::to_writer(temporary.as_file_mut(), self)?;
         temporary
             .persist(index)
             .context("cannot save media cache index")?;

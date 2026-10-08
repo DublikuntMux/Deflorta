@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use log::{info, warn};
 
-use glyphon::cosmic_text::Align as TextAlignment;
+use glyphon::cosmic_text::{Align as TextAlignment, Ellipsize};
 use glyphon::{
     Attrs, Buffer, Color as GlyphColor, Family, FontSystem, Metrics, Shaping, Style as FontStyle,
     Weight, Wrap,
@@ -29,6 +29,8 @@ pub struct TextStyle {
 pub struct TextOptions {
     pub scale: f32,
     pub width: Option<f32>,
+    pub wrap: Wrap,
+    pub ellipsize: Ellipsize,
     pub revealed: usize,
     pub alpha: f32,
     pub color_override: Option<Color>,
@@ -39,6 +41,8 @@ impl Default for TextOptions {
         Self {
             scale: 1.0,
             width: None,
+            wrap: Wrap::Word,
+            ellipsize: Ellipsize::None,
             revealed: usize::MAX,
             alpha: 1.0,
             color_override: None,
@@ -119,6 +123,17 @@ impl TextEntry {
             rubies: Vec::new(),
         }
     }
+
+    fn set_layout(&mut self, width: Option<f32>, wrap: Wrap, ellipsize: Ellipsize) -> bool {
+        let changed = self.width != width
+            || self.buffer.wrap() != wrap
+            || self.buffer.ellipsize() != ellipsize;
+        self.buffer.set_size(width, None);
+        self.buffer.set_wrap(wrap);
+        self.buffer.set_ellipsize(ellipsize);
+        self.width = width;
+        changed
+    }
 }
 
 pub struct TextSystem {
@@ -166,6 +181,10 @@ impl TextSystem {
         self.entries.get(id)
     }
 
+    pub(super) fn remove(&mut self, id: &str) {
+        self.entries.remove(id);
+    }
+
     #[cfg(feature = "dev-console")]
     pub fn buffer_count(&self) -> usize {
         self.entries.len()
@@ -205,6 +224,8 @@ impl TextSystem {
         let TextOptions {
             scale,
             width,
+            wrap,
+            ellipsize,
             revealed,
             alpha,
             color_override,
@@ -224,14 +245,7 @@ impl TextSystem {
 
         // The buffer width is in physical pixels, so a surface scale change
         // must update it even when the virtual width remains the same.
-        let width = width.map(|w| w * scale);
-        let width_changed = if entry.width == width {
-            false
-        } else {
-            entry.buffer.set_size(width, None);
-            entry.width = width;
-            true
-        };
+        let layout_changed = entry.set_layout(width.map(|w| w * scale), wrap, ellipsize);
         if shape_changed {
             let wanted = Shaped {
                 spans: spans.to_vec(),
@@ -248,7 +262,7 @@ impl TextSystem {
             set_spans(&mut entry.buffer, &wanted);
             entry.shaped = Some(wanted);
         }
-        let reshaped = width_changed || shape_changed;
+        let reshaped = shape_changed || layout_changed;
         if !reshaped {
             return entry.size;
         }

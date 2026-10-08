@@ -1,3 +1,5 @@
+import "deflorta/screens";
+
 export {
   clearTimer,
   config,
@@ -127,4 +129,4 @@ export {
   voice,
   windowHide,
 } from "deflorta/story";
-export { notify } from "deflorta/screens";
+export { notify } from "deflorta/notifications";

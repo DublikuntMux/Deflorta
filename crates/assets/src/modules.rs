@@ -7,6 +7,7 @@ use crate::files::normalize_game_path;
 pub const BUILTIN_MODULES: &[(&str, &str)] = &[
     ("deflorta", "deflorta.js"),
     ("deflorta/core", "core.js"),
+    ("deflorta/notifications", "notifications.js"),
     ("deflorta/ui", "ui.js"),
     ("deflorta/components", "components.js"),
     ("deflorta/jsx-runtime", "jsx-runtime.js"),

@@ -130,16 +130,11 @@ impl Ui {
                 .map(|&i| self.accessibility.ids[&self.nodes[i].id])
                 .collect::<Vec<_>>(),
         );
-        let status = self.self_voicing_initializing.map(|_| {
-            let id = NodeId(u64::MAX);
-            root.push_child(id);
-            let mut node = Node::new(Role::Status);
-            node.set_label(super::status::SELF_VOICING_STATUS);
-            node.set_live(Live::Polite);
-            (id, node)
-        });
         let mut nodes = vec![(ROOT, root)];
-        nodes.extend(status);
+        for (id, node) in self.notification_nodes() {
+            nodes[0].1.push_child(id);
+            nodes.push((id, node));
+        }
         for &i in &exposed {
             let mut node = self.accessible_node(i, &exposed_set);
             if self.nodes[i].desc.kind() == NodeKind::Input {
@@ -183,6 +178,22 @@ impl Ui {
             tree_id: accesskit::TreeId::ROOT,
             focus,
         }
+    }
+
+    fn notification_nodes(&self) -> impl Iterator<Item = (NodeId, Node)> + '_ {
+        self.notifications.iter().filter_map(|notification| {
+            let bounds = notification.bounds?;
+            let mut node = Node::new(Role::Status);
+            node.set_label(&notification.message);
+            node.set_live(Live::Polite);
+            node.set_bounds(accesskit::Rect {
+                x0: f64::from(bounds.x),
+                y0: f64::from(bounds.y),
+                x1: f64::from(bounds.x + bounds.w),
+                y1: f64::from(bounds.y + bounds.h),
+            });
+            Some((NodeId(u64::MAX - notification.id), node))
+        })
     }
 
     fn accessible_role(&self, i: usize) -> Role {
@@ -395,6 +406,12 @@ impl Ui {
                 snapshot.target = Some((node.id.clone(), label));
             }
         }
+        snapshot.content.extend(
+            self.notifications
+                .iter()
+                .filter(|n| n.bounds.is_some())
+                .map(|n| (n.text_id.clone(), n.message.clone())),
+        );
         snapshot
     }
 }

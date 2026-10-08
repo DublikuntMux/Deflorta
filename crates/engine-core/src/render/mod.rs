@@ -29,6 +29,7 @@ struct QuadInstance {
     border_color: [f32; 4],
     params: [f32; 4],
     mask: [f32; 4],
+    radii: [f32; 4],
 }
 
 #[repr(C)]
@@ -358,7 +359,8 @@ impl Renderer {
                     step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &wgpu::vertex_attr_array![
                         0 => Float32x4, 1 => Float32x4, 2 => Float32x4,
-                        3 => Float32x4, 4 => Float32x4, 5 => Float32x4
+                        3 => Float32x4, 4 => Float32x4, 5 => Float32x4,
+                        6 => Float32x4
                     ],
                 })],
             },
@@ -584,7 +586,7 @@ impl Renderer {
             rect: viewport_rect,
             rotation: 0.0,
             color: clear,
-            radius: 0.0,
+            radii: [0.0; 4],
             border_width: 0.0,
             border_color: Color::TRANSPARENT,
             image: None,
@@ -812,7 +814,7 @@ impl Renderer {
         assets: &mut Assets,
         clear: Color,
         #[cfg(feature = "dev-console")] mut console: Option<&mut crate::dev_console::DevConsole>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let layers = self.prepare(items, ui, assets, clear)?;
         #[cfg(feature = "dev-console")]
         if let Some(console) = &mut console {
@@ -837,9 +839,9 @@ impl Renderer {
                     }
                     wgpu::CurrentSurfaceTexture::Timeout => {
                         debug!("Timed out acquiring a frame; skipping it");
-                        return Ok(());
+                        return Ok(false);
                     }
-                    wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
+                    wgpu::CurrentSurfaceTexture::Occluded => return Ok(false),
                     status @ (wgpu::CurrentSurfaceTexture::Outdated
                     | wgpu::CurrentSurfaceTexture::Lost) => {
                         let kind = if matches!(status, wgpu::CurrentSurfaceTexture::Lost) {
@@ -850,7 +852,7 @@ impl Renderer {
                         debug!("Surface {kind}; reconfiguring");
                         surface.configure(&self.device, config);
                         window.request_redraw();
-                        return Ok(());
+                        return Ok(false);
                     }
                     wgpu::CurrentSurfaceTexture::Validation => {
                         anyhow::bail!("surface validation error")
@@ -897,7 +899,7 @@ impl Renderer {
             }
         }
         self.atlas.trim();
-        Ok(())
+        Ok(true)
     }
 
     ///
@@ -1074,14 +1076,17 @@ fn quad_instance(quad: &Quad) -> QuadInstance {
         uv,
         color: quad.color.0,
         border_color: quad.border_color.0,
-        params: [quad.radius, quad.border_width, quad.rotation, invert],
+        params: [quad.border_width, quad.rotation, invert, 0.0],
         mask,
+        radii: quad.radii,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Rect, scissor};
+
+    mod notifications;
 
     #[test]
     #[ignore = "Requires a native GPU adapter"]

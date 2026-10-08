@@ -90,6 +90,7 @@ pub struct Engine {
     thumbnail_names: Vec<String>,
     text_input: bool,
     next_resource_cleanup: Instant,
+    last_presented_frame: Option<Instant>,
 }
 
 impl Engine {
@@ -114,6 +115,7 @@ impl Engine {
                 font: String::new(),
                 version: None,
                 clear_color: None,
+                frame_events: false,
             },
             data_dir: PathBuf::from("."),
             timers: Vec::new(),
@@ -125,6 +127,7 @@ impl Engine {
             thumbnail_names: Vec::new(),
             text_input: false,
             next_resource_cleanup: Instant::now() + RESOURCE_CLEANUP_INTERVAL,
+            last_presented_frame: None,
         };
         engine.flush();
         engine
@@ -349,6 +352,26 @@ impl Engine {
                 }
                 Command::Fullscreen { on } => self.requests.fullscreen = Some(on),
                 Command::SelfVoicing { on } => self.requests.self_voicing = Some(on),
+                Command::Notify {
+                    id,
+                    message,
+                    options,
+                } => {
+                    self.ui.show_notification(id, message, options, now);
+                    self.requests.redraw = true;
+                }
+                Command::UpdateNotification {
+                    id,
+                    message,
+                    options,
+                } => {
+                    self.ui.update_notification(id, message, options, now);
+                    self.requests.redraw = true;
+                }
+                Command::DismissNotification { id } => {
+                    self.ui.dismiss_notification(id);
+                    self.requests.redraw = true;
+                }
                 Command::Quit => {
                     info!("Game requested quit");
                     self.requests.quit = true;
@@ -477,6 +500,9 @@ impl Engine {
     }
 
     pub fn poll(&mut self) {
+        if self.ui.expire_notifications(Instant::now()) {
+            self.requests.redraw = true;
+        }
         if let Some(audio) = &mut self.audio {
             audio.poll();
         }
@@ -501,6 +527,9 @@ impl Engine {
     }
 
     fn set_config(&mut self, config: GameConfig) {
+        if config.frame_events != self.config.frame_events {
+            self.last_presented_frame = None;
+        }
         self.ui
             .set_config(config.width, config.height, &config.font);
         let id: String = config
@@ -832,7 +861,20 @@ impl Engine {
             .unwrap_or(Color([0.0, 0.0, 0.0, 1.0]))
     }
 
-    /// Call after presenting a frame. Returns true if another frame is needed.
+    /// Report a successful window presentation. Headless simulation ticks must
+    /// not call this: they do not submit frames to the GPU.
+    pub fn presented_frame(&mut self, now: Instant) {
+        if !self.config.frame_events {
+            return;
+        }
+        if let Some(previous) = self.last_presented_frame.replace(now) {
+            self.dispatch(&Event::Frame {
+                frame_ms: now.saturating_duration_since(previous).as_secs_f64() * 1000.0,
+            });
+        }
+    }
+
+    /// Call after drawing a frame. Returns true if another frame is needed.
     pub fn after_frame(&mut self, now: Instant) -> bool {
         let (hover_changed, events) = self.ui.refresh_hover();
         self.handle_ui_events(events, "left");
@@ -847,6 +889,6 @@ impl Engine {
                 value: None,
             });
         }
-        hover_changed || animating || self.assets.has_pending()
+        hover_changed || animating || self.assets.has_pending() || self.config.frame_events
     }
 }

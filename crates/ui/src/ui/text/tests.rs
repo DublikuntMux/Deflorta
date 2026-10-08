@@ -111,3 +111,45 @@ fn unkeyed_nodes_keep_their_text_shadow_and_ruby_caches() {
     assert!(text.entry("/root/#1").is_none());
     assert!(text.entry("/root/#1#ruby0").is_none());
 }
+
+#[test]
+fn changing_wrap_and_ellipsis_relayouts_cached_text() {
+    use glyphon::cosmic_text::EllipsizeHeightLimit;
+
+    let game = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+    let mut text = TextSystem::new(&game);
+    let spans = [SpanDesc {
+        text: "initializing_self_voicing".repeat(4),
+        ..SpanDesc::default()
+    }];
+    let style = style();
+    let options = TextOptions {
+        width: Some(100.0),
+        ..TextOptions::default()
+    };
+    let unwrapped = text.prepare("text", &spans, &style, options);
+    let wrapped = text.prepare(
+        "text",
+        &spans,
+        &style,
+        TextOptions {
+            wrap: Wrap::WordOrGlyph,
+            ..options
+        },
+    );
+    assert!(unwrapped.0 > 100.0);
+    assert!(wrapped.0 <= 100.0 && wrapped.1 > unwrapped.1);
+    let ellipsized = text.prepare(
+        "text",
+        &spans,
+        &style,
+        TextOptions {
+            wrap: Wrap::WordOrGlyph,
+            ellipsize: Ellipsize::End(EllipsizeHeightLimit::Lines(2)),
+            ..options
+        },
+    );
+    assert!(ellipsized.0 <= 100.0 && ellipsized.1 < wrapped.1);
+    assert_eq!(text.entry("text").unwrap().buffer.layout_runs().count(), 2);
+    assert_eq!(text.prepare("text", &spans, &style, options), unwrapped);
+}

@@ -1,6 +1,7 @@
 pub mod desc;
 pub mod diagnostics;
 pub mod handler;
+pub mod notification;
 pub mod speech;
 pub mod util;
 pub mod worker;

@@ -55,7 +55,7 @@ impl Ui {
         self.hit_order.clear();
         let mut items = Vec::new();
         if self.nodes.is_empty() {
-            self.draw_self_voicing_status(now, &mut items);
+            self.draw_notifications(now, &mut items);
             return items;
         }
         let ctx = Ctx {
@@ -80,7 +80,7 @@ impl Ui {
         {
             self.focused = None;
         }
-        self.draw_self_voicing_status(now, &mut items);
+        self.draw_notifications(now, &mut items);
         items
     }
 
@@ -221,7 +221,7 @@ impl Ui {
                 rect,
                 rotation,
                 color: color.with_alpha_mul(ctx.opacity),
-                radius: radius * scale,
+                radii: [radius * scale; 4],
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 image: None,
@@ -232,7 +232,7 @@ impl Ui {
         let background = pick_color(|s| s.background);
         if background.is_some() || border_width > 0.0 {
             let mut q = quad(rect, background.unwrap_or(Color::TRANSPARENT), 0.0);
-            q.radius = radius;
+            q.radii = [radius; 4];
             q.border_width = border_width;
             q.border_color = border_color.with_alpha_mul(ctx.opacity);
             items.push(DrawItem::Quad(q));
@@ -265,7 +265,7 @@ impl Ui {
                     let (dest, uv) = fit_image(rect, iw.as_(), ih.as_(), node.desc.fit);
                     let (dest, uv) = crop(dest, uv, crop_rect);
                     let mut q = quad(dest, Color::WHITE, 0.0);
-                    q.radius = radius;
+                    q.radii = [radius; 4];
                     q.image = Some(ImageRef { src, uv, frame });
                     items.push(DrawItem::Quad(q));
                 }
@@ -390,7 +390,7 @@ impl Ui {
                 rect: r,
                 rotation,
                 color: color.with_alpha_mul(parent.opacity),
-                radius: bar_w / 2.0 * xf.scale(),
+                radii: [bar_w / 2.0 * xf.scale(); 4],
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 image: None,
@@ -493,7 +493,7 @@ impl Ui {
                 },
                 rotation: 0.0,
                 color: color.with_alpha_mul(opacity),
-                radius: 0.0,
+                radii: [0.0; 4],
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 image: None,
@@ -527,7 +527,7 @@ impl Ui {
                 },
                 rotation: 0.0,
                 color: d.color.map_or(color, |color| color.with_alpha_mul(opacity)),
-                radius: 0.0,
+                radii: [0.0; 4],
                 border_width: 0.0,
                 border_color: Color::TRANSPARENT,
                 image: None,

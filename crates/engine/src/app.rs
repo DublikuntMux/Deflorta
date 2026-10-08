@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use deflorta_common::notification::{
+    NotificationId, NotificationOptions, NotificationState, next_notification_id,
+};
 use gilrs::{Axis, Button, EventType, Gilrs};
 use log::{debug, error, info, warn};
 use num_traits::AsPrimitive;
@@ -52,6 +55,7 @@ pub struct App {
     accessibility_tree: Option<accesskit::TreeUpdate>,
     proxy: EventLoopProxy<AppEvent>,
     self_voicing: crate::self_voicing::SelfVoicing,
+    self_voicing_notification: Option<NotificationId>,
     #[cfg(feature = "dev-console")]
     console: Option<crate::dev_console::DevConsole>,
     #[cfg(feature = "dev-console")]
@@ -101,6 +105,7 @@ impl App {
             accessibility_tree: None,
             proxy,
             self_voicing,
+            self_voicing_notification: None,
             #[cfg(feature = "dev-console")]
             console: None,
             #[cfg(feature = "dev-console")]
@@ -171,9 +176,7 @@ impl App {
         }
         if let Some(on) = requests.self_voicing {
             self.self_voicing.set_enabled(on);
-            self.engine
-                .ui
-                .set_self_voicing_initializing(self.self_voicing.initializing());
+            self.sync_self_voicing_notification();
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
@@ -219,6 +222,26 @@ impl App {
         }
     }
 
+    fn sync_self_voicing_notification(&mut self) {
+        if self.self_voicing.initializing() && self.self_voicing_notification.is_none() {
+            let id = next_notification_id();
+            self.engine.ui.show_notification(
+                id,
+                "Enabling self-voicing…".into(),
+                NotificationOptions {
+                    state: NotificationState::Loading,
+                    duration: None,
+                },
+                Instant::now(),
+            );
+            self.self_voicing_notification = Some(id);
+        } else if !self.self_voicing.initializing()
+            && let Some(id) = self.self_voicing_notification.take()
+        {
+            self.engine.ui.dismiss_notification(id);
+        }
+    }
+
     fn redraw(&mut self) {
         #[cfg(feature = "dev-console")]
         let frame_started = Instant::now();
@@ -248,15 +271,18 @@ impl App {
         }
         let clear = self.engine.clear_color();
         let size = renderer.size();
-        if let Err(err) = renderer.render(
+        let rendered = renderer.render(
             items,
             &mut self.engine.ui,
             &mut self.engine.assets,
             clear,
             #[cfg(feature = "dev-console")]
             self.console.as_mut(),
-        ) {
-            error!("Render failed: {err:#}");
+        );
+        match rendered {
+            Ok(true) => self.engine.presented_frame(Instant::now()),
+            Ok(false) => {}
+            Err(err) => error!("Render failed: {err:#}"),
         }
         #[cfg(feature = "dev-console")]
         if let Some(console) = &mut self.console {
@@ -617,9 +643,7 @@ impl ApplicationHandler<AppEvent> for App {
             return;
         }
         if self.self_voicing.retry_initialization() {
-            self.engine
-                .ui
-                .set_self_voicing_initializing(self.self_voicing.initializing());
+            self.sync_self_voicing_notification();
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
@@ -644,6 +668,7 @@ impl ApplicationHandler<AppEvent> for App {
         match [
             self.engine.next_timer(),
             self.engine.next_loading_deadline(),
+            self.engine.ui.next_notification_deadline(),
             Some(self.engine.next_resource_cleanup()),
             polling,
             self.self_voicing.next_retry(),

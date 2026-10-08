@@ -1,9 +1,7 @@
 import {
-  clearTimer,
   config,
   native,
   on,
-  setTimer,
   storage,
 } from "deflorta/core";
 import {
@@ -24,10 +22,10 @@ import {
   screenProps,
   showScreen,
   theme,
-  useEffect,
   useState,
 } from "deflorta/ui";
 import { _ } from "deflorta/text";
+import { notify } from "deflorta/notifications";
 import {
   AUTOSAVE_SLOTS,
   INSTANT_SPEED,
@@ -1041,46 +1039,8 @@ screen(
   { z: 200, modal: true, keys: { Escape: () => hideScreen("confirm") } },
 );
 
-let noticeId = 0;
-
-export function notify(message, seconds = 2) {
-  showScreen("notify", { message, seconds, noticeId: ++noticeId });
-}
-
-setNoticeHandler((message) => notify(message, 4));
+setNoticeHandler((message) => notify(message, { state: "error", duration: 4 }));
 setQuickNotice((message) => notify(message));
-
-screen(
-  "notify",
-  ({ message, seconds, noticeId }) => {
-    useEffect(() => {
-      const timer = setTimer((seconds ?? 2) * 1000, () => hideScreen("notify"));
-      return () => clearTimer(timer);
-    }, [noticeId, seconds]);
-    return (
-      <View
-        key="notify"
-        live
-        enter={{ dur: 0.2, opacity: 0, y: -10 }}
-        exit={{ dur: 0.3, opacity: 0 }}
-        style={{
-          position: "absolute",
-          top: 24,
-          right: 24,
-          maxWidth: 520,
-          padding: [12, 20],
-          radius: 10,
-          background: "#1c1a28ee",
-          borderWidth: 1,
-          borderColor: theme.accent,
-        }}
-      >
-        <Text style={{ fontSize: 19, color: "#ffffff" }}>{message}</Text>
-      </View>
-    );
-  },
-  { z: 500 },
-);
 
 screen(
   "tooltip",
