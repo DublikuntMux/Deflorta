@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::ffi::CStr;
-use std::path::PathBuf;
 
 use anyhow::{Result, bail};
 use log::Level;
@@ -9,7 +8,6 @@ use mozjs::gc::{Handle, MutableHandle, RootedTraceableBox};
 use mozjs::jsapi::{self, CallArgs, Heap, JSObject, Value};
 use mozjs::jsval::ObjectValue;
 use mozjs::rooted;
-use num_traits::ToPrimitive;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +50,9 @@ pub enum Event<'a> {
     },
     Timer {
         id: u64,
+    },
+    StorageError {
+        message: String,
     },
 }
 
@@ -165,13 +166,6 @@ struct CommitOptions {
     instant: bool,
     #[serde(default)]
     exits: HashMap<String, Option<AnimDesc>>,
-}
-
-#[derive(Serialize)]
-struct DataEntry {
-    name: String,
-    /// Milliseconds since the Unix epoch.
-    modified: u64,
 }
 
 type Native = unsafe extern "C" fn(*mut RawJSContext, u32, *mut Value) -> bool;
@@ -371,30 +365,25 @@ native! {
 
     fn storage_read(args) {
         let name: String = args.get(0)?;
-        Ok(data_path(&name).and_then(|path| std::fs::read_to_string(path).ok()))
+        Ok(with_state(|s| s.storage.as_ref().and_then(|storage| storage.read(&name))))
     }
 
     fn storage_write(args) {
         let name: String = args.get(0)?;
         let text: String = args.get(1)?;
-        let Some(path) = data_path(&name) else {
-            bail!("storage.write: invalid name '{name}' or data directory not configured");
-        };
-        let tmp = path.with_extension("json.tmp");
-        path.parent()
-            .map_or(Ok(()), std::fs::create_dir_all)
-            .and_then(|()| std::fs::write(&tmp, text))
-            .and_then(|()| std::fs::rename(&tmp, &path))
-            .map_err(|err| anyhow::anyhow!("storage.write failed: {err}"))
+        with_state(|s| {
+            s.storage.as_mut().ok_or_else(|| anyhow::anyhow!("storage not configured"))?
+                .write(name, text)
+        })
     }
 
     fn storage_remove(args) {
         let name: String = args.get(0)?;
-        Ok(data_path(&name).is_some_and(|path| std::fs::remove_file(path).is_ok()))
+        with_state(|s| s.storage.as_mut().map_or(Ok(false), |storage| storage.remove(&name)))
     }
 
     fn storage_list(_args) {
-        Ok(list_data())
+        Ok(with_state(|s| s.storage.as_ref().map_or_else(Vec::new, crate::storage::Storage::list)))
     }
 
     fn timers_set(args) {
@@ -514,49 +503,4 @@ unsafe fn commit(args: &Args) -> Result<()> {
         });
     }
     Ok(())
-}
-
-fn is_valid_data_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= 64
-        && name
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
-}
-
-fn data_path(name: &str) -> Option<PathBuf> {
-    if !is_valid_data_name(name) {
-        return None;
-    }
-    with_state(|s| s.data_dir.as_ref().map(|d| d.join(format!("{name}.json"))))
-}
-
-fn list_data() -> Vec<DataEntry> {
-    let mut entries = Vec::new();
-    let Some(dir) = with_state(|s| s.data_dir.clone()) else {
-        return entries;
-    };
-    let Ok(read) = std::fs::read_dir(dir) else {
-        return entries;
-    };
-    for entry in read.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("json") {
-            continue;
-        }
-        let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        let modified = entry
-            .metadata()
-            .and_then(|m| m.modified())
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map_or(0, |d| d.as_millis().to_u64().unwrap_or(u64::MAX));
-        entries.push(DataEntry {
-            name: name.to_owned(),
-            modified,
-        });
-    }
-    entries
 }

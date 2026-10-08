@@ -14,9 +14,11 @@ mod media;
 mod render;
 mod script;
 mod self_voicing;
+mod storage;
 mod ui;
 mod util;
 mod video;
+mod worker;
 
 use std::path::Path;
 use std::time::Instant;
@@ -77,7 +79,7 @@ fn data_dir() -> std::path::PathBuf {
 fn run_with_event_loop(
     files: GameFiles,
     test_script: Option<&Path>,
-    mut builder: winit::event_loop::EventLoopBuilder<accesskit_winit::Event>,
+    mut builder: winit::event_loop::EventLoopBuilder<app::AppEvent>,
 ) -> Result<()> {
     info!(
         "Deflorta {} on {}/{}, game {}, {} mode",

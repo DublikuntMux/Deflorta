@@ -94,6 +94,9 @@ Asset decoding and video
 
 Images decode on a background pool. An incoming tree waits up to 1.5 seconds
 for image decoding before display, so transitions can begin with their images.
+Workers wake the window event loop after publishing a result; loading does
+not require periodic polling. Explicit deadlines preserve the image wait
+limit and thumbnail settling timeout. Connected gamepads still poll for input.
 ``preload()`` decodes early. Unused textures expire after 60 seconds;
 see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
@@ -103,12 +106,23 @@ soundtracks play through kira. Format limits are in
 :doc:`../reference/assets`. Both directories and archives provide seekable
 media reads through the shared file abstraction.
 
+Sound effects decode on an audio-loading worker. Music, voice, and video
+soundtracks are opened and prepared there too, including Kira's initial
+decoder seek. Playback handles and track controls stay on the event thread.
+Stopping or replacing a pending stream invalidates its result, and video
+soundtracks start at the video's elapsed position after loading.
+
 Save thumbnails and headless rendering
 --------------------------------------
 
 Opening the game menu or quick-saving requests an offscreen render of the
 current tree before the menu appears. The capture is downscaled and written
 beside the save when saving occurs.
+PNG encoding, atomic writes, and deletion run on the same ordered storage
+worker as JSON saves. Completion invalidates cached thumbnail textures and
+releases image requests waiting for their file to be ready. Failed writes
+also release these waits. Shutdown drains queued saves and thumbnails before
+returning; Android suspension flushes them before yielding to the OS.
 
 The headless front end uses the same engine with an offscreen renderer and
 scripted input. It captures screenshots without a window; see

@@ -9,6 +9,7 @@
 /android/local.properties
 /docs/.venv/
 /docs/_build/
+/.deflorta-dist-*
 
 __pycache__
 Thumbs.db

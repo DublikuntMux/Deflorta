@@ -132,6 +132,8 @@ function dispatch(event) {
       const fn = timers.get(event.id);
       timers.delete(event.id);
       fn?.();
+    } else if (event.type === "storageError") {
+      reportError(new Error(event.message));
     } else {
       emit(event.type, event);
     }

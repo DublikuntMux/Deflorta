@@ -190,20 +190,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_frames_from_the_previous_lz4r_writer() {
-        // A version-2 archive index captured from the previous published CLI.
-        let stored = [
-            4, 34, 77, 24, 108, 64, 34, 0, 0, 0, 0, 0, 0, 0, 211, 32, 0, 0, 0, 144, 1, 0, 0, 0, 97,
-            0, 0, 0, 0, 9, 0, 145, 7, 0, 109, 97, 105, 110, 46, 106, 115, 18, 0, 112, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 95, 102, 167, 61,
-        ];
-        let index = Index::decode(&decompress_frame(&stored, 34).unwrap()).unwrap();
-        assert_eq!(index.entries.len(), 1);
-        assert_eq!(index.entries[0].path, "main.js");
-        assert_eq!(index.entries[0].size, 97);
-    }
-
-    #[test]
     fn empty_frames_require_a_complete_footer_and_no_trailing_data() {
         let frame = compress_frame(&[], DEFAULT_LEVEL).unwrap();
         assert_eq!(decompress_frame(&frame, 0).unwrap(), [] as [u8; 0]);

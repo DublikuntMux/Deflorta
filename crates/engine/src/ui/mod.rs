@@ -177,6 +177,11 @@ pub struct Ui {
 }
 
 impl Ui {
+    pub fn assets_changed(&mut self) {
+        self.invalidate_measurements();
+        self.layout_dirty = true;
+    }
+
     pub fn new(text: TextSystem) -> Self {
         Self {
             nodes: Vec::new(),
@@ -704,8 +709,10 @@ impl Ui {
     }
 
     /// Sources of the videos currently on screen (their audio is played by the engine).
-    pub fn video_sources(&self) -> impl Iterator<Item = (&str, bool)> {
-        self.videos.values().map(|v| (v.src(), v.looping()))
+    pub fn video_sources(&self) -> impl Iterator<Item = (&str, bool, Instant)> {
+        self.videos
+            .values()
+            .map(|v| (v.src(), v.looping(), v.started()))
     }
 
     pub fn prune(&mut self, now: Instant) {

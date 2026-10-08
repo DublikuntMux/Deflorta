@@ -33,6 +33,8 @@ use mozjs::rust::{
 };
 
 use crate::files::GameFiles;
+use crate::storage::{Storage, StorageUpdates};
+use crate::worker::{WakeCallback, WorkerWake};
 pub use deflorta_data::{is_builtin_module, resolve_specifier};
 
 macro_rules! runtime_module {
@@ -57,7 +59,8 @@ const BOOT_MODULE: &str = "import \"deflorta\";\nimport \"./main.js\";\n";
 
 struct HostState {
     files: GameFiles,
-    data_dir: Option<PathBuf>,
+    storage: Option<Storage>,
+    wake: WorkerWake,
     modules: HashMap<String, RootedTraceableBox<Heap<*mut JSObject>>>,
     load_error: Option<String>,
     entry_points: Option<[RootedTraceableBox<Heap<Value>>; 2]>,
@@ -107,7 +110,8 @@ impl ScriptHost {
         STATE.with(|s| {
             *s.borrow_mut() = Some(HostState {
                 files,
-                data_dir: None,
+                storage: None,
+                wake: WorkerWake::default(),
                 modules: HashMap::new(),
                 load_error: None,
                 entry_points: None,
@@ -305,7 +309,41 @@ impl ScriptHost {
 
     pub fn set_data_dir(dir: PathBuf) {
         info!("User data directory: {}", dir.display());
-        with_state(|s| s.data_dir = Some(dir));
+        with_state(|s| {
+            if s.storage.as_ref().is_some_and(|storage| storage.dir == dir) {
+                return;
+            }
+            s.storage.take();
+            s.storage = Some(Storage::new(dir, s.wake.clone()));
+        });
+    }
+
+    pub fn set_waker(callback: WakeCallback) {
+        with_state(|s| s.wake.set(callback));
+    }
+
+    pub fn poll_storage() -> StorageUpdates {
+        with_state(|s| {
+            s.storage
+                .as_mut()
+                .map_or_else(StorageUpdates::default, Storage::poll)
+        })
+    }
+
+    pub fn flush_storage() -> Result<()> {
+        with_state(|s| s.storage.as_ref().map_or(Ok(()), Storage::flush))
+    }
+
+    pub fn save_thumbnail(
+        path: PathBuf,
+        image: Option<std::sync::Arc<image::RgbaImage>>,
+    ) -> Result<()> {
+        with_state(|s| {
+            s.storage
+                .as_ref()
+                .ok_or_else(|| anyhow!("storage not configured"))?
+                .thumbnail(path, image)
+        })
     }
 
     unsafe fn call_entry_point(&mut self, which: usize, arg: Option<Handle<Value>>) -> Result<()> {

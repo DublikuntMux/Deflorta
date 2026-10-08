@@ -1,11 +1,11 @@
+mod loader;
 mod webm;
 
 use std::collections::HashMap;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use kira::sound::FromFileError;
-use kira::sound::static_sound::StaticSoundData;
-use kira::sound::streaming::{StreamingSoundData, StreamingSoundHandle};
+use kira::sound::streaming::StreamingSoundData;
 use kira::track::{TrackBuilder, TrackHandle};
 use kira::{AudioManager, AudioManagerSettings, Decibels, DefaultBackend, Tween};
 
@@ -13,8 +13,10 @@ use log::{debug, info, warn};
 
 use crate::assets::Assets;
 use crate::files::GameFiles;
+use crate::worker::WakeCallback;
+use loader::{AudioLoader, LoadKind, LoadedSound, StreamHandle};
 
-type Stream = StreamingSoundHandle<FromFileError>;
+type Stream = StreamHandle;
 
 fn open_stream(
     files: &GameFiles,
@@ -37,6 +39,10 @@ pub struct Audio {
     music: Option<(String, Stream)>,
     voice: Option<Stream>,
     videos: HashMap<String, Stream>,
+    loader: AudioLoader,
+    music_request: Option<u64>,
+    voice_request: Option<u64>,
+    video_requests: HashMap<String, u64>,
     #[cfg(feature = "dev-console")]
     voice_source: Option<String>,
     #[cfg(feature = "dev-console")]
@@ -58,31 +64,11 @@ fn decibels(volume: f32) -> Decibels {
     }
 }
 
-fn stream(
-    assets: &Assets,
-    file: &str,
-    looped: bool,
-    volume: f32,
-    fade_in: f32,
-) -> Option<StreamingSoundData<FromFileError>> {
-    let path = assets.game_path(file)?;
-    let mut data = match open_stream(assets.files(), &path) {
-        Ok(data) => data.volume(decibels(volume)),
-        Err(err) => {
-            warn!("Cannot play '{file}': {err}");
-            return None;
-        }
-    };
-    if looped {
-        data = data.loop_region(..);
-    }
-    if fade_in > 0.0 {
-        data = data.fade_in_tween(tween(fade_in));
-    }
-    Some(data)
-}
-
 impl Audio {
+    pub fn set_waker(&self, callback: WakeCallback) {
+        self.loader.set_waker(callback);
+    }
+
     #[cfg(target_os = "android")]
     pub fn set_suspended(&mut self, suspended: bool) {
         for track in [
@@ -121,6 +107,10 @@ impl Audio {
             music: None,
             voice: None,
             videos: HashMap::new(),
+            loader: AudioLoader::new(),
+            music_request: None,
+            voice_request: None,
+            video_requests: HashMap::new(),
             #[cfg(feature = "dev-console")]
             voice_source: None,
             #[cfg(feature = "dev-console")]
@@ -137,26 +127,35 @@ impl Audio {
         fade_in: f32,
         fade_out: f32,
     ) {
-        if let (Some((current, _)), Some(file)) = (&self.music, file)
-            && current == file
-        {
+        if file.is_some_and(|file| {
+            self.music
+                .as_ref()
+                .is_some_and(|(current, _)| current == file)
+                || self.music_request.and_then(|id| self.loader.source(id)) == Some(file)
+        }) {
             return;
         }
-        if let Some((previous, mut handle)) = self.music.take() {
+        if let Some(id) = self.music_request.take() {
+            self.loader.cancel(id);
+        }
+        if let Some((previous, handle)) = self.music.take() {
             debug!("Stopping music '{previous}' (fade out {fade_out}s)");
             handle.stop(tween(fade_out));
         }
         let Some(file) = file else { return };
-        let Some(data) = stream(assets, file, looped, volume, fade_in) else {
+        let Some(path) = assets.game_path(file) else {
             return;
         };
-        match self.music_track.play(data) {
-            Ok(handle) => {
-                info!("Playing music '{file}' (loop: {looped}, fade in {fade_in}s)");
-                self.music = Some((file.to_owned(), handle));
-            }
-            Err(err) => warn!("Cannot play music '{file}': {err}"),
-        }
+        self.music_request = self.loader.request(
+            assets.files().clone(),
+            path,
+            file,
+            LoadKind::Music {
+                looped,
+                volume,
+                fade_in,
+            },
+        );
     }
 
     pub fn play_sound(&mut self, assets: &Assets, file: &str, volume: f32) {
@@ -166,61 +165,50 @@ impl Audio {
         let Some(path) = assets.game_path(file) else {
             return;
         };
-        let result = assets
-            .files()
-            .open_file(&path)
-            .map_err(|e| e.to_string())
-            .and_then(|reader| {
-                StaticSoundData::from_media_source(reader).map_err(|e| e.to_string())
-            })
-            .and_then(|data| {
-                self.sound_track
-                    .play(data.volume(decibels(volume)))
-                    .map(|handle| {
-                        #[cfg(feature = "dev-console")]
-                        self.sounds.push((file.to_owned(), handle));
-                        #[cfg(not(all(feature = "dev-console")))]
-                        drop(handle);
-                    })
-                    .map_err(|e| e.to_string())
-            });
-        match result {
-            Ok(()) => debug!("Playing sound '{file}'"),
-            Err(err) => warn!("Cannot play sound '{file}': {err}"),
-        }
+        self.loader.request(
+            assets.files().clone(),
+            path,
+            file,
+            LoadKind::Sound { volume },
+        );
     }
 
     pub fn play_voice(&mut self, assets: &Assets, file: Option<&str>) {
+        if let Some(id) = self.voice_request.take() {
+            self.loader.cancel(id);
+        }
         #[cfg(feature = "dev-console")]
         {
             self.voice_source = None;
         }
-        if let Some(mut handle) = self.voice.take() {
+        if let Some(handle) = self.voice.take() {
             handle.stop(tween(0.05));
         }
         let Some(file) = file else { return };
-        let Some(data) = stream(assets, file, false, 1.0, 0.0) else {
+        let Some(path) = assets.game_path(file) else {
             return;
         };
-        match self.voice_track.play(data) {
-            Ok(handle) => {
-                debug!("Playing voice '{file}'");
-                self.voice = Some(handle);
-                #[cfg(feature = "dev-console")]
-                {
-                    self.voice_source = Some(file.to_owned());
-                }
-            }
-            Err(err) => warn!("Cannot play voice '{file}': {err}"),
-        }
+        self.voice_request =
+            self.loader
+                .request(assets.files().clone(), path, file, LoadKind::Voice);
     }
 
     pub fn sync_videos<'a>(
         &mut self,
         assets: &Assets,
-        playing: impl Iterator<Item = (&'a str, bool)>,
+        playing: impl Iterator<Item = (&'a str, bool, Instant)>,
     ) {
-        let playing: HashMap<&str, bool> = playing.collect();
+        let playing: HashMap<&str, (bool, Instant)> = playing
+            .map(|(source, looped, started)| (source, (looped, started)))
+            .collect();
+        self.video_requests.retain(|src, id| {
+            if playing.contains_key(src.as_str()) {
+                true
+            } else {
+                self.loader.cancel(*id);
+                false
+            }
+        });
         self.videos.retain(|src, handle| {
             let keep = playing.contains_key(src.as_str());
             if !keep {
@@ -229,24 +217,89 @@ impl Audio {
             }
             keep
         });
-        for (src, looped) in playing {
-            if self.videos.contains_key(src) {
+        for (src, (looped, started)) in playing {
+            if self.videos.contains_key(src) || self.video_requests.contains_key(src) {
                 continue;
             }
             let Some(path) = assets.game_path(src) else {
                 continue;
             };
-            let data = match open_stream(assets.files(), &path) {
+            if let Some(id) = self.loader.request(
+                assets.files().clone(),
+                path,
+                src,
+                LoadKind::Video { looped, started },
+            ) {
+                self.video_requests.insert(src.to_owned(), id);
+            }
+        }
+    }
+
+    pub fn poll(&mut self) {
+        for (request, data) in self.loader.poll() {
+            let source = &request.source;
+            match request.kind {
+                LoadKind::Music { .. } => self.music_request = None,
+                LoadKind::Voice => self.voice_request = None,
+                LoadKind::Video { .. } => {
+                    self.video_requests.remove(source);
+                }
+                LoadKind::Sound { .. } => {}
+            }
+            let data = match data {
                 Ok(data) => data,
-                Err(err) => {
-                    debug!("Video '{src}' has no playable soundtrack: {err}");
+                Err(error) => {
+                    if matches!(request.kind, LoadKind::Video { .. }) {
+                        debug!("Video '{source}' has no playable soundtrack: {error}");
+                    } else {
+                        warn!("Cannot load audio '{source}': {error}");
+                    }
                     continue;
                 }
             };
-            let data = if looped { data.loop_region(..) } else { data };
-            if let Ok(handle) = self.music_track.play(data) {
-                debug!("Playing soundtrack of video '{src}'");
-                self.videos.insert(src.to_owned(), handle);
+            match (request.kind, data) {
+                (
+                    LoadKind::Music {
+                        looped, fade_in, ..
+                    },
+                    LoadedSound::Stream(data),
+                ) => match self.music_track.play(data) {
+                    Ok(handle) => {
+                        info!("Playing music '{source}' (loop: {looped}, fade in {fade_in}s)");
+                        self.music = Some((source.clone(), handle));
+                    }
+                    Err(error) => warn!("Cannot play music '{source}': {error}"),
+                },
+                (LoadKind::Voice, LoadedSound::Stream(data)) => match self.voice_track.play(data) {
+                    Ok(handle) => {
+                        debug!("Playing voice '{source}'");
+                        self.voice = Some(handle);
+                        #[cfg(feature = "dev-console")]
+                        {
+                            self.voice_source = Some(source.clone());
+                        }
+                    }
+                    Err(error) => warn!("Cannot play voice '{source}': {error}"),
+                },
+                (LoadKind::Sound { volume }, LoadedSound::Static(data)) => {
+                    match self.sound_track.play((*data).volume(decibels(volume))) {
+                        Ok(handle) => {
+                            debug!("Playing sound '{source}'");
+                            #[cfg(feature = "dev-console")]
+                            self.sounds.push((source.clone(), handle));
+                            #[cfg(not(feature = "dev-console"))]
+                            drop(handle);
+                        }
+                        Err(error) => warn!("Cannot play sound '{source}': {error}"),
+                    }
+                }
+                (LoadKind::Video { .. }, LoadedSound::Stream(data)) => {
+                    if let Ok(handle) = self.music_track.play(data) {
+                        debug!("Playing soundtrack of video '{source}'");
+                        self.videos.insert(source.clone(), handle);
+                    }
+                }
+                _ => unreachable!("audio loader returns the requested sound type"),
             }
         }
     }
@@ -291,21 +344,34 @@ impl Audio {
 
     #[cfg(feature = "dev-console")]
     pub fn unload(&mut self, source: &str) -> bool {
-        let mut released = if self.music.as_ref().is_some_and(|(src, _)| src == source) {
-            let (_, mut handle) = self.music.take().unwrap();
+        let mut released = self.loader.cancel_source(source);
+        if self
+            .music_request
+            .is_some_and(|id| self.loader.source(id).is_none())
+        {
+            self.music_request = None;
+        }
+        if self
+            .voice_request
+            .is_some_and(|id| self.loader.source(id).is_none())
+        {
+            self.voice_request = None;
+        }
+        self.video_requests
+            .retain(|_, id| self.loader.source(*id).is_some());
+        if self.music.as_ref().is_some_and(|(src, _)| src == source) {
+            let (_, handle) = self.music.take().unwrap();
             handle.stop(tween(0.0));
-            true
-        } else {
-            false
-        };
+            released = true;
+        }
         if self.voice_source.as_deref() == Some(source) {
-            if let Some(mut handle) = self.voice.take() {
+            if let Some(handle) = self.voice.take() {
                 handle.stop(tween(0.0));
                 released = true;
             }
             self.voice_source = None;
         }
-        if let Some(mut handle) = self.videos.remove(source) {
+        if let Some(handle) = self.videos.remove(source) {
             handle.stop(tween(0.0));
             released = true;
         }
@@ -324,7 +390,7 @@ impl Audio {
     pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
         use crate::dev_console::diagnostics::LoadedAsset;
         use kira::sound::PlaybackState;
-        let mut assets = Vec::new();
+        let mut assets = self.loader.loaded_assets();
         let mut add = |kind, source: &str, state| {
             if state != PlaybackState::Stopped {
                 assets.push(LoadedAsset {

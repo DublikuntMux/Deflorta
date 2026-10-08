@@ -93,6 +93,7 @@ fn story_lifecycle_timers_and_active_translations_regressions() {
     check_checkpoint_cancellation(&mut host);
     check_modal_progression(&mut host);
     check_active_translations(&mut host);
+    drop(host);
     std::fs::remove_dir_all(directory).unwrap();
 }
 
@@ -426,6 +427,7 @@ fn self_voicing_toggle_works_in_modal_screens_and_persists() {
             .iter()
             .any(|c| matches!(c, Command::SelfVoicing { on: true }))
     );
+    ScriptHost::flush_storage().unwrap();
     let prefs: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(directory.join("prefs.json")).unwrap())
             .unwrap();
@@ -438,10 +440,12 @@ fn self_voicing_toggle_works_in_modal_screens_and_persists() {
             .iter()
             .any(|c| matches!(c, Command::SelfVoicing { on: false }))
     );
+    ScriptHost::flush_storage().unwrap();
     let prefs: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(directory.join("prefs.json")).unwrap())
             .unwrap();
     assert_eq!(prefs["selfVoicing"], false);
+    drop(host);
     std::fs::remove_dir_all(directory).unwrap();
 }
 

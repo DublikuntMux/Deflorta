@@ -125,6 +125,7 @@ pub fn run(mut engine: Engine, script: &Path) -> Result<()> {
     }
     engine.quit();
     handle_requests(&mut engine, &mut renderer);
+    engine.flush_storage();
     info!("Test script finished in {:.1?}", started.elapsed());
     Ok(())
 }
@@ -160,6 +161,9 @@ fn save_screenshot(engine: &mut Engine, renderer: &mut Renderer, path: &Path) ->
 /// Serves engine requests; returns true when the game asked to quit.
 fn handle_requests(engine: &mut Engine, renderer: &mut Renderer) -> bool {
     let requests = engine.take_requests();
+    for source in &requests.unload_textures {
+        renderer.unload_texture(source);
+    }
     if requests.capture {
         let items = engine.frame(Instant::now());
         let clear = engine.clear_color();

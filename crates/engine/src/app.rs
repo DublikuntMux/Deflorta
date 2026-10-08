@@ -16,11 +16,22 @@ use winit::window::{Fullscreen, Window, WindowId};
 use crate::engine::{Engine, KeyModifiers};
 use crate::render::Renderer;
 
-/// Polling interval while gamepads are connected or images are decoding.
+/// Polling interval while gamepads are connected.
 const POLL_INTERVAL: Duration = Duration::from_millis(16);
 
 /// Stick deflection that counts as a direction press.
 const STICK_THRESHOLD: f32 = 0.6;
+
+pub enum AppEvent {
+    Accessibility(accesskit_winit::Event),
+    WorkerReady,
+}
+
+impl From<accesskit_winit::Event> for AppEvent {
+    fn from(event: accesskit_winit::Event) -> Self {
+        Self::Accessibility(event)
+    }
+}
 
 pub struct App {
     engine: Engine,
@@ -39,7 +50,7 @@ pub struct App {
     accessibility: Option<accesskit_winit::Adapter>,
     accessibility_active: bool,
     accessibility_tree: Option<accesskit::TreeUpdate>,
-    proxy: EventLoopProxy<accesskit_winit::Event>,
+    proxy: EventLoopProxy<AppEvent>,
     self_voicing: crate::self_voicing::SelfVoicing,
     #[cfg(feature = "dev-console")]
     console: Option<crate::dev_console::DevConsole>,
@@ -48,7 +59,11 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(engine: Engine, proxy: EventLoopProxy<accesskit_winit::Event>) -> Self {
+    pub fn new(engine: Engine, proxy: EventLoopProxy<AppEvent>) -> Self {
+        let worker_proxy = proxy.clone();
+        engine.set_waker(Arc::new(move || {
+            let _ = worker_proxy.send_event(AppEvent::WorkerReady);
+        }));
         let gamepads = Gilrs::new()
             .map_err(|e| warn!("Gamepads unavailable: {e}"))
             .ok();
@@ -144,6 +159,11 @@ impl App {
                 .sync(event_loop.android_app(), &mut self.engine);
         }
         let requests = self.engine.take_requests();
+        if let Some(renderer) = &mut self.renderer {
+            for source in &requests.unload_textures {
+                renderer.unload_texture(source);
+            }
+        }
         if let Some(on) = requests.self_voicing {
             self.self_voicing.set_enabled(on);
             if let Some(window) = &self.window {
@@ -405,8 +425,13 @@ fn key_name(key: &Key) -> Option<String> {
     }
 }
 
-impl ApplicationHandler<accesskit_winit::Event> for App {
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+impl ApplicationHandler<AppEvent> for App {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
+        let AppEvent::Accessibility(event) = event else {
+            self.engine.poll();
+            self.handle_requests(event_loop);
+            return;
+        };
         if self
             .window
             .as_ref()
@@ -558,6 +583,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             self.android_ime = crate::android_ime::AndroidIme::default();
             self.self_voicing.suspend();
             self.engine.set_suspended(true);
+            // Android may kill a suspended process without calling exiting().
+            self.engine.flush_storage();
             self.accessibility = None;
             self.accessibility_tree = None;
             self.accessibility_active = false;
@@ -571,6 +598,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        self.engine.flush_storage();
         info!("Event loop exiting");
     }
 
@@ -594,8 +622,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         }
         self.handle_requests(event_loop);
         self.engine.idle();
-        let polling = (self.engine.is_loading() || self.has_gamepads())
-            .then(|| Instant::now() + POLL_INTERVAL);
+        let polling = self.has_gamepads().then(|| Instant::now() + POLL_INTERVAL);
         #[cfg(feature = "dev-console")]
         let console_refresh =
             if let (Some(console), Some(window)) = (&mut self.console, &self.window) {
@@ -605,6 +632,7 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             };
         match [
             self.engine.next_timer(),
+            self.engine.next_loading_deadline(),
             Some(self.engine.next_resource_cleanup()),
             polling,
             self.self_voicing.next_retry(),

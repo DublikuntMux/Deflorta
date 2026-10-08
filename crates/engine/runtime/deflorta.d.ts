@@ -48,8 +48,11 @@ declare module "deflorta" {
 
   /** Per-game JSON storage in the user data directory. Names: letters, digits, `-`, `_`. */
   export const storage: {
+    /** Reads the session snapshot, including queued writes. */
     read<T = unknown>(name: string): T | null;
+    /** Queues atomic disk persistence; failures report through the error event. */
     write(name: string, value: unknown): void;
+    /** Removes a snapshot entry and queues deletion; returns whether it existed. */
     remove(name: string): boolean;
     list(): StorageEntry[];
   };
@@ -112,7 +115,7 @@ declare module "deflorta" {
     error: unknown;
   }
 
-  export type EngineEvent = EngineEvents[Exclude<keyof EngineEvents, "backgroundClick" | "error">] | TimerEvent;
+  export type EngineEvent = EngineEvents[Exclude<keyof EngineEvents, "backgroundClick" | "error">] | TimerEvent | { type: "storageError"; message: string };
 
   /**
    * Subscribes to an engine event. Returning `true` stops later listeners.
@@ -129,8 +132,11 @@ declare module "deflorta" {
     connect(dispatch: (event: EngineEvent) => void, flush: () => void): void;
     files: { readText(path: string): string | null };
     storage: {
+      /** Reads the session snapshot, including queued writes. */
       read(name: string): string | null;
+      /** Queues atomic disk persistence; failures report through the error event. */
       write(name: string, text: string): void;
+      /** Removes a snapshot entry and queues deletion; returns whether it existed. */
       remove(name: string): boolean;
       list(): StorageEntry[];
     };

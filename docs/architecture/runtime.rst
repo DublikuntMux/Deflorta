@@ -42,6 +42,8 @@ property atoms; unknown fields are skipped without reading their values.
 
 Rust-to-JavaScript events include ``boot``, ``click``, ``handler``, ``key``,
 ``wheel``, ``tooltip``, ``timer``, ``revealed``, and ``quit``.
+Background storage failures arrive as ``storageError`` and the core runtime
+reports them through the regular ``error`` listeners.
 Click events include a handler, button, and reveal state; handler events
 carry widget values. Key events carry key/down/repeat/modifiers and reveal
 state. The :download:`type declarations <../../crates/engine/runtime/deflorta.d.ts>`
@@ -52,6 +54,13 @@ values and applied after JavaScript returns, avoiding reentrant borrowing of
 the engine. Direct arguments are plain data: own enumerable properties,
 ``undefined`` omitted, non-finite numbers treated as null, and no invocation
 of ``toJSON``. JSON remains the on-disk save and story snapshot format.
+
+Storage loads a session snapshot on its worker during configuration, before
+boot. Reads and listings use that snapshot; writes and removals update it
+immediately and queue ordered, atomic disk operations. Failed operations
+restore the latest persisted value unless a newer operation is pending.
+Errors are logged even during shutdown, when no event loop remains to
+deliver them. External edits become visible in the next session.
 
 UI descriptors and callback lifetimes
 -------------------------------------

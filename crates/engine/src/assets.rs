@@ -8,6 +8,7 @@ use image::ImageReader;
 use log::{debug, info, trace, warn};
 
 use crate::files::{GameFiles, normalize_game_path};
+use crate::worker::{WakeCallback, WorkerWake};
 
 const DECODE_THREADS: usize = 2;
 
@@ -61,6 +62,8 @@ pub struct Assets {
     next_job: u64,
     jobs: Sender<Job>,
     results: Receiver<Decoded>,
+    wake: WorkerWake,
+    pending_writes: HashMap<PathBuf, usize>,
 }
 
 impl Assets {
@@ -68,10 +71,12 @@ impl Assets {
         let (jobs, job_rx) = channel::<Job>();
         let (result_tx, results) = channel::<Decoded>();
         let job_rx = Arc::new(Mutex::new(job_rx));
+        let wake = WorkerWake::default();
         for n in 0..DECODE_THREADS {
             let job_rx = job_rx.clone();
             let result_tx = result_tx.clone();
             let files = files.clone();
+            let wake = wake.clone();
             std::thread::Builder::new()
                 .name(format!("image decoder {n}"))
                 .spawn(move || {
@@ -99,6 +104,7 @@ impl Assets {
                         if result_tx.send((src, generation, image)).is_err() {
                             return;
                         }
+                        wake.notify();
                     }
                 })
                 .expect("spawn image decoder");
@@ -116,7 +122,13 @@ impl Assets {
             next_job: 0,
             jobs,
             results,
+            wake,
+            pending_writes: HashMap::new(),
         }
+    }
+
+    pub fn set_waker(&self, callback: WakeCallback) {
+        self.wake.set(callback);
     }
 
     pub fn set_user_dir(&mut self, dir: PathBuf) {
@@ -183,6 +195,10 @@ impl Assets {
         if let Some(size) = self.sizes.get(src) {
             return *size;
         }
+        if matches!(self.resolve(src), Some(AssetPath::User(path)) if self.pending_writes.contains_key(&path))
+        {
+            return None;
+        }
         let size = self
             .resolve(src)
             .and_then(|path| path.dimensions(&self.files).ok());
@@ -202,7 +218,9 @@ impl Assets {
             trace!("Queued '{src}' for decoding");
             let generation = self.next_job;
             self.next_job += 1;
-            if self.jobs.send((src.to_owned(), generation, path)).is_ok() {
+            let writing =
+                matches!(&path, AssetPath::User(path) if self.pending_writes.contains_key(path));
+            if writing || self.jobs.send((src.to_owned(), generation, path)).is_ok() {
                 ImageState::Pending(generation)
             } else {
                 ImageState::Failed
@@ -231,7 +249,10 @@ impl Assets {
             {
                 continue;
             }
-            let state = image.map_or(ImageState::Failed, |img| ImageState::Ready(Arc::new(img)));
+            let state = image.map_or(ImageState::Failed, |img| {
+                self.sizes.insert(src.clone(), Some(img.dimensions()));
+                ImageState::Ready(Arc::new(img))
+            });
             self.images.insert(src, state);
             changed = true;
         }
@@ -271,6 +292,40 @@ impl Assets {
             debug!("Released '{src}'");
         }
         image || size
+    }
+
+    /// A thumbnail may be requested before its queued write reaches disk.
+    /// Invalidate old decodes and retry all aliases once persistence completes.
+    pub fn user_file_pending(&mut self, path: PathBuf) {
+        *self.pending_writes.entry(path).or_default() += 1;
+    }
+
+    pub fn user_file_changed(&mut self, path: &Path, available: bool) -> Vec<String> {
+        if let Some(count) = self.pending_writes.get_mut(path)
+            && *count > 1
+        {
+            *count -= 1;
+            return Vec::new();
+        }
+        self.pending_writes.remove(path);
+        let sources: Vec<_> = self
+            .last_used
+            .keys()
+            .filter(|src| matches!(self.resolve(src), Some(AssetPath::User(file)) if file == path))
+            .cloned()
+            .collect();
+        for source in &sources {
+            let requested = self.images.contains_key(source);
+            self.forget(source);
+            if requested && available {
+                self.request(source);
+            } else if requested {
+                self.images.insert(source.clone(), ImageState::Failed);
+                self.sizes.insert(source.clone(), None);
+                self.touch(source);
+            }
+        }
+        sources
     }
 
     pub fn collect_unused(&mut self, retained: &HashSet<String>, now: Instant) -> Vec<String> {
@@ -341,7 +396,8 @@ mod tests {
             assets.images.get("ready.png"),
             Some(ImageState::Ready(_))
         ));
-        assert!(assets.sizes.is_empty());
+        assert_eq!(assets.sizes.len(), 1);
+        assert_eq!(assets.sizes.get("ready.png"), Some(&Some((8, 4))));
         assert_eq!(assets.last_used.len(), 1);
         assert_eq!(
             assets.collect_unused(
@@ -381,6 +437,99 @@ mod tests {
             .unwrap();
         assert!(assets.poll());
         assert_eq!(assets.take_pixels(source).unwrap().dimensions(), (16, 8));
+    }
+
+    #[test]
+    fn decoders_publish_success_and_failure_before_waking() {
+        let files = GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut assets = Assets::new(files);
+        let (sender, receiver) = channel();
+        assets.set_waker(Arc::new(move || {
+            let _ = sender.send(());
+        }));
+        receiver.try_recv().unwrap();
+        for (source, success) in [("images/bg room.png", true), ("missing.png", false)] {
+            assets.request(source);
+            receiver.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(assets.poll());
+            assert!(assets.is_settled(source));
+            assert_eq!(assets.take_pixels(source).is_some(), success);
+        }
+    }
+
+    #[test]
+    fn thumbnail_completion_retries_failed_aliases_and_discards_old_decodes() {
+        let (mut assets, requests, results) = controlled_assets();
+        let dir = PathBuf::from("/saved-data");
+        assets.set_user_dir(dir.clone());
+        let failed = "user:thumb-1.png?1";
+        let pending = "user:thumb-1.png?2";
+        assets.request(failed);
+        let (_, first, _) = requests.recv().unwrap();
+        results.send((failed.into(), first, None)).unwrap();
+        assets.poll();
+        assert_eq!(assets.image_size(failed), None);
+        assets.request(pending);
+        let (_, old, _) = requests.recv().unwrap();
+        assert_eq!(
+            assets
+                .user_file_changed(&dir.join("thumb-1.png"), true)
+                .len(),
+            2
+        );
+        let mut jobs = HashMap::new();
+        for _ in 0..2 {
+            let (source, revision, _) = requests.recv().unwrap();
+            jobs.insert(source, revision);
+        }
+        results
+            .send((pending.into(), old, Some(image::RgbaImage::new(1, 1))))
+            .unwrap();
+        assert!(!assets.poll());
+        for (source, revision) in jobs {
+            results
+                .send((source, revision, Some(image::RgbaImage::new(16, 8))))
+                .unwrap();
+        }
+        assert!(assets.poll());
+        for source in [failed, pending] {
+            assert_eq!(assets.image_size(source), Some((16, 8)));
+            assert_eq!(assets.take_pixels(source).unwrap().dimensions(), (16, 8));
+        }
+    }
+
+    #[test]
+    fn thumbnail_decode_waits_for_all_writes_and_a_failed_write_releases_the_wait() {
+        let (mut assets, requests, results) = controlled_assets();
+        let dir = PathBuf::from("/saved-data");
+        assets.set_user_dir(dir.clone());
+        let path = dir.join("thumb-1.png");
+        let source = "user:thumb-1.png?new";
+        assets.user_file_pending(path.clone());
+        assets.user_file_pending(path.clone());
+        assets.request(source);
+        assert!(assets.has_pending());
+        assert_eq!(assets.image_size(source), None);
+        assert!(requests.try_recv().is_err());
+        assert_eq!(assets.user_file_changed(&path, true), Vec::<String>::new());
+        assert!(requests.try_recv().is_err());
+        assert_eq!(assets.user_file_changed(&path, true), [source]);
+        let (_, generation, _) = requests.try_recv().unwrap();
+        results
+            .send((
+                source.into(),
+                generation,
+                Some(image::RgbaImage::new(16, 8)),
+            ))
+            .unwrap();
+        assert!(assets.poll());
+        assert!(assets.is_settled(source));
+        assets.user_file_pending(path.clone());
+        assets.request("user:thumb-1.png?failed");
+        assets.user_file_changed(&path, false);
+        assert!(!assets.has_pending());
+        assert!(assets.is_settled("user:thumb-1.png?failed"));
+        assert!(requests.try_recv().is_err());
     }
 
     #[cfg(feature = "dev-console")]

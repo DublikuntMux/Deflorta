@@ -227,6 +227,12 @@ function. ``setTimer(ms, fn)`` and ``clearTimer(id)`` manage timers; global
 ``setTimeout(fn, ms)`` and ``clearTimeout(id)`` are available too.
 ``readText(path)`` reads game text files or returns null. ``storage`` provides
 per-game JSON ``read``, ``write``, ``remove``, and ``list`` operations.
+Reads and listings use a session snapshot and see queued writes immediately.
+``write`` and ``remove`` queue disk persistence; ``remove`` returns whether
+an entry existed in the snapshot. Disk failures are logged and reported to
+``on("error", fn)``; the affected snapshot entry returns to its persisted
+value unless a newer operation is pending. Normal shutdown finishes queued
+writes. Changes made outside the engine are read on the next session.
 
 ``native`` exposes low-level ``app``, ``audio``, ``ui``, ``timers``, ``files``,
 and ``storage`` modules, plus logging and runtime connection functions.

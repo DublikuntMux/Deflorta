@@ -99,6 +99,10 @@ impl VideoPlayer {
         self.looping
     }
 
+    pub const fn started(&self) -> Instant {
+        self.start
+    }
+
     pub const fn size(&self) -> Option<(u32, u32)> {
         self.size
     }

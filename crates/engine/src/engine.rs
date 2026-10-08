@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, trace, warn};
@@ -12,6 +13,7 @@ use crate::script::{Command, Event, GameConfig, HandlerValue, ScriptHost, UiComm
 use crate::ui::desc::{AnimDesc, Color, NodeDesc};
 use crate::ui::{DrawItem, InputEvent, Nav, Ui};
 use crate::util::math::clamp_to_u32;
+use crate::worker::WakeCallback;
 
 /// Upper bound on timers fired per tick, so a zero-delay timer loop in
 /// script code cannot freeze the engine.
@@ -56,6 +58,8 @@ pub struct PlatformRequests {
     pub capture: bool,
     pub text_input: Option<bool>,
     pub self_voicing: Option<bool>,
+    /// Textures whose user files were changed by the storage worker.
+    pub unload_textures: Vec<String>,
 }
 
 /// A tree waiting for its images (or for a thumbnail capture) before it is shown.
@@ -81,7 +85,7 @@ pub struct Engine {
     pending: Option<PendingTree>,
     /// A thumbnail capture was requested and has not arrived yet.
     capture: Option<CaptureTiming>,
-    thumbnail: Option<image::RgbaImage>,
+    thumbnail: Option<Arc<image::RgbaImage>>,
     /// Thumbnails to write once the pending capture arrives.
     thumbnail_names: Vec<String>,
     text_input: bool,
@@ -128,6 +132,25 @@ impl Engine {
 
     pub const fn config(&self) -> &GameConfig {
         &self.config
+    }
+
+    pub fn set_waker(&self, callback: WakeCallback) {
+        self.assets.set_waker(callback.clone());
+        if let Some(audio) = &self.audio {
+            audio.set_waker(callback.clone());
+        }
+        ScriptHost::set_waker(callback);
+    }
+
+    /// Loading waits on worker notifications, with a deadline to show a tree
+    /// even if an image takes too long. Capture settling has its own deadline.
+    pub fn next_loading_deadline(&self) -> Option<Instant> {
+        let image = self.pending.as_ref().map(|p| p.since + IMAGE_WAIT_LIMIT);
+        let capture = match self.capture {
+            Some(CaptureTiming::Settling(since)) => Some(since + SETTLE_LIMIT),
+            _ => None,
+        };
+        image.into_iter().chain(capture).min()
     }
 
     #[cfg(feature = "dev-console")]
@@ -442,7 +465,23 @@ impl Engine {
     }
 
     pub fn poll(&mut self) {
+        if let Some(audio) = &mut self.audio {
+            audio.poll();
+        }
+        let updates = ScriptHost::poll_storage();
+        for (path, available) in updates.thumbnails {
+            let sources = self.assets.user_file_changed(&path, available);
+            if !sources.is_empty() {
+                self.ui.assets_changed();
+                self.requests.redraw = true;
+                self.requests.unload_textures.extend(sources);
+            }
+        }
+        for message in updates.errors {
+            self.dispatch(&Event::StorageError { message });
+        }
         if self.assets.poll() {
+            self.ui.assets_changed();
             self.requests.redraw = true;
         }
         self.try_commit();
@@ -494,7 +533,11 @@ impl Engine {
             let height = (u64::from(h) * u64::from(THUMBNAIL_WIDTH) / u64::from(w))
                 .to_u32()
                 .unwrap_or(u32::MAX);
-            image::imageops::thumbnail(&game, THUMBNAIL_WIDTH, height.max(1))
+            Arc::new(image::imageops::thumbnail(
+                &game,
+                THUMBNAIL_WIDTH,
+                height.max(1),
+            ))
         });
         match &self.thumbnail {
             Some(t) => debug!("Captured {}x{} thumbnail", t.width(), t.height()),
@@ -520,36 +563,34 @@ impl Engine {
         Some(self.data_dir.join(format!("{name}.png")))
     }
 
-    fn delete_thumbnail(&self, name: &str) {
+    fn delete_thumbnail(&mut self, name: &str) {
         let Some(path) = self.thumbnail_path(name) else {
             return;
         };
-        match std::fs::remove_file(&path) {
-            Ok(()) => debug!("Deleted thumbnail {}", path.display()),
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => warn!("Cannot delete thumbnail {}: {err}", path.display()),
+        match ScriptHost::save_thumbnail(path.clone(), None) {
+            Ok(()) => self.assets.user_file_pending(path),
+            Err(err) => warn!("Cannot queue thumbnail deletion '{name}': {err:#}"),
         }
     }
 
-    fn save_thumbnail(&self, name: &str) {
+    fn save_thumbnail(&mut self, name: &str) {
         let Some(thumbnail) = self.thumbnail.as_ref() else {
             return;
         };
         let Some(path) = self.thumbnail_path(name) else {
             return;
         };
-        let result = std::fs::create_dir_all(&self.data_dir)
-            .map_err(anyhow::Error::from)
-            .and_then(|()| {
-                let tmp = path.with_extension("png.tmp");
-                thumbnail.save_with_format(&tmp, image::ImageFormat::Png)?;
-                std::fs::rename(&tmp, &path)?;
-                Ok(())
-            });
-        match result {
-            Ok(()) => debug!("Saved thumbnail {}", path.display()),
-            Err(err) => warn!("Cannot save thumbnail '{name}': {err:#}"),
+        match ScriptHost::save_thumbnail(path.clone(), Some(thumbnail.clone())) {
+            Ok(()) => self.assets.user_file_pending(path),
+            Err(err) => warn!("Cannot queue thumbnail '{name}': {err:#}"),
         }
+    }
+
+    pub fn flush_storage(&mut self) {
+        if let Err(error) = ScriptHost::flush_storage() {
+            error!("Cannot finish storage writes: {error:#}");
+        }
+        self.poll();
     }
 
     pub fn boot(&mut self) {
