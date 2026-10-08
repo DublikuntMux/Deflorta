@@ -19,13 +19,20 @@ The default output is ``mygame/build/game.dm``. The bundler follows static
 imports from ``main.js`` and combines game modules into one minified
 ``main.js``. Engine modules remain embedded in the launcher.
 
-Bundling and publishing re-encode every image as lossless WebP, every movie
+Bundling and publishing encode images as lossless WebP, every movie
 as 8-bit VP9 WebM with a Vorbis soundtrack, and every audio file as Vorbis Ogg.
 Install `FFmpeg <https://ffmpeg.org/download.html>`_ and its ffprobe tool on PATH
 with the libwebp, libvpx-vp9, and libvorbis encoders. Video uses CRF 30; audio uses quality 5
 and stereo output. Still images keep their dimensions and transparency.
 Audio/video containers are identified by their streams, so audio-only MP4
 files become Ogg audio and embedded album art is discarded.
+
+Converted media persists in ``mygame/.cache/media/``. The JSON index at
+``mygame/.cache/media.json`` records each source file's modification time and
+size, so subsequent bundles and publishes only re-encode changed or uncached
+assets. Missing cached files and invalid cache indexes are rebuilt. Successful
+conversions remain cached even if a later asset fails. Delete ``mygame/.cache/``
+to force all media to be converted again. The cache is excluded from archives.
 
 Source files are left unchanged. Archive entries keep their original asset
 paths, even though their bytes use the normalized formats: a reference such

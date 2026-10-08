@@ -57,8 +57,12 @@ Bundle and inspect
    * - ``--emit-js FILE``
      - Also write the combined script to a separate file.
 
-Bundling re-encodes images, video, and audio using FFmpeg while preserving
-asset paths. ``info`` lists an archive's contents. See :doc:`../guides/publishing`.
+Bundling converts images, video, and audio using FFmpeg while preserving
+asset paths. Converted media is cached in ``<project>/.cache/media/``, with
+modification times and file sizes saved in ``<project>/.cache/media.json``.
+Bundling and publishing reuse cached media until its source changes or the
+cached file is missing. Delete ``<project>/.cache/`` to force conversion.
+``info`` lists an archive's contents. See :doc:`../guides/publishing`.
 
 Publish
 -------

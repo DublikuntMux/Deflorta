@@ -217,19 +217,25 @@ fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() 
         .iter()
         .map(|path| std::fs::read(project.0.join(path)).unwrap())
         .collect();
-    for mode in ["bundle", "publish"] {
+    for (run, mode) in ["bundle", "bundle", "publish"].into_iter().enumerate() {
         let output = if mode == "bundle" {
             cli(["bundle", project.path()])
         } else {
             project.publish("dist/test")
         };
         success(&output);
+        let conversions = String::from_utf8_lossy(&output.stderr)
+            .lines()
+            .filter(|line| line.starts_with("Converting "))
+            .count();
+        assert_eq!(conversions, if run == 0 { paths.len() } else { 0 });
         let archive = project.0.join(if mode == "bundle" {
             "build/game.dm"
         } else {
             "dist/test/game.dm"
         });
         let files = GameFiles::open(&archive).unwrap();
+        verify_media_cache(&project, &files, &paths);
         for path in ["images/portrait.PNG", "images/portrait.webp"] {
             let bytes = files.read(path).unwrap();
             assert_eq!(&bytes[..4], b"RIFF");
@@ -261,6 +267,20 @@ fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() 
     }
     for (path, original) in paths.iter().zip(originals) {
         assert_eq!(std::fs::read(project.0.join(path)).unwrap(), original);
+    }
+}
+
+fn verify_media_cache(project: &Project, files: &GameFiles, paths: &[&str]) {
+    let index: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(project.0.join(".cache/media.json")).unwrap())
+            .unwrap();
+    assert_eq!(index["entries"].as_object().unwrap().len(), paths.len());
+    assert_eq!(files.list(".cache"), [] as [String; 0]);
+    for path in paths {
+        assert_eq!(
+            files.read(path).unwrap(),
+            std::fs::read(project.0.join(".cache/media").join(path)).unwrap()
+        );
     }
 }
 
