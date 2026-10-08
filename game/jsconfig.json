@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "checkJs": true,
+    "noEmit": true,
+    "skipLibCheck": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "deflorta"
+  },
+  "include": ["**/*.js", "**/*.jsx", "deflorta.d.ts"],
+  "exclude": ["build", "dist", "node_modules"]
+}

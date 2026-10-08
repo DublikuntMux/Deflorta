@@ -1,0 +1,14 @@
+[
+  { "wait": 300 },
+  { "shot": "target/shots/benchmark/menu.png" },
+  { "key": "1" },
+  { "click": [209, 656] },
+  { "wait": 45000 },
+  { "shot": "target/shots/benchmark/results.png" },
+  { "key": "r" },
+  { "key": "s" },
+  { "wait": 300 },
+  { "key": "Escape" },
+  { "wait": 100 },
+  { "shot": "target/shots/benchmark/cancelled.png" }
+]

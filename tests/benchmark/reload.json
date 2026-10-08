@@ -1,0 +1,5 @@
+[
+  { "wait": 300 },
+  { "key": "r" },
+  { "shot": "target/shots/benchmark/reloaded.png" }
+]

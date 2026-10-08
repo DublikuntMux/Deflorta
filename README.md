@@ -14,6 +14,7 @@ game-authoring guides, API references, and engine design notes.
 - [Translate](docs/guides/localization.rst), [publish](docs/guides/publishing.rst), or [export to Android](docs/guides/android.rst)
 - [CLI reference](docs/reference/cli.rst), [scripting API](docs/reference/scripting.rst), and [UI reference](docs/reference/ui.rst)
 - [Engine architecture](docs/architecture/index.rst)
+- [Run the twelve-scene benchmark game](benchmark/README.md)
 
 ## Quick start
 
