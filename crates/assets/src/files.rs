@@ -24,7 +24,10 @@ pub fn normalize_game_path(path: &Path) -> Option<String> {
 }
 
 enum Source {
-    Directory(PathBuf),
+    Directory {
+        root: PathBuf,
+        scripts: Option<PathBuf>,
+    },
     Archive(Arc<Archive>),
 }
 
@@ -63,6 +66,15 @@ fn directory_path(root: &Path, path: &str) -> io::Result<PathBuf> {
     Ok(resolved)
 }
 
+fn source_path(root: &Path, scripts: Option<&Path>, path: &str) -> io::Result<PathBuf> {
+    if let Some(scripts) = scripts
+        && scripts.join(path).try_exists()?
+    {
+        return directory_path(scripts, path);
+    }
+    directory_path(root, path)
+}
+
 impl GameFiles {
     /// Opens a game: a directory or `.dm` archive containing `main.js`.
     ///
@@ -92,7 +104,27 @@ impl GameFiles {
         if !path.is_dir() {
             bail!("'{}' is not a directory", path.display());
         }
-        Ok(Self(Arc::new(Source::Directory(path))))
+        Ok(Self(Arc::new(Source::Directory {
+            root: path,
+            scripts: None,
+        })))
+    }
+
+    /// Reads compiled scripts from a separate directory while keeping source assets.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either directory cannot be opened.
+    pub fn with_scripts(root: &Path, scripts: &Path) -> Result<Self> {
+        let files = Self::directory(root)?;
+        let scripts = scripts.canonicalize()?;
+        if !scripts.is_dir() {
+            bail!("'{}' is not a script directory", scripts.display());
+        }
+        Ok(Self(Arc::new(Source::Directory {
+            root: files.location().to_owned(),
+            scripts: Some(scripts),
+        })))
     }
 
     ///
@@ -107,7 +139,7 @@ impl GameFiles {
     #[must_use]
     pub fn as_archive(&self) -> Option<&Archive> {
         match &*self.0 {
-            Source::Directory(_) => None,
+            Source::Directory { .. } => None,
             Source::Archive(archive) => Some(archive),
         }
     }
@@ -115,7 +147,7 @@ impl GameFiles {
     #[must_use]
     pub fn location(&self) -> &Path {
         match &*self.0 {
-            Source::Directory(dir) => dir,
+            Source::Directory { root, .. } => root,
             Source::Archive(archive) => archive.path(),
         }
     }
@@ -131,7 +163,9 @@ impl GameFiles {
             return false;
         };
         match &*self.0 {
-            Source::Directory(dir) => directory_path(dir, &path).is_ok_and(|p| p.is_file()),
+            Source::Directory { root, scripts } => {
+                source_path(root, scripts.as_deref(), &path).is_ok_and(|p| p.is_file())
+            }
             Source::Archive(archive) => archive.contains(&path),
         }
     }
@@ -143,7 +177,7 @@ impl GameFiles {
     pub fn read(&self, path: &str) -> io::Result<Vec<u8>> {
         let path = normalize(path)?;
         match &*self.0 {
-            Source::Directory(_) => {
+            Source::Directory { .. } => {
                 let mut bytes = Vec::new();
                 self.open_file(&path)?.read_to_end(&mut bytes)?;
                 Ok(bytes)
@@ -169,8 +203,8 @@ impl GameFiles {
     pub fn open_file(&self, path: &str) -> io::Result<GameReader> {
         let path = normalize(path)?;
         let inner = match &*self.0 {
-            Source::Directory(dir) => {
-                let file = File::open(directory_path(dir, &path)?)?;
+            Source::Directory { root, scripts } => {
+                let file = File::open(source_path(root, scripts.as_deref(), &path)?)?;
                 if !file.metadata()?.is_file() {
                     return Err(not_found(&path));
                 }
@@ -188,7 +222,7 @@ impl GameFiles {
         };
         let mut files = Vec::new();
         match &*self.0 {
-            Source::Directory(root) => {
+            Source::Directory { root, .. } => {
                 if let Ok(path) = directory_path(root, &dir) {
                     collect_files(root, &path, &mut files);
                 }
@@ -284,6 +318,47 @@ impl symphonia_core::io::MediaSource for GameReader {
 mod tests {
     use super::*;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn compiled_scripts_keep_source_assets_and_reject_symlinks() {
+        let root = tempfile::tempdir().unwrap();
+        let scripts = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("main.js"), "const view = <View />;").unwrap();
+        std::fs::write(root.path().join("asset.txt"), "source asset").unwrap();
+        std::fs::write(
+            scripts.path().join("main.js"),
+            "const view = jsx(View, {});",
+        )
+        .unwrap();
+        symlink(
+            root.path().join("asset.txt"),
+            scripts.path().join("link.js"),
+        )
+        .unwrap();
+        let files = GameFiles::with_scripts(root.path(), scripts.path()).unwrap();
+        assert_eq!(files.location(), root.path());
+        assert_eq!(
+            files.read_to_string("main.js").unwrap(),
+            "const view = jsx(View, {});"
+        );
+        assert_eq!(files.read_to_string("asset.txt").unwrap(), "source asset");
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("main.js")).unwrap(),
+            "const view = <View />;"
+        );
+        let mut reader = files.open_file("main.js").unwrap();
+        reader.seek(SeekFrom::Start(13)).unwrap();
+        let mut tail = String::new();
+        reader.read_to_string(&mut tail).unwrap();
+        assert_eq!(tail, "jsx(View, {});");
+        assert!(!files.exists("link.js"));
+        assert_eq!(
+            files.read("link.js").unwrap_err().kind(),
+            io::ErrorKind::PermissionDenied
+        );
+        assert!(files.read("../main.js").is_err());
+        assert!(GameFiles::with_scripts(root.path(), &root.path().join("asset.txt")).is_err());
+    }
 
     #[test]
     fn directory_access_rejects_file_directory_and_cycle_symlinks() {

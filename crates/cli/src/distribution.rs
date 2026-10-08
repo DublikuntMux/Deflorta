@@ -74,10 +74,14 @@ pub fn launcher(runtime: &Path) -> PathBuf {
 
 pub fn run(path: &Path, test: Option<&Path>, verbose: u8) -> Result<ExitCode> {
     let runtime = runtime(&platform(), true)?;
+    let scripts = prepare_scripts(path)?;
     let mut command = Command::new(launcher(&runtime));
     // Absolute paths preserve the caller's directory and cannot be mistaken
     // for launcher options when a project or test filename starts with '-'.
     command.arg(std::path::absolute(path)?);
+    if let Some(scripts) = &scripts {
+        command.arg("--scripts").arg(scripts.path());
+    }
     if let Some(test) = test {
         command.arg("--test").arg(std::path::absolute(test)?);
     }
@@ -93,9 +97,13 @@ pub fn run(path: &Path, test: Option<&Path>, verbose: u8) -> Result<ExitCode> {
 
 pub fn inspect(path: &Path) -> Result<GameInspection> {
     let runtime = runtime(&platform(), true)?;
-    let output = Command::new(launcher(&runtime))
-        .arg(path)
-        .arg("--inspect")
+    let scripts = prepare_scripts(path)?;
+    let mut command = Command::new(launcher(&runtime));
+    command.arg(std::path::absolute(path)?).arg("--inspect");
+    if let Some(scripts) = &scripts {
+        command.arg("--scripts").arg(scripts.path());
+    }
+    let output = command
         .output()
         .context("cannot start the game launcher for inspection")?;
     if !output.status.success() {
@@ -107,6 +115,16 @@ pub fn inspect(path: &Path) -> Result<GameInspection> {
     }
     serde_json::from_slice(&output.stdout)
         .context("the launcher returned invalid startup information")
+}
+
+fn prepare_scripts(path: &Path) -> Result<Option<tempfile::TempDir>> {
+    if path.is_file() {
+        Ok(None)
+    } else {
+        crate::project::Project::open(path)?
+            .compile_scripts()
+            .map(Some)
+    }
 }
 
 /// Copy all runtime files, preserving nested resources and executable modes.

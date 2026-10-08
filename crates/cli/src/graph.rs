@@ -149,7 +149,7 @@ impl<'a> Graph<'a> {
         let source_text = loader.load(id)?;
         let source = self
             .allocator
-            .alloc_str(&deflorta_assets::compile_jsx(id, &source_text)?);
+            .alloc_str(&deflorta_script_build::compile_jsx(id, &source_text)?);
         let index = self.modules.len();
         self.index.insert(id.to_owned(), index);
         self.parse(id, source);

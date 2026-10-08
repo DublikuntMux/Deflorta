@@ -84,9 +84,11 @@ shadow-node sharing or a concurrent renderer.
 Embedded runtime modules
 ------------------------
 
-Games import ES modules. Shared ``deflorta-assets`` tooling lowers JSX in
-``.js`` and ``.jsx`` through ``deflorta/jsx-runtime``. The source loader,
-CLI graph, and runtime build use the same compiler. Release builds minify
+Games import ES modules. The ``deflorta-script-build`` crate lowers JSX in
+``.js`` and ``.jsx`` through ``deflorta/jsx-runtime``. The CLI compiles game
+scripts before running, checking startup, or bundling them. The runtime build
+uses the same compiler for embedded modules. Launchers load JavaScript and
+have no JSX compiler or Oxc runtime dependency. Release builds minify
 runtime JavaScript with Oxc before embedding it. ``build.rs`` also compiles
 ``src/render/*.wgsl`` to SPIR-V with naga.
 

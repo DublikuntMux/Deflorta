@@ -1,6 +1,16 @@
 use super::*;
 use deflorta_common::desc::NodeDesc;
 
+fn compiled_fixture(name: &str) -> (tempfile::TempDir, GameFiles) {
+    let root = crate::workspace_dir().join("tests").join(name);
+    let scripts = tempfile::tempdir().unwrap();
+    let source = std::fs::read_to_string(root.join("main.js")).unwrap();
+    let compiled = deflorta_script_build::compile_jsx("main.js", &source).unwrap();
+    std::fs::write(scripts.path().join("main.js"), compiled.as_bytes()).unwrap();
+    let files = GameFiles::with_scripts(&root, scripts.path()).unwrap();
+    (scripts, files)
+}
+
 fn runtime_key(host: &mut ScriptHost, key: &str) -> Vec<Command> {
     host.dispatch(&Event::Key {
         key,
@@ -248,7 +258,7 @@ fn self_voicing_toggle_works_in_modal_screens_and_persists() {
         assert!(status.success());
         return;
     }
-    let files = GameFiles::open(&crate::workspace_dir().join("tests/accessibility")).unwrap();
+    let (_scripts, files) = compiled_fixture("accessibility");
     let mut host = ScriptHost::new(files).unwrap();
     host.run_main().unwrap();
     let directory =
@@ -349,7 +359,7 @@ fn native_tooltip_hover_skips_commits_and_custom_tooltips_still_render() {
 }
 
 fn check_native_tooltip_hover() {
-    let files = GameFiles::open(&crate::workspace_dir().join("tests/ui-hover")).unwrap();
+    let (_scripts, files) = compiled_fixture("ui-hover");
     let mut host = ScriptHost::new(files).unwrap();
     host.run_main().unwrap();
     drop(ScriptHost::take_commands());

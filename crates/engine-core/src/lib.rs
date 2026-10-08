@@ -20,3 +20,14 @@ fn workspace_dir() -> std::path::PathBuf {
 
 #[cfg(all(test, feature = "dev-console"))]
 mod script_tests;
+
+#[cfg(all(test, feature = "dev-console"))]
+fn compiled_fixture(name: &str) -> (tempfile::TempDir, GameFiles) {
+    let root = workspace_dir().join("tests").join(name);
+    let scripts = tempfile::tempdir().unwrap();
+    let source = std::fs::read_to_string(root.join("main.js")).unwrap();
+    let compiled = deflorta_script_build::compile_jsx("main.js", &source).unwrap();
+    std::fs::write(scripts.path().join("main.js"), compiled.as_bytes()).unwrap();
+    let files = GameFiles::with_scripts(&root, scripts.path()).unwrap();
+    (scripts, files)
+}

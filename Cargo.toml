@@ -2,6 +2,7 @@
 resolver = "3"
 members = [
     "crates/common",
+    "crates/script-build",
     "crates/assets",
     "crates/ui",
     "crates/js-bridge",
@@ -25,6 +26,7 @@ nursery = { level = "warn", priority = -1 }
 [workspace.dependencies]
 deflorta = { path = "crates/engine" }
 deflorta-common = { path = "crates/common" }
+deflorta-script-build = { path = "crates/script-build" }
 deflorta-assets = { path = "crates/assets" }
 deflorta-ui = { path = "crates/ui" }
 deflorta-js-bridge = { path = "crates/js-bridge" }

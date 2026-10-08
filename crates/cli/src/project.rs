@@ -66,6 +66,22 @@ impl Project {
         }
         graph
     }
+
+    pub fn compile_scripts(&self) -> Result<tempfile::TempDir> {
+        let allocator = Allocator::default();
+        let graph = self.graph(&allocator);
+        if graph.report.has_errors() {
+            bail!("{}", graph.report.render(&sources(&graph)));
+        }
+        let scripts = tempfile::tempdir()?;
+        for module in &graph.modules {
+            let path = scripts.path().join(&module.id);
+            std::fs::create_dir_all(path.parent().context("module has no parent directory")?)?;
+            std::fs::write(&path, module.source)
+                .with_context(|| format!("cannot write compiled module {}", path.display()))?;
+        }
+        Ok(scripts)
+    }
 }
 
 /// Resolve existing ancestors as well as `..`, including for outputs which

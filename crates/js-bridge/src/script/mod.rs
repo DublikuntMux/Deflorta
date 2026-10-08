@@ -534,10 +534,9 @@ fn module_source(id: &str) -> Result<String> {
         return Ok((*src).to_owned());
     }
     let files = with_state(|s| s.files.clone());
-    let source = files
+    files
         .read_to_string(id)
-        .map_err(|e| anyhow!("cannot read module '{id}': {e}"))?;
-    Ok(deflorta_assets::compile_jsx(id, &source)?.into_owned())
+        .map_err(|e| anyhow!("cannot read module '{id}': {e}"))
 }
 
 unsafe extern "C" fn module_load_hook(

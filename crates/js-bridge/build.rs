@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     let release = env::var("PROFILE")? == "release";
     build_dir(RUNTIME_DIR, "js", &out_dir.join("runtime"), "js", |path| {
         let source = fs::read_to_string(path)?;
-        let source = deflorta_assets::compile_jsx(&path.to_string_lossy(), &source)?;
+        let source = deflorta_script_build::compile_jsx(&path.to_string_lossy(), &source)?;
         if release {
             minify_js(&source).map(String::into_bytes)
         } else {

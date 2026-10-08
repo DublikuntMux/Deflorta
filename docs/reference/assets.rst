@@ -58,9 +58,10 @@ Relative paths resolve from the importing module; a leading slash is relative
 to the game root. ``"deflorta"`` and its built-in submodules are embedded
 runtime modules.
 
-JSX works in ``.js`` and ``.jsx`` modules and is compiled with Oxc's automatic
-JSX runtime. npm package resolution, dynamic ``import()``, direct ``eval()``,
-and TypeScript compilation are not supported. Direct eval is rejected with its
+JSX works in ``.js`` and ``.jsx`` modules. The CLI compiles it with Oxc's automatic
+JSX runtime before running or packaging a game; launchers load compiled
+JavaScript without a JSX compiler. npm package resolution, dynamic ``import()``,
+direct ``eval()``, and TypeScript compilation are not supported. Direct eval is rejected with its
 source location because bundling merges module scopes; use ordinary functions
 to read local state. Declaration files provide editor types without a
 TypeScript build.

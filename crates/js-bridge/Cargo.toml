@@ -23,6 +23,10 @@ num-traits.workspace = true
 deflorta-common.workspace = true
 
 [build-dependencies]
-deflorta-assets.workspace = true
+deflorta-script-build.workspace = true
 anyhow.workspace = true
 oxc.workspace = true
+
+[dev-dependencies]
+deflorta-script-build.workspace = true
+tempfile.workspace = true

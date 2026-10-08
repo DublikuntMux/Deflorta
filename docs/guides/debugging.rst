@@ -32,12 +32,13 @@ reopens it; drag its title bar to move it and its edges to resize it.
 It shows engine logs and JavaScript console messages, including
 ``console.debug``, with filtering, clearing, and automatic scrolling.
 
-``deflorta run`` uses the host debug runtime. During engine development you
-can also run the launcher directly:
+``deflorta run`` compiles source scripts and uses the host debug runtime.
+To run the launcher directly during engine development, bundle the game first:
 
 .. code-block:: sh
 
-   cargo run -p deflorta-launcher-desktop -- game
+   dist/deflorta bundle game
+   cargo run -p deflorta-launcher-desktop -- game/build/game.dm
 
 Enter runs a command, Shift+Enter inserts a line break, and Up/Down browse
 command history. Results and exceptions appear in the log.

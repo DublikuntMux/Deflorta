@@ -145,6 +145,31 @@ fn success(output: &Output) -> String {
 }
 
 #[test]
+fn launcher_runtime_dependencies_exclude_script_compilers() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for (package, target) in [
+        ("deflorta-launcher-desktop", None),
+        ("deflorta-launcher-android", Some("aarch64-linux-android")),
+        ("deflorta-launcher-android", Some("x86_64-linux-android")),
+    ] {
+        let mut command = Command::new(env!("CARGO"));
+        command.current_dir(&root).args([
+            "tree", "--locked", "-p", package, "--edges", "normal", "--prefix", "none",
+        ]);
+        if let Some(target) = target {
+            command.args(["--target", target]);
+        }
+        let tree = success(&command.output().unwrap());
+        assert!(
+            !tree
+                .lines()
+                .any(|line| line.starts_with("oxc") || line.starts_with("deflorta-script-build")),
+            "{package} must keep script compilation in build dependencies:\n{tree}"
+        );
+    }
+}
+
+#[test]
 fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() {
     let project = Project::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -466,6 +491,31 @@ label("start", async () => { await say("Hello JSX"); });
         assert!(code.contains("deflorta/jsx-runtime"));
     }
     success(&project.publish("dist/jsx"));
+    let published = project.0.join(format!(
+        "dist/jsx/jsx-workflow{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    success(&Command::new(published).arg("--inspect").output().unwrap());
+    let source_boot = Command::new(distribution().join(format!(
+        "target/{}-{}/debug/deflorta-launcher{}",
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        std::env::consts::EXE_SUFFIX
+    )))
+    .args([project.path(), "--inspect"])
+    .output()
+    .unwrap();
+    assert!(
+        !source_boot.status.success(),
+        "launchers must not compile source JSX"
+    );
+    let error = String::from_utf8_lossy(&source_boot.stderr);
+    assert!(error.contains("SyntaxError"), "{error}");
+    assert!(
+        std::fs::read_to_string(project.0.join("main.js"))
+            .unwrap()
+            .contains("<Panel")
+    );
     project.write(
         "screens.jsx",
         r#"
@@ -977,6 +1027,10 @@ cp app/src/main/assets/game.dm app/build/outputs/apk/debug/app-debug.apk
 #[test]
 fn run_forwards_arguments_environment_and_exit_status_to_debug_launcher() {
     let project = Project::new();
+    project.write(
+        "main.js",
+        "import { Text } from 'deflorta'; export const view = <Text>Compiled</Text>;",
+    );
     let moved = project.0.join(".engine");
     copy_tree(distribution(), &moved);
     let launcher = moved.join(format!(
@@ -986,7 +1040,7 @@ fn run_forwards_arguments_environment_and_exit_status_to_debug_launcher() {
     ));
     std::fs::write(
         launcher,
-        "#!/bin/sh\nprintf '%s\\n' \"$@\" \"$RUST_LOG\"\nexit 7\n",
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" \"$RUST_LOG\"\ntest \"$2\" = --scripts || exit 9\ncase \"$(cat \"$3/main.js\")\" in *'<Text'*) exit 9 ;; *'deflorta/jsx-runtime'*) printf 'compiled\\n' ;; *) exit 9 ;; esac\nexit 7\n",
     )
     .unwrap();
     let output = Command::new(moved.join("deflorta"))
@@ -996,12 +1050,16 @@ fn run_forwards_arguments_environment_and_exit_status_to_debug_launcher() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(7));
-    assert_eq!(
-        String::from_utf8(output.stdout).unwrap(),
-        format!(
-            "{}\n--test\n{}\n-vv\ndeflorta=trace\n",
-            project.path(),
-            std::env::temp_dir().join("steps.json").display()
-        )
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let args: Vec<_> = stdout.lines().collect();
+    assert_eq!(args.len(), 8, "{stdout}");
+    assert_eq!(args[0], project.path());
+    assert_eq!(args[1], "--scripts");
+    assert!(
+        !Path::new(args[2]).exists(),
+        "compiled scripts must be cleaned up"
     );
+    assert_eq!(args[3], "--test");
+    assert_eq!(Path::new(args[4]), std::env::temp_dir().join("steps.json"));
+    assert_eq!(args[5..], ["-vv", "deflorta=trace", "compiled"]);
 }

@@ -14,13 +14,15 @@ points:
    * - Crate
      - Responsibility
    * - ``crates/assets``
-     - Shared files, archives, font discovery, module resolution, and JSX
-       compilation, plus image loading, audio, video, and background media
+     - Shared files, archives, font discovery, and module resolution,
+       plus image loading, audio, video, and background media
        workers. Exposes ``GameFiles`` for directory/archive reads and seeks.
    * - ``crates/engine``
      - Public ``deflorta`` entry points and desktop/Android window integration.
    * - ``crates/common``
      - Lightweight contracts and utilities shared by engine domains.
+   * - ``crates/script-build``
+     - JSX compiler used by the CLI and Cargo build scripts, never launchers.
    * - ``crates/ui``
      - Retained UI, layout, text, animation, input, and accessibility.
    * - ``crates/js-bridge``
@@ -40,6 +42,11 @@ points:
 
 Scripts, fonts, images, audio, and video use the same ``GameFiles`` abstraction
 for development directories and packed games.
+
+For development, the CLI prepares compiled modules in a temporary script
+directory while ``GameFiles`` continues to read assets from the source project.
+Published archives contain JavaScript compiled by the CLI. JSX compilation
+and Oxc remain outside the launchers' runtime dependency graphs.
 
 The assets crate includes its file and media APIs without a ``media`` feature
 gate. Its baseline codecs are WebP/PNG, VP9, and Vorbis in WebM/Ogg containers.

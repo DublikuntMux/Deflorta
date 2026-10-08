@@ -1,6 +1,6 @@
 [package]
 name = "deflorta-assets"
-description = "Deflorta game files, archives, fonts, script tooling, and media workers"
+description = "Deflorta game files, archives, fonts, and media workers"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -40,7 +40,6 @@ num-traits.workspace = true
 deflorta-common.workspace = true
 serde.workspace = true
 lz4.workspace = true
-oxc.workspace = true
 fontdb.workspace = true
 symphonia-core.workspace = true
 

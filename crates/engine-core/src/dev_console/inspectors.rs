@@ -470,7 +470,7 @@ mod tests {
             assert!(status.success());
             return;
         }
-        let files = crate::GameFiles::open(&crate::workspace_dir().join("tests/ui-hover")).unwrap();
+        let (_scripts, files) = crate::compiled_fixture("ui-hover");
         let mut script = crate::script::ScriptHost::new(files.clone()).unwrap();
         script.run_main().unwrap();
         script.enable_console().unwrap();

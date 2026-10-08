@@ -1,4 +1,3 @@
-use crate::GameFiles;
 use deflorta_js_bridge::script::*;
 use std::time::Instant;
 
@@ -44,7 +43,7 @@ fn console_evaluates_live_state_and_recovers_after_errors() {
         assert!(status.success());
         return;
     }
-    let files = GameFiles::open(&crate::workspace_dir().join("tests/ui-hover")).unwrap();
+    let (_scripts, files) = crate::compiled_fixture("ui-hover");
     let mut host = ScriptHost::new(files.clone()).unwrap();
     host.run_main().unwrap();
     host.enable_console().unwrap();

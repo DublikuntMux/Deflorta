@@ -13,6 +13,9 @@ const ARCHIVE: &str = "game.dm";
 struct Cli {
     /// Game directory or .dm archive (default: game.dm beside this executable).
     path: Option<PathBuf>,
+    /// Compiled scripts prepared by the CLI for a source project.
+    #[arg(long, hide = true)]
+    scripts: Option<PathBuf>,
     /// Run a test script headlessly.
     #[arg(long, value_name = "SCRIPT.json", conflicts_with = "inspect")]
     test: Option<PathBuf>,
@@ -37,7 +40,13 @@ fn game_path(path: Option<PathBuf>) -> Result<PathBuf> {
 
 fn run(cli: Cli) -> Result<()> {
     let path = game_path(cli.path)?;
-    let files = deflorta::GameFiles::open(&path)
+    let files = cli
+        .scripts
+        .as_ref()
+        .map_or_else(
+            || deflorta::GameFiles::open(&path),
+            |scripts| deflorta::GameFiles::with_scripts(&path, scripts),
+        )
         .with_context(|| format!("cannot open the game at {}", path.display()))?;
     if cli.inspect {
         let font_families = deflorta::font_families(&files);

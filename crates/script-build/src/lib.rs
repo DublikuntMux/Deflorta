@@ -1,3 +1,5 @@
+//! Script compilation for CLI tools and Cargo build scripts, never the runtime.
+
 use std::borrow::Cow;
 use std::path::Path;
 

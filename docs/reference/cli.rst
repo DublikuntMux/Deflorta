@@ -26,8 +26,9 @@ Check and run
    deflorta run [PATH] [--test SCRIPT.json] [-v | -vv]
 
 ``check`` runs static analysis and startup verification. ``--no-boot`` skips
-startup verification. ``run`` uses the host's debug launcher and reads source
-assets directly, without conversion or a temporary project copy; ``--test``
+startup verification. ``run`` compiles source scripts before starting the
+host's debug launcher. It reads source assets directly, without conversion
+or a temporary project copy; only compiled scripts use temporary files. ``--test``
 selects headless play. ``-v``/``--verbose`` enables debug logging and ``-vv``
 enables trace; ``RUST_LOG`` overrides them. See :doc:`../guides/debugging`
 and :doc:`../guides/testing`.
