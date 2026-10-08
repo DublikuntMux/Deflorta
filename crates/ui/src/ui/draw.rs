@@ -55,6 +55,7 @@ impl Ui {
         self.hit_order.clear();
         let mut items = Vec::new();
         if self.nodes.is_empty() {
+            self.draw_self_voicing_status(now, &mut items);
             return items;
         }
         let ctx = Ctx {
@@ -79,6 +80,7 @@ impl Ui {
         {
             self.focused = None;
         }
+        self.draw_self_voicing_status(now, &mut items);
         items
     }
 

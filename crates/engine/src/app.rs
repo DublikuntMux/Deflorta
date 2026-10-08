@@ -64,6 +64,11 @@ impl App {
         engine.set_waker(Arc::new(move || {
             let _ = worker_proxy.send_event(AppEvent::WorkerReady);
         }));
+        let self_voicing = crate::self_voicing::SelfVoicing::default();
+        let speech_proxy = proxy.clone();
+        self_voicing.set_waker(Arc::new(move || {
+            let _ = speech_proxy.send_event(AppEvent::WorkerReady);
+        }));
         let gamepads = Gilrs::new()
             .map_err(|e| warn!("Gamepads unavailable: {e}"))
             .ok();
@@ -95,7 +100,7 @@ impl App {
             accessibility_active: false,
             accessibility_tree: None,
             proxy,
-            self_voicing: crate::self_voicing::SelfVoicing::default(),
+            self_voicing,
             #[cfg(feature = "dev-console")]
             console: None,
             #[cfg(feature = "dev-console")]
@@ -166,6 +171,9 @@ impl App {
         }
         if let Some(on) = requests.self_voicing {
             self.self_voicing.set_enabled(on);
+            self.engine
+                .ui
+                .set_self_voicing_initializing(self.self_voicing.initializing());
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
@@ -608,10 +616,13 @@ impl ApplicationHandler<AppEvent> for App {
             event_loop.set_control_flow(ControlFlow::Wait);
             return;
         }
-        if self.self_voicing.retry_initialization()
-            && let Some(window) = &self.window
-        {
-            window.request_redraw();
+        if self.self_voicing.retry_initialization() {
+            self.engine
+                .ui
+                .set_self_voicing_initializing(self.self_voicing.initializing());
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
         }
         self.poll_gamepads();
         self.engine.fire_timers();

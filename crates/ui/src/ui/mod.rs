@@ -4,6 +4,7 @@ mod draw;
 mod input;
 mod layout;
 pub mod reveal;
+mod status;
 pub mod text;
 pub mod transform;
 
@@ -176,6 +177,7 @@ pub struct Ui {
     hit_order: Vec<(usize, Rect)>,
     reveal_event_pending: bool,
     accessibility: accessibility::Accessibility,
+    self_voicing_initializing: Option<Instant>,
 }
 
 impl Ui {
@@ -210,6 +212,7 @@ impl Ui {
             hit_order: Vec::new(),
             reveal_event_pending: false,
             accessibility: accessibility::Accessibility::default(),
+            self_voicing_initializing: None,
         }
     }
 
@@ -649,7 +652,8 @@ impl Ui {
 
     /// True while any animation, typewriter effect or video is running.
     pub fn is_animating(&self, now: Instant) -> bool {
-        self.enters.values().any(|a| !a.finished(now))
+        self.self_voicing_initializing.is_some()
+            || self.enters.values().any(|a| !a.finished(now))
             || self
                 .moves
                 .values()

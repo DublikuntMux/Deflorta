@@ -130,7 +130,16 @@ impl Ui {
                 .map(|&i| self.accessibility.ids[&self.nodes[i].id])
                 .collect::<Vec<_>>(),
         );
+        let status = self.self_voicing_initializing.map(|_| {
+            let id = NodeId(u64::MAX);
+            root.push_child(id);
+            let mut node = Node::new(Role::Status);
+            node.set_label(super::status::SELF_VOICING_STATUS);
+            node.set_live(Live::Polite);
+            (id, node)
+        });
         let mut nodes = vec![(ROOT, root)];
+        nodes.extend(status);
         for &i in &exposed {
             let mut node = self.accessible_node(i, &exposed_set);
             if self.nodes[i].desc.kind() == NodeKind::Input {

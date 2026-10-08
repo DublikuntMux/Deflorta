@@ -1,3 +1,6 @@
+// Clippy's Send analysis of wgpu initialization futures exceeds the default depth.
+#![recursion_limit = "256"]
+
 pub mod engine;
 pub mod render;
 pub mod self_voicing;
