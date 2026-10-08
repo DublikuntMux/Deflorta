@@ -1,5 +1,3 @@
-#![recursion_limit = "256"]
-
 pub mod desc;
 pub mod diagnostics;
 pub mod handler;
@@ -22,5 +20,6 @@ pub fn data_dir() -> std::path::PathBuf {
     #[cfg(not(target_os = "android"))]
     dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
 }
+
 #[cfg(target_os = "android")]
 pub static ANDROID_DATA_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();

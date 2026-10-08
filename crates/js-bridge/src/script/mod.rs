@@ -1,7 +1,8 @@
 mod native;
+mod value;
+
 #[cfg(test)]
 mod tests;
-mod value;
 
 pub use native::{Command, Event, GameConfig, HandlerValue, UiCommit};
 pub use value::Handler;

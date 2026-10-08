@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, anyhow};
 use naga::back::spv;
 use naga::valid::{Capabilities, ValidationFlags, Validator};
+
 const SHADER_DIR: &str = "src/render";
 
 fn main() -> Result<()> {

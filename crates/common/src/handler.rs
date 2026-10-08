@@ -4,6 +4,7 @@ use serde::{
     ser::{self, Serialize},
 };
 use std::fmt;
+
 type Result<T, E> = std::result::Result<T, E>;
 
 /// A JS function captured from a committed element tree. The function stays in

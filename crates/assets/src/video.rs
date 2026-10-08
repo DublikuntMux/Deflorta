@@ -1,6 +1,7 @@
+mod webm;
+
 #[cfg(feature = "debug-formats")]
 mod h264;
-mod webm;
 
 #[cfg(test)]
 mod tests;

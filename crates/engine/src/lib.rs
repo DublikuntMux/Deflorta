@@ -1,18 +1,18 @@
-// wgpu's nested backend types need this depth for async Send/Sync checks.
-#![recursion_limit = "256"]
+mod app;
 
 #[cfg(target_os = "android")]
 mod android_ime;
-mod app;
+
 use deflorta_assets::{assets, audio};
-#[cfg(target_os = "android")]
-use deflorta_common::ANDROID_DATA_DIR;
-#[cfg(feature = "dev-console")]
-use deflorta_engine_core::dev_console;
 use deflorta_engine_core::{engine, render, self_voicing};
 use deflorta_headless::headless;
 use deflorta_js_bridge::script;
 use deflorta_ui::ui;
+
+#[cfg(target_os = "android")]
+use deflorta_common::ANDROID_DATA_DIR;
+#[cfg(feature = "dev-console")]
+use deflorta_engine_core::dev_console;
 
 use std::path::Path;
 use std::time::Instant;

@@ -3,8 +3,6 @@ use std::sync::mpsc::SyncSender;
 
 use anyhow::{Context, Result, bail};
 use log::trace;
-#[cfg(feature = "debug-formats")]
-use oxideav_vp8::state::Vp8DecoderState;
 use oxideav_vp9::{
     ColorConfig, ColorSpace, FrameType, Vp9DecodedFrame, Vp9SequenceDecoder,
     parse_uncompressed_header,
@@ -19,6 +17,9 @@ use yuv::{YuvPlanarImage, YuvRange, YuvStandardMatrix};
 use super::{Frame, Message};
 use crate::files::GameFiles;
 use crate::media;
+
+#[cfg(feature = "debug-formats")]
+use oxideav_vp8::state::Vp8DecoderState;
 
 fn video_track(reader: &dyn FormatReader) -> Result<&Track> {
     reader.tracks().iter().find(|track| matches!(
