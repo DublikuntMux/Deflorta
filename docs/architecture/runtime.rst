@@ -46,7 +46,7 @@ Background storage failures arrive as ``storageError`` and the core runtime
 reports them through the regular ``error`` listeners.
 Click events include a handler, button, and reveal state; handler events
 carry widget values. Key events carry key/down/repeat/modifiers and reveal
-state. The :download:`type declarations <../../crates/engine/runtime/deflorta.d.ts>`
+state. The :download:`type declarations <../../crates/js-bridge/runtime/deflorta.d.ts>`
 describe their payloads.
 
 Native calls read arguments synchronously. Mutations are queued as Rust enum
@@ -84,13 +84,13 @@ shadow-node sharing or a concurrent renderer.
 Embedded runtime modules
 ------------------------
 
-Games import ES modules. Shared ``deflorta-data`` tooling lowers JSX in
+Games import ES modules. Shared ``deflorta-assets`` tooling lowers JSX in
 ``.js`` and ``.jsx`` through ``deflorta/jsx-runtime``. The source loader,
 CLI graph, and runtime build use the same compiler. Release builds minify
 runtime JavaScript with Oxc before embedding it. ``build.rs`` also compiles
 ``src/render/*.wgsl`` to SPIR-V with naga.
 
-.. list-table:: Modules in ``crates/engine/runtime/``
+.. list-table:: Modules in ``crates/js-bridge/runtime/``
    :header-rows: 1
    :widths: 30 70
 

@@ -9,52 +9,26 @@ license.workspace = true
 workspace = true
 
 [features]
-dev-console = ["dep:egui", "dep:egui-winit", "dep:egui-wgpu", "dep:sysinfo", "wgpu/counters"]
+debug-formats = ["deflorta-assets/debug-formats"]
+dev-console = ["deflorta-engine-core/dev-console", "deflorta-headless/dev-console"]
 
 [dependencies]
-deflorta-data.workspace = true
-egui = { version = "0.36.2", optional = true }
-egui-winit = { version = "0.36.2", default-features = false, features = ["clipboard", "wayland", "x11"], optional = true }
-egui-wgpu = { version = "0.36.2", default-features = false, optional = true }
-sysinfo = { version = "0.39.6", default-features = false, features = ["system"], optional = true }
-mozjs = "0.26.8"
-winit = "0.30.13"
-accesskit = "0.25.1"
-accesskit_winit = "0.34.1"
-tts = "0.26.3"
-wgpu = { version = "30.0.1", features = ["spirv"] }
-glyphon = "0.12.0"
-taffy = "0.14.0"
-image = "0.25.10"
-kira = { version = "0.12.5", features = [ "aac", "isomp4", "mkv" ] }
-serde.workspace = true
-serde_json.workspace = true
-bytemuck = { version = "1.25.2", features = [ "derive" ] }
-pollster = "1.0.1"
+deflorta-assets.workspace = true
+deflorta-common.workspace = true
+deflorta-ui.workspace = true
+deflorta-js-bridge.workspace = true
+deflorta-engine-core.workspace = true
+deflorta-headless.workspace = true
+winit.workspace = true
+accesskit.workspace = true
+accesskit_winit.workspace = true
+gilrs.workspace = true
+num-traits.workspace = true
+pollster.workspace = true
+wgpu.workspace = true
 anyhow.workspace = true
-oxideav-core = "0.1.39"
-oxideav-h264 = "0.1.8"
-mp4 = "0.14.0"
-symphonia = { version = "0.6.1", default-features = false, features = ["mkv"] }
-oxideav-vp8 = { version = "0.2.7", default-features = false }
-oxideav-vp9 = "0.0.13"
-yuv = "0.8.19"
-gilrs = "0.11.2"
 log.workspace = true
-pretty_env_logger = "0.5.0"
-num-traits = "0.2.19"
+pretty_env_logger.workspace = true
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.30.13", features = ["android-game-activity"] }
-
-[target.'cfg(not(target_os = "android"))'.dependencies]
-dirs = "7.0.0"
-
-[dev-dependencies]
-accesskit_consumer = "0.39.1"
-
-[build-dependencies]
-deflorta-data.workspace = true
-anyhow.workspace = true
-naga = { version = "30.0.1", features = ["wgsl-in", "spv-out"] }
-oxc.workspace = true
+winit = { workspace = true, features = ["android-game-activity"] }

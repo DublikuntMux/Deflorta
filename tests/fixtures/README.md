@@ -5,8 +5,9 @@ sources. Each contains six 64×48 frames at 10 fps, with a keyframe followed by
 inter frames, and a 48 kHz Vorbis soundtrack. VP8 has 0.6 seconds of mono audio;
 VP9 has 0.2 seconds of stereo audio to verify silence after a soundtrack ends.
 The reference PNGs contain
-all six frames decoded by FFmpeg, tiled horizontally. FFmpeg is only needed
-to regenerate fixtures, not to build, run or test Deflorta.
+all six frames decoded by FFmpeg, tiled horizontally. Asset decoder tests use
+these committed fixtures without FFmpeg. CLI conversion tests require FFmpeg
+and ffprobe on PATH.
 
 ```sh
 for codec in vp8 vp9; do
@@ -23,6 +24,15 @@ for codec in vp8 vp9; do
     -c:v "$encoder" -g 30 -c:a libvorbis -ac "$channels" -y "tests/fixtures/$codec-vorbis.webm"
   ffmpeg -i "tests/fixtures/$codec-vorbis.webm" -vf tile=6x1 -frames:v 1 \
     -y "tests/fixtures/$codec-reference.png"
+done
+```
+
+Vorbis fixtures for the audio loader are generated from the demo's source WAVs:
+
+```sh
+for name in chime theme; do
+  ffmpeg -nostdin -hide_banner -loglevel error -y -i "game/audio/$name.wav" \
+    -c:a libvorbis -q:a 5 -ac 2 "tests/fixtures/$name.ogg"
 done
 ```
 

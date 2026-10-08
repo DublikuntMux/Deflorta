@@ -140,7 +140,7 @@ class ReleaseTests(unittest.TestCase):
             if not windows:
                 for target, abi in release.ANDROID.items():
                     for profile in ("debug", "release"):
-                        for library in ("libdeflorta_android.so", "libc++_shared.so"):
+                        for library in ("libdeflorta.so", "libc++_shared.so"):
                             self.write(
                                 f"{base}/target/{target}/{profile}/jniLibs/{abi}/{library}"
                             )
@@ -170,7 +170,7 @@ class ReleaseTests(unittest.TestCase):
         with tarfile.open(output / "deflorta-v1.2.3-android-export.tar.gz") as archive:
             self.assertNotIn("dist/deflorta", archive.getnames())
             self.assertIn(
-                "dist/target/android-aarch64/release/jniLibs/arm64-v8a/libdeflorta_android.so",
+                "dist/target/android-aarch64/release/jniLibs/arm64-v8a/libdeflorta.so",
                 archive.getnames(),
             )
         checksums = (output / "SHA256SUMS").read_text().splitlines()

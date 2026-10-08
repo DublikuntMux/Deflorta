@@ -7,7 +7,7 @@ and video can stream without extracting the game. The engine runtime ships
 separately in the launcher.
 
 This reference describes **version 2**, implemented by
-``crates/data/src/archive.rs`` and written by ``crates/cli/src/pack.rs``.
+``crates/assets/src/archive.rs`` and written by ``crates/cli/src/pack.rs``.
 Version 1 archives must be rebuilt with the current CLI.
 
 Create and inspect an archive

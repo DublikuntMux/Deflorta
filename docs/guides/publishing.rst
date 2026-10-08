@@ -19,6 +19,22 @@ The default output is ``mygame/build/game.dm``. The bundler follows static
 imports from ``main.js`` and combines game modules into one minified
 ``main.js``. Engine modules remain embedded in the launcher.
 
+Bundling and publishing re-encode every image as lossless WebP, every movie
+as 8-bit VP9 WebM with a Vorbis soundtrack, and every audio file as Vorbis Ogg.
+Install `FFmpeg <https://ffmpeg.org/download.html>`_ and its ffprobe tool on PATH
+with the libwebp, libvpx-vp9, and libvorbis encoders. Video uses CRF 30; audio uses quality 5
+and stereo output. Still images keep their dimensions and transparency.
+Audio/video containers are identified by their streams, so audio-only MP4
+files become Ogg audio and embedded album art is discarded.
+
+Source files are left unchanged. Archive entries keep their original asset
+paths, even though their bytes use the normalized formats: a reference such
+as ``movies/intro.mp4`` reads WebM data in the published archive. This also
+preserves paths built dynamically in scripts and avoids filename collisions.
+The runtime detects media by its contents. A failed conversion aborts the
+build before replacing an existing archive. ``--no-minify`` only affects
+JavaScript; it still converts media.
+
 Use ``--no-minify`` to keep the script readable, ``--emit-js FILE`` to inspect
 it separately, and ``-o FILE`` to choose the archive path:
 
@@ -64,6 +80,10 @@ Choose an output and runtime
 The CLI selects ``target/<platform>/release/`` beside its own executable;
 ``--debug`` selects the debug runtime. Debug desktop launchers include the
 developer console. Release launchers exclude it and its dependencies.
+Debug launchers also include source-format decoders, so ``deflorta run``
+reads the project directly without copying or converting its assets. Published
+archives use normalized media even when ``--debug`` selects the debug runtime.
+Players need no FFmpeg installation.
 
 The requested runtime must already be installed in the distribution. Startup
 verification always uses the host's debug runtime, including when publishing

@@ -26,7 +26,8 @@ Check and run
    deflorta run [PATH] [--test SCRIPT.json] [-v | -vv]
 
 ``check`` runs static analysis and startup verification. ``--no-boot`` skips
-startup verification. ``run`` uses the host's debug launcher; ``--test``
+startup verification. ``run`` uses the host's debug launcher and reads source
+assets directly, without conversion or a temporary project copy; ``--test``
 selects headless play. ``-v``/``--verbose`` enables debug logging and ``-vv``
 enables trace; ``RUST_LOG`` overrides them. See :doc:`../guides/debugging`
 and :doc:`../guides/testing`.
@@ -55,7 +56,8 @@ Bundle and inspect
    * - ``--emit-js FILE``
      - Also write the combined script to a separate file.
 
-``info`` lists an archive's contents. See :doc:`../guides/publishing`.
+Bundling re-encodes images, video, and audio using FFmpeg while preserving
+asset paths. ``info`` lists an archive's contents. See :doc:`../guides/publishing`.
 
 Publish
 -------

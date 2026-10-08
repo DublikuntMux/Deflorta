@@ -1,0 +1,659 @@
+use num_traits::{AsPrimitive, ToPrimitive};
+use serde::Deserialize;
+
+use crate::handler::Handler;
+use crate::util::math::unit_to_u8;
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum NodeKind {
+    Box,
+    Text,
+    Image,
+    Slider,
+    Input,
+    Video,
+}
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Fit {
+    #[default]
+    Fill,
+    Cover,
+    Contain,
+}
+
+/// Focus properties retain their top-level JavaScript names when deserialized.
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FocusDesc {
+    /// Whether keyboard/gamepad focus can land here (defaults to having a handler).
+    pub focusable: Option<bool>,
+    /// Receive focus when the element appears.
+    #[serde(default)]
+    pub autofocus: bool,
+    #[serde(default)]
+    pub disabled: bool,
+}
+
+/// Accessibility properties retain their top-level JavaScript names.
+#[derive(Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AccessibilityDesc {
+    /// Accessible name, overriding text and image alternative text.
+    pub label: Option<String>,
+    /// Image alternative text; an empty string marks a decorative image.
+    pub alt: Option<String>,
+    /// Announce changes to this subtree to assistive technology.
+    #[serde(default)]
+    pub live: bool,
+    /// Modal screens hide underlying accessibility nodes.
+    #[serde(default)]
+    pub modal: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct NodeDesc {
+    pub t: Option<NodeKind>,
+    pub key: Option<String>,
+    pub style: Style,
+    /// Paint-only overrides applied while hovered or focused.
+    pub hover: Option<Style>,
+    pub on_click: Option<Handler>,
+    /// Slider value changes.
+    pub on_change: Option<Handler>,
+    /// Text input edits.
+    pub on_input: Option<Handler>,
+    /// Enter pressed in a text input.
+    pub on_submit: Option<Handler>,
+    /// A non-looping video finished.
+    pub on_end: Option<Handler>,
+    pub focus: FocusDesc,
+    pub tooltip: Option<String>,
+    pub accessibility: AccessibilityDesc,
+    /// Scroll containers: start scrolled to the end (chat logs, history).
+    pub start_at_end: bool,
+    pub children: Vec<Self>,
+    pub text: Option<String>,
+    /// Instant text bound to the current tooltip; hidden while it is empty.
+    pub tooltip_text: bool,
+    /// Rich text; takes precedence over `text`.
+    pub spans: Option<Vec<SpanDesc>>,
+    /// Typewriter speed in characters per second.
+    pub cps: Option<f32>,
+    pub src: Option<String>,
+    /// Image shown while hovered or focused (image buttons).
+    pub hover_src: Option<String>,
+    pub fit: Fit,
+    /// Fraction of the element's size placed at its layout position, e.g. [0.5, 1] for bottom-center.
+    pub anchor: Option<[f32; 2]>,
+    pub enter: Option<AnimDesc>,
+    pub exit: Option<AnimDesc>,
+    pub r#move: Option<AnimDesc>,
+    pub transform: Option<TransformDesc>,
+    pub value: Option<serde_json::Value>,
+    pub min: Option<f32>,
+    pub max: Option<f32>,
+    pub step: Option<f32>,
+    pub placeholder: Option<String>,
+    pub max_length: Option<usize>,
+    pub r#loop: bool,
+}
+
+impl NodeDesc {
+    #[must_use]
+    pub fn kind(&self) -> NodeKind {
+        self.t.unwrap_or(NodeKind::Box)
+    }
+
+    pub fn number_value(&self) -> f32 {
+        self.value
+            .as_ref()
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or(0.0)
+            .as_()
+    }
+
+    #[must_use]
+    pub fn string_value(&self) -> &str {
+        self.value.as_ref().and_then(|v| v.as_str()).unwrap_or("")
+    }
+
+    #[must_use]
+    pub fn is_focusable(&self) -> bool {
+        if self.focus.disabled {
+            return false;
+        }
+        self.focus.focusable.unwrap_or_else(|| {
+            self.on_click.is_some() || self.on_change.is_some() || self.kind() == NodeKind::Input
+        })
+    }
+}
+
+/// Font emphasis, flattened into a rich-text span's JavaScript properties.
+#[derive(Deserialize, Clone, Default, PartialEq, Eq, Debug)]
+pub struct Emphasis {
+    #[serde(default)]
+    pub b: bool,
+    #[serde(default)]
+    pub i: bool,
+}
+
+/// Typewriter timing, flattened into a rich-text span's JavaScript properties.
+#[derive(Deserialize, Clone, Default, PartialEq, Debug)]
+pub struct SpanReveal {
+    /// Typewriter pauses for this many seconds before the span.
+    pub wait: Option<f32>,
+    /// Typewriter stops before the span until the player clicks.
+    #[serde(default)]
+    pub click: bool,
+    /// Everything before this span appears instantly.
+    #[serde(default)]
+    pub fast: bool,
+}
+
+/// One run of rich text. Empty-text spans carry typewriter pauses.
+#[derive(Clone, Default, PartialEq, Debug)]
+pub struct SpanDesc {
+    pub text: String,
+    pub emphasis: Emphasis,
+    pub reveal: SpanReveal,
+    pub u: bool,
+    pub s: bool,
+    pub color: Option<Color>,
+    /// Absolute font size in virtual pixels.
+    pub size: Option<f32>,
+    pub font: Option<String>,
+    /// Annotation drawn above the span (furigana).
+    pub ruby: Option<String>,
+}
+
+// Decode flat JavaScript properties directly into their domain groups. The
+// advertised field list keeps unknown getters out of the JS bridge and avoids
+// allocating intermediate maps when decoding every committed UI node and span.
+macro_rules! deserialize_properties {
+    ($ty:ident, { $($field:ident: $name:literal => $($member:ident).+),* $(,)? }) => {
+        impl<'de> Deserialize<'de> for $ty {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                const FIELDS: &[&str] = &[$($name),*];
+                #[derive(Deserialize, Clone, Copy)]
+                #[serde(field_identifier)]
+                enum Field {
+                    $(#[serde(rename = $name)] $field,)*
+                    #[serde(other)]
+                    Unknown,
+                }
+                struct Properties;
+                impl<'de> serde::de::Visitor<'de> for Properties {
+                    type Value = $ty;
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        formatter.write_str(stringify!($ty))
+                    }
+                    fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<$ty, A::Error> {
+                        let mut value = $ty::default();
+                        let mut seen = [false; FIELDS.len()];
+                        while let Some(field) = map.next_key::<Field>()? {
+                            match field {
+                                $(Field::$field => {
+                                    if std::mem::replace(&mut seen[Field::$field as usize], true) {
+                                        return Err(serde::de::Error::duplicate_field($name));
+                                    }
+                                    value.$($member).+ = map.next_value()?;
+                                },)*
+                                Field::Unknown => { map.next_value::<serde::de::IgnoredAny>()?; }
+                            }
+                        }
+                        Ok(value)
+                    }
+                }
+                deserializer.deserialize_struct(stringify!($ty), FIELDS, Properties)
+            }
+        }
+    };
+}
+
+deserialize_properties!(NodeDesc, {
+    T: "t" => t,
+    Key: "key" => key,
+    Style: "style" => style,
+    Hover: "hover" => hover,
+    OnClick: "onClick" => on_click,
+    OnChange: "onChange" => on_change,
+    OnInput: "onInput" => on_input,
+    OnSubmit: "onSubmit" => on_submit,
+    OnEnd: "onEnd" => on_end,
+    Focusable: "focusable" => focus.focusable,
+    Autofocus: "autofocus" => focus.autofocus,
+    Disabled: "disabled" => focus.disabled,
+    Tooltip: "tooltip" => tooltip,
+    Label: "label" => accessibility.label,
+    Alt: "alt" => accessibility.alt,
+    Live: "live" => accessibility.live,
+    Modal: "modal" => accessibility.modal,
+    StartAtEnd: "startAtEnd" => start_at_end,
+    Children: "children" => children,
+    Text: "text" => text,
+    TooltipText: "tooltipText" => tooltip_text,
+    Spans: "spans" => spans,
+    Cps: "cps" => cps,
+    Src: "src" => src,
+    HoverSrc: "hoverSrc" => hover_src,
+    Fit: "fit" => fit,
+    Anchor: "anchor" => anchor,
+    Enter: "enter" => enter,
+    Exit: "exit" => exit,
+    Move: "move" => r#move,
+    Transform: "transform" => transform,
+    Value: "value" => value,
+    Min: "min" => min,
+    Max: "max" => max,
+    Step: "step" => step,
+    Placeholder: "placeholder" => placeholder,
+    MaxLength: "maxLength" => max_length,
+    Loop: "loop" => r#loop,
+});
+
+deserialize_properties!(SpanDesc, {
+    Text: "text" => text,
+    B: "b" => emphasis.b,
+    I: "i" => emphasis.i,
+    Wait: "wait" => reveal.wait,
+    Click: "click" => reveal.click,
+    Fast: "fast" => reveal.fast,
+    U: "u" => u,
+    S: "s" => s,
+    Color: "color" => color,
+    Size: "size" => size,
+    Font: "font" => font,
+    Ruby: "ruby" => ruby,
+});
+
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq, Default, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Ease {
+    #[default]
+    Linear,
+    Ease,
+    EaseIn,
+    EaseOut,
+    EaseInOut,
+    Bounce,
+}
+
+impl Ease {
+    #[must_use]
+    pub fn apply(self, t: f32) -> f32 {
+        let t = t.clamp(0.0, 1.0);
+        match self {
+            Self::Linear => t,
+            Self::EaseIn => t * t * t,
+            Self::EaseOut => 1.0 - (1.0 - t).powi(3),
+            Self::Ease | Self::EaseInOut => {
+                if t < 0.5 {
+                    4.0 * t * t * t
+                } else {
+                    1.0 - (-2.0f32).mul_add(t, 2.0).powi(3) / 2.0
+                }
+            }
+            Self::Bounce => {
+                let (n, d) = (7.5625, 2.75);
+                if t < 1.0 / d {
+                    n * t * t
+                } else if t < 2.0 / d {
+                    let t = t - 1.5 / d;
+                    (n * t).mul_add(t, 0.75)
+                } else if t < 2.5 / d {
+                    let t = t - 2.25 / d;
+                    (n * t).mul_add(t, 0.9375)
+                } else {
+                    let t = t - 2.625 / d;
+                    (n * t).mul_add(t, 0.984_375)
+                }
+            }
+        }
+    }
+}
+
+/// Animation endpoint: `enter` gives starting values, `exit` final values.
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+pub struct AnimDesc {
+    pub dur: f32,
+    pub ease: Option<Ease>,
+    pub opacity: Option<f32>,
+    pub x: Option<f32>,
+    pub y: Option<f32>,
+    pub scale: Option<f32>,
+    pub rotate: Option<f32>,
+    pub mask: Option<MaskDesc>,
+}
+
+impl AnimDesc {
+    /// Enter/exit transitions default to ease-out; moves to ease-in-out.
+    #[must_use]
+    pub fn ease_or(&self, default: Ease) -> Ease {
+        self.ease.unwrap_or(default)
+    }
+}
+
+/// Screen-space reveal pattern for transitions.
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum MaskDesc {
+    /// Reveal where the mask image is darkest first (image dissolve).
+    Image {
+        src: String,
+        #[serde(default = "default_ramp")]
+        ramp: f32,
+    },
+    Wipe {
+        #[serde(default)]
+        dir: WipeDir,
+        #[serde(default = "default_ramp")]
+        ramp: f32,
+    },
+    Pixellate {
+        #[serde(default = "default_block")]
+        size: f32,
+    },
+}
+
+const fn default_ramp() -> f32 {
+    0.1
+}
+
+const fn default_block() -> f32 {
+    32.0
+}
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum WipeDir {
+    Left,
+    #[default]
+    Right,
+    Up,
+    Down,
+}
+
+#[derive(Deserialize, Clone, Default, Debug, PartialEq)]
+pub struct TransformProps {
+    pub x: Option<f32>,
+    pub y: Option<f32>,
+    pub opacity: Option<f32>,
+    pub scale: Option<f32>,
+    pub rotate: Option<f32>,
+    /// Fractional crop rectangle [x, y, w, h] of an image.
+    pub crop: Option<[f32; 4]>,
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum RepeatCount {
+    Forever(bool),
+    Times(u32),
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum TransformStep {
+    Set {
+        set: TransformProps,
+    },
+    Tween {
+        dur: f32,
+        #[serde(default)]
+        ease: Ease,
+        to: TransformProps,
+    },
+    Pause {
+        pause: f32,
+    },
+    Parallel {
+        parallel: Vec<Vec<Self>>,
+    },
+    Repeat {
+        repeat: RepeatCount,
+        steps: Vec<Self>,
+    },
+}
+
+#[derive(Deserialize, Clone, Debug, PartialEq)]
+pub struct TransformDesc {
+    pub steps: Vec<TransformStep>,
+}
+
+/// A length: a number of virtual pixels, `"50%"`, `"12px"` or `"auto"`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Dim {
+    Px(f32),
+    Percent(f32),
+    Auto,
+}
+
+impl<'de> Deserialize<'de> for Dim {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Number(f32),
+            Text(String),
+        }
+        let text = match Raw::deserialize(d)? {
+            Raw::Number(v) => return Ok(Self::Px(v)),
+            Raw::Text(text) => text,
+        };
+        let s = text.trim();
+        let number = |v: &str| v.trim().parse::<f32>().map_err(serde::de::Error::custom);
+        if s == "auto" {
+            Ok(Self::Auto)
+        } else if let Some(p) = s.strip_suffix('%') {
+            Ok(Self::Percent(number(p)? / 100.0))
+        } else if let Some(p) = s.strip_suffix("px") {
+            Ok(Self::Px(number(p)?))
+        } else {
+            Err(serde::de::Error::custom(format!("invalid dimension '{s}'")))
+        }
+    }
+}
+
+/// Box edges: a number, [vertical, horizontal] or [top, right, bottom, left].
+#[derive(Deserialize, Clone, Copy, Debug)]
+#[serde(untagged)]
+pub enum Edges {
+    All(f32),
+    Two([f32; 2]),
+    Four([f32; 4]),
+}
+
+impl Edges {
+    #[must_use]
+    pub const fn trbl(self) -> [f32; 4] {
+        match self {
+            Self::All(v) => [v; 4],
+            Self::Two([v, h]) => [v, h, v, h],
+            Self::Four(e) => e,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct Color(pub [f32; 4]);
+
+impl<'de> Deserialize<'de> for Color {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Self::parse(&s).ok_or_else(|| serde::de::Error::custom(format!("invalid color '{s}'")))
+    }
+}
+
+impl Color {
+    pub const WHITE: Self = Self([1.0, 1.0, 1.0, 1.0]);
+    pub const TRANSPARENT: Self = Self([0.0; 4]);
+
+    /// Parses `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` (sRGB).
+    #[must_use]
+    pub fn parse(s: &str) -> Option<Self> {
+        let hex = s.trim().strip_prefix('#')?;
+        let digits: Vec<u8> = hex
+            .chars()
+            .map(|c| c.to_digit(16).and_then(|d| d.to_u8()))
+            .collect::<Option<_>>()?;
+        let channels: Vec<u8> = match digits.len() {
+            3 | 4 => digits.iter().map(|d| d * 17).collect(),
+            6 | 8 => digits.chunks(2).map(|c| c[0] * 16 + c[1]).collect(),
+            _ => return None,
+        };
+        let a = channels.get(3).copied().unwrap_or(255);
+        Some(Self([
+            f32::from(channels[0]) / 255.0,
+            f32::from(channels[1]) / 255.0,
+            f32::from(channels[2]) / 255.0,
+            f32::from(a) / 255.0,
+        ]))
+    }
+
+    #[must_use]
+    pub fn with_alpha_mul(self, a: f32) -> Self {
+        let [r, g, b, alpha] = self.0;
+        Self([r, g, b, alpha * a])
+    }
+
+    pub fn to_rgba8(self) -> [u8; 4] {
+        self.0.map(unit_to_u8)
+    }
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::Color;
+
+    #[test]
+    fn byte_channels_round_clamp_and_handle_nan() {
+        assert_eq!(
+            Color([-1.0, 0.5, 2.0, f32::NAN]).to_rgba8(),
+            [0, 128, 255, 0]
+        );
+        assert_eq!(
+            Color([f32::NEG_INFINITY, f32::INFINITY, 0.0, 1.0]).to_rgba8(),
+            [0, 255, 0, 255]
+        );
+    }
+}
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq)]
+pub struct Shadow {
+    pub color: Color,
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+}
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum FontWeight {
+    Number(u16),
+    Name(FontWeightName),
+}
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum FontWeightName {
+    Normal,
+    Bold,
+}
+
+impl FontWeight {
+    #[must_use]
+    pub const fn value(self) -> u16 {
+        match self {
+            Self::Number(n) => n,
+            Self::Name(FontWeightName::Normal) => 400,
+            Self::Name(FontWeightName::Bold) => 700,
+        }
+    }
+}
+
+macro_rules! string_enum {
+    ($name:ident { $($variant:ident = $text:literal),* $(,)? }) => {
+        #[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+        pub enum $name { $(#[serde(rename = $text)] $variant),* }
+    };
+}
+
+string_enum!(Display { Flex = "flex", Grid = "grid", None = "none" });
+string_enum!(Position { Relative = "relative", Absolute = "absolute" });
+string_enum!(FlexDirection {
+    Row = "row",
+    Column = "column",
+    RowReverse = "row-reverse",
+    ColumnReverse = "column-reverse",
+});
+string_enum!(FlexWrap { NoWrap = "nowrap", Wrap = "wrap" });
+string_enum!(Overflow { Visible = "visible", Hidden = "hidden", Scroll = "scroll" });
+string_enum!(Align {
+    Start = "flex-start",
+    End = "flex-end",
+    Center = "center",
+    Stretch = "stretch",
+    Baseline = "baseline",
+    SpaceBetween = "space-between",
+    SpaceAround = "space-around",
+    SpaceEvenly = "space-evenly",
+});
+string_enum!(TextAlign { Left = "left", Center = "center", Right = "right", Justify = "justify" });
+
+/// Element style. Layout properties follow CSS flexbox/grid; text properties inherit.
+#[derive(Deserialize, Clone, Default, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Style {
+    pub display: Option<Display>,
+    pub position: Option<Position>,
+    pub left: Option<Dim>,
+    pub top: Option<Dim>,
+    pub right: Option<Dim>,
+    pub bottom: Option<Dim>,
+    pub width: Option<Dim>,
+    pub height: Option<Dim>,
+    pub min_width: Option<Dim>,
+    pub min_height: Option<Dim>,
+    pub max_width: Option<Dim>,
+    pub max_height: Option<Dim>,
+    pub padding: Option<Edges>,
+    pub margin: Option<Edges>,
+    pub gap: Option<f32>,
+    pub flex_direction: Option<FlexDirection>,
+    pub flex_wrap: Option<FlexWrap>,
+    pub flex_grow: Option<f32>,
+    pub flex_shrink: Option<f32>,
+    pub justify_content: Option<Align>,
+    pub align_items: Option<Align>,
+    pub align_self: Option<Align>,
+    /// Number of equal columns/rows; implies `display: "grid"`.
+    pub grid_columns: Option<u16>,
+    pub grid_rows: Option<u16>,
+    pub overflow: Option<Overflow>,
+    pub background: Option<Color>,
+    pub radius: Option<f32>,
+    pub border_width: Option<f32>,
+    pub border_color: Option<Color>,
+    pub opacity: Option<f32>,
+    pub scale: Option<f32>,
+    /// Rotation in degrees (not applied to text).
+    pub rotate: Option<f32>,
+    /// Slider fill and thumb colors; scrollbar color for scroll containers.
+    pub fill_color: Option<Color>,
+    pub thumb_color: Option<Color>,
+    pub thumb_size: Option<f32>,
+    pub scrollbar_color: Option<Color>,
+    // Text (inherited)
+    pub color: Option<Color>,
+    pub font_size: Option<f32>,
+    pub line_height: Option<f32>,
+    pub font_family: Option<String>,
+    pub font_weight: Option<FontWeight>,
+    pub italic: Option<bool>,
+    pub text_align: Option<TextAlign>,
+    pub text_shadow: Option<Shadow>,
+}

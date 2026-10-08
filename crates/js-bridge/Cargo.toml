@@ -1,0 +1,28 @@
+[package]
+name = "deflorta-js-bridge"
+description = "Deflorta SpiderMonkey bridge, runtime modules, and persistence"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+dev-console = []
+
+[dependencies]
+deflorta-assets.workspace = true
+mozjs.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+log.workspace = true
+num-traits.workspace = true
+deflorta-common.workspace = true
+
+[build-dependencies]
+deflorta-assets.workspace = true
+anyhow.workspace = true
+oxc.workspace = true

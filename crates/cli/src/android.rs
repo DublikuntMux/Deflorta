@@ -3,7 +3,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail, ensure};
 use clap::ValueEnum;
-use deflorta_data::GameInspection;
+use deflorta_assets::GameInspection;
 use serde_json::json;
 
 use crate::{create, distribution};
@@ -18,6 +18,7 @@ pub struct Options {
     pub package: Option<String>,
     pub format: Format,
     pub version_code: u32,
+    pub debug: bool,
 }
 
 pub fn abi(platform: &str) -> Result<&'static str> {
@@ -42,17 +43,16 @@ fn validate_package(package: &str) -> Result<()> {
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn publish(
     output: &Path,
     archive: &Path,
     runtime: &Path,
     config: &GameInspection,
     platform: &str,
-    debug: bool,
     name: Option<&str>,
     options: &Options,
 ) -> Result<()> {
+    let debug = options.debug;
     let abi = abi(platform)?;
     let package = options.package.clone().unwrap_or_else(|| {
         format!(
@@ -95,7 +95,7 @@ pub fn publish(
     ensure!(
         main.join("jniLibs")
             .join(abi)
-            .join("libdeflorta_android.so")
+            .join("libdeflorta.so")
             .is_file(),
         "missing Android native runtime"
     );

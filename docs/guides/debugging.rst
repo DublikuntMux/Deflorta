@@ -37,7 +37,7 @@ can also run the launcher directly:
 
 .. code-block:: sh
 
-   cargo run -p deflorta-launcher -- game
+   cargo run -p deflorta-launcher-desktop -- game
 
 Enter runs a command, Shift+Enter inserts a line break, and Up/Down browse
 command history. Results and exceptions appear in the log.

@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use anyhow::{Context, Result, bail};
-use deflorta_data::GameInspection;
+use deflorta_assets::GameInspection;
 
 pub fn root() -> Result<PathBuf> {
     std::env::current_exe()?
@@ -41,7 +41,7 @@ pub fn runtime(platform: &str, debug: bool) -> Result<PathBuf> {
     let entry = if platform.starts_with("android-") {
         path.join("jniLibs")
             .join(crate::android::abi(platform)?)
-            .join("libdeflorta_android.so")
+            .join("libdeflorta.so")
     } else {
         launcher(&path)
     };

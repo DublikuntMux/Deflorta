@@ -1,0 +1,17 @@
+[package]
+name = "deflorta-common"
+description = "Shared Deflorta domain contracts and utilities"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+num-traits.workspace = true
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+dirs.workspace = true

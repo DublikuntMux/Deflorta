@@ -4,21 +4,15 @@
 #[cfg(target_os = "android")]
 mod android_ime;
 mod app;
-mod assets;
-mod audio;
+use deflorta_assets::{assets, audio};
+#[cfg(target_os = "android")]
+use deflorta_common::ANDROID_DATA_DIR;
 #[cfg(feature = "dev-console")]
-mod dev_console;
-mod engine;
-mod headless;
-mod media;
-mod render;
-mod script;
-mod self_voicing;
-mod storage;
-mod ui;
-mod util;
-mod video;
-mod worker;
+use deflorta_engine_core::dev_console;
+use deflorta_engine_core::{engine, render, self_voicing};
+use deflorta_headless::headless;
+use deflorta_js_bridge::script;
+use deflorta_ui::ui;
 
 use std::path::Path;
 use std::time::Instant;
@@ -27,7 +21,7 @@ use anyhow::{Context, Result};
 use log::info;
 use winit::event_loop::EventLoop;
 
-pub use deflorta_data::{GameFiles, archive, files, font_families};
+pub use deflorta_assets::{GameFiles, archive, files, font_families};
 pub use script::{BUILTIN_MODULES, GameConfig, is_builtin_module, resolve_specifier};
 
 /// Log filter used when `RUST_LOG` is not set: engine and script messages at
@@ -44,11 +38,21 @@ pub fn init_logging(default_filter: &str) {
         .init();
 }
 
+///
+/// # Errors
+///
+/// Returns an error if game initialization, event-loop creation, or rendering fails.
 pub fn run(files: GameFiles, test_script: Option<&Path>) -> Result<()> {
     run_with_event_loop(files, test_script, EventLoop::with_user_event())
 }
 
 #[cfg(target_os = "android")]
+/// Runs a game with the Android activity's event loop and data directory.
+///
+/// # Errors
+///
+/// Returns an error if the activity has no data directory, the runtime is already
+/// initialized, or game initialization, event-loop creation, or rendering fails.
 pub fn run_android(
     files: GameFiles,
     app: winit::platform::android::activity::AndroidApp,
@@ -61,19 +65,6 @@ pub fn run_android(
     let mut builder = EventLoop::with_user_event();
     builder.with_android_app(app);
     run_with_event_loop(files, None, builder)
-}
-
-#[cfg(target_os = "android")]
-static ANDROID_DATA_DIR: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
-
-fn data_dir() -> std::path::PathBuf {
-    #[cfg(target_os = "android")]
-    return ANDROID_DATA_DIR
-        .get()
-        .expect("Android runtime not initialized")
-        .clone();
-    #[cfg(not(target_os = "android"))]
-    dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
 }
 
 fn run_with_event_loop(
@@ -120,6 +111,10 @@ fn run_with_event_loop(
 ///
 /// Fails on syntax errors, missing modules and exceptions thrown while the
 /// modules load. The script engine can start only once per process.
+///
+/// # Errors
+///
+/// Returns an error for missing modules, syntax errors, script exceptions, or a missing game configuration.
 pub fn boot(files: GameFiles) -> Result<GameConfig> {
     let mut script = script::ScriptHost::new(files)?;
     script.run_main()?;
@@ -132,9 +127,4 @@ pub fn boot(files: GameFiles) -> Result<GameConfig> {
         })
         .context("the runtime did not configure the game")?;
     Ok(config)
-}
-
-#[cfg(test)]
-fn workspace_dir() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }

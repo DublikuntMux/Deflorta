@@ -1,0 +1,27 @@
+[package]
+name = "deflorta-ui"
+description = "Deflorta retained UI, layout, text, and accessibility"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+dev-console = []
+
+[dependencies]
+deflorta-assets.workspace = true
+image.workspace = true
+accesskit.workspace = true
+glyphon.workspace = true
+taffy.workspace = true
+serde_json.workspace = true
+log.workspace = true
+num-traits.workspace = true
+wgpu.workspace = true
+deflorta-common.workspace = true
+
+[dev-dependencies]
+accesskit_consumer.workspace = true

@@ -3,7 +3,7 @@ Screen and component reference
 
 All public components and hooks are imported from ``"deflorta"``.
 See :doc:`../guides/custom-screens` for a complete example and lifecycle rules.
-The :download:`editor declarations <../../crates/engine/runtime/deflorta.d.ts>`
+The :download:`editor declarations <../../crates/js-bridge/runtime/deflorta.d.ts>`
 provide the full types.
 
 Native JSX components

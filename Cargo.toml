@@ -1,6 +1,17 @@
 [workspace]
 resolver = "3"
-members = ["crates/data", "crates/engine", "crates/cli", "crates/launcher", "crates/android"]
+members = [
+    "crates/common",
+    "crates/assets",
+    "crates/ui",
+    "crates/js-bridge",
+    "crates/engine-core",
+    "crates/headless",
+    "crates/engine",
+    "crates/cli",
+    "crates/launcher-desktop",
+    "crates/launcher-android",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,19 +21,56 @@ license = "MIT"
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
-missing_errors_doc = "allow"
-must_use_candidate = "allow"
 
 [workspace.dependencies]
 deflorta = { path = "crates/engine" }
-deflorta-data = { path = "crates/data" }
+deflorta-common = { path = "crates/common" }
+deflorta-assets = { path = "crates/assets" }
+deflorta-ui = { path = "crates/ui" }
+deflorta-js-bridge = { path = "crates/js-bridge" }
+deflorta-engine-core = { path = "crates/engine-core" }
+deflorta-headless = { path = "crates/headless" }
 clap = { version = "4.6.7", features = ["derive"] }
 lz4 = "1.28.1"
 anyhow = "1.0.104"
 log = "0.4.34"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+image = { version = "0.25.10", default-features = false, features = ["png", "webp"] }
 oxc = { version = "0.153.0", features = ["minifier", "codegen", "semantic", "ast_visit", "transformer"] }
+accesskit = "0.25.1"
+accesskit_consumer = "0.39.1"
+accesskit_winit = "0.34.1"
+android_logger = "0.15.1"
+bytemuck = "1.25.2"
+dirs = "7.0.0"
+egui = "0.36.2"
+egui-winit = { version = "0.36.2", default-features = false }
+egui-wgpu = { version = "0.36.2", default-features = false }
+# Keep aligned with cosmic-text's font database dependency.
+fontdb = "0.23.0"
+gilrs = "0.11.2"
+glyphon = "0.12.0"
+kira = { version = "0.12.5", default-features = false }
+mozjs = "0.26.8"
+mp4 = "0.14.0"
+naga = "30.0.1"
+num-traits = "0.2.19"
+oxideav-core = "0.1.39"
+oxideav-h264 = "0.1.8"
+oxideav-vp8 = { version = "0.2.7", default-features = false }
+oxideav-vp9 = "0.0.13"
+pollster = "1.0.1"
+pretty_env_logger = "0.5.0"
+symphonia = { version = "0.6.1", default-features = false }
+symphonia-core = "0.6.1"
+sysinfo = { version = "0.39.6", default-features = false }
+taffy = "0.14.0"
+tempfile = "3.27.0"
+tts = "0.26.3"
+wgpu = { version = "30.0.1", features = ["spirv"] }
+winit = "0.30.13"
+yuv = "0.8.19"
 
 [profile.release]
 opt-level = 3

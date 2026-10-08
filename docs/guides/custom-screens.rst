@@ -39,7 +39,7 @@ Replace a default screen
 Register your component under a default screen's name to replace it.
 Common names are ``say``, ``nvl``, ``choice``, ``input``, ``history``,
 ``quick_menu``, ``main_menu``, and ``game_menu``. The default implementations
-in ``crates/engine/runtime/screens.js`` show the props each screen receives.
+in ``crates/js-bridge/runtime/screens.js`` show the props each screen receives.
 Change ``theme`` to adjust the colors and sizes used by the default screens.
 
 Manage component state

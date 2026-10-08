@@ -1,0 +1,48 @@
+[package]
+name = "deflorta-assets"
+description = "Deflorta game files, archives, fonts, script tooling, and media workers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+dev-console = []
+debug-formats = [
+    "image/default-formats",
+    "kira/aac",
+    "kira/isomp4",
+    "kira/mp3",
+    "kira/flac",
+    "kira/wav",
+    "kira/pcm",
+    "dep:oxideav-core",
+    "dep:oxideav-h264",
+    "dep:mp4",
+    "dep:oxideav-vp8",
+]
+
+[dependencies]
+image.workspace = true
+kira = { workspace = true, features = ["cpal", "cpal-realtime", "cpal-realtime-dbus", "ogg", "vorbis"] }
+anyhow.workspace = true
+oxideav-core = { workspace = true, optional = true }
+oxideav-h264 = { workspace = true, optional = true }
+mp4 = { workspace = true, optional = true }
+oxideav-vp8 = { workspace = true, optional = true }
+symphonia = { workspace = true, features = ["mkv", "ogg", "vorbis"] }
+oxideav-vp9.workspace = true
+yuv.workspace = true
+log.workspace = true
+num-traits.workspace = true
+deflorta-common.workspace = true
+serde.workspace = true
+lz4.workspace = true
+oxc.workspace = true
+fontdb.workspace = true
+symphonia-core.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

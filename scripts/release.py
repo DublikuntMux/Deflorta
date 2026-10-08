@@ -147,7 +147,7 @@ def validate_distribution(path, host):
                 required.append(f"target/{platform}/{profile}/{executable}")
     for platform, abi in ANDROID.items():
         for profile in ("debug", "release"):
-            for library in ("libdeflorta_android.so", "libc++_shared.so"):
+            for library in ("libdeflorta.so", "libc++_shared.so"):
                 required.append(f"target/{platform}/{profile}/jniLibs/{abi}/{library}")
     for name in required:
         if not (path / name).is_file():

@@ -85,7 +85,7 @@ pub trait Loader {
     fn load(&self, id: &str) -> Result<String>;
 }
 
-impl Loader for deflorta_data::GameFiles {
+impl Loader for deflorta_assets::GameFiles {
     fn load(&self, id: &str) -> Result<String> {
         Ok(self.read_to_string(id)?)
     }
@@ -95,7 +95,7 @@ pub struct Builtins;
 
 impl Loader for Builtins {
     fn load(&self, id: &str) -> Result<String> {
-        let file = deflorta_data::BUILTIN_MODULES
+        let file = deflorta_assets::BUILTIN_MODULES
             .iter()
             .find(|(name, _)| *name == id)
             .map(|(_, file)| *file)
@@ -149,7 +149,7 @@ impl<'a> Graph<'a> {
         let source_text = loader.load(id)?;
         let source = self
             .allocator
-            .alloc_str(&deflorta_data::compile_jsx(id, &source_text)?);
+            .alloc_str(&deflorta_assets::compile_jsx(id, &source_text)?);
         let index = self.modules.len();
         self.index.insert(id.to_owned(), index);
         self.parse(id, source);
@@ -159,8 +159,8 @@ impl<'a> Graph<'a> {
             .map(|(specifier, span, _)| (specifier.clone(), *span))
             .collect();
         for (k, (specifier, span)) in specifiers.into_iter().enumerate() {
-            let source = match deflorta_data::resolve_specifier(id, &specifier) {
-                Ok(resolved) if deflorta_data::is_builtin_module(&resolved) => {
+            let source = match deflorta_assets::resolve_specifier(id, &specifier) {
+                Ok(resolved) if deflorta_assets::is_builtin_module(&resolved) => {
                     Source::External(resolved)
                 }
                 Ok(resolved) => match self.load(loader, &resolved) {
@@ -422,15 +422,15 @@ fn export_name(name: &ModuleExportName) -> String {
     name.name().to_string()
 }
 
-#[allow(clippy::too_many_lines)] // One branch per ES module statement kind.
+fn request(module: &mut Module, specifier: &str, span: Span) -> usize {
+    module
+        .requests
+        .push((specifier.to_owned(), span, Source::Missing));
+    module.requests.len() - 1
+}
+
 fn collect_module_syntax(module: &mut Module, report: &mut Report) {
     let program = module.program;
-    let request = |module: &mut Module, specifier: &str, span: Span| {
-        module
-            .requests
-            .push((specifier.to_owned(), span, Source::Missing));
-        module.requests.len() - 1
-    };
     for statement in &program.body {
         match statement {
             Statement::ImportDeclaration(decl) => {
@@ -554,7 +554,7 @@ pub fn declaration_bindings(declaration: &Declaration) -> Vec<(String, SymbolId)
 
 pub fn builtin_exports() -> Result<HashMap<String, HashSet<String>>> {
     let allocator = Allocator::default();
-    let ids: Vec<&str> = deflorta_data::BUILTIN_MODULES
+    let ids: Vec<&str> = deflorta_assets::BUILTIN_MODULES
         .iter()
         .map(|(id, _)| *id)
         .collect();

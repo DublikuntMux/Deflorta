@@ -30,6 +30,9 @@ Object.assign(tree, {
   style: { opacity: undefined },
   value: { "0": "numeric key", "ключ": "значення", items: [1, undefined, Infinity] },
   onClick: () => native.audio.voice("first"),
+  focusable: false, autofocus: true, live: true, modal: true, label: "Accessible tree",
+  spans: [{ text: "Rich text", b: true, i: true, u: true, s: true, wait: 0.25, click: true, fast: true,
+    get unknown() { throw new Error("unknown span field read"); } }],
   children: [{ t: "text", text: "Привіт 🌸", cps: NaN }],
 });
 Object.defineProperty(tree, "tooltip", { value: "hidden tooltip", enumerable: false });
@@ -51,7 +54,7 @@ native.connect((event) => {
   } else if (event.type === "key") {
     assert(event.key === "🌸" && event.down && !event.repeat && event.ctrl && !event.shift && !event.alt, "key fields");
   } else if (event.type === "handler") {
-    assert(event.value === 0.1 || event.value === "Привіт 🌸", "widget value changed");
+    assert(event.value === 0.1 || Object.is(event.value, -0) || event.value === "Привіт 🌸", "widget value changed");
     event.handler();
   } else if (event.type === "timer") {
     assert(event.id === 4294967297, "timer id truncated");

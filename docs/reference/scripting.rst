@@ -3,7 +3,7 @@ Story, scene, and engine API
 
 Import the API from ``"deflorta"``. This page is a compact reference; start
 with :doc:`../guides/writing-stories` for examples. The
-:download:`editor declarations <../../crates/engine/runtime/deflorta.d.ts>`
+:download:`editor declarations <../../crates/js-bridge/runtime/deflorta.d.ts>`
 contain complete types and additional exports. ``deflorta types`` refreshes
 the declarations in a game project.
 

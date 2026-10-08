@@ -17,6 +17,9 @@ You need:
   library for common targets; source builds also need Python and make.
 * On Linux, the Speech Dispatcher development library, for example
   ``libspeechd-dev`` on Debian or Ubuntu.
+* FFmpeg and ffprobe on PATH, with libwebp, libvpx-vp9, and libvorbis encoders,
+  to bundle or publish games with media assets. It is not needed to run source projects
+  or published games.
 
 These are engine build requirements. Players run the published game;
 they do not need Rust or the development CLI.

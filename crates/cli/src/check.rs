@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use deflorta_data::GameFiles;
+use deflorta_assets::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::api::{self, FileKind, ImageUse};
@@ -154,7 +154,7 @@ fn check_labels(graph: &Graph, facts: &api::Facts, report: &mut Report) {
 }
 
 fn check_assets(files: &GameFiles, report: &mut Report) {
-    if deflorta_data::font_families(files).is_empty() {
+    if deflorta_assets::font_families(files).is_empty() {
         report.warn("no fonts in fonts/; system fonts will be used and text may look different on each computer");
     }
     for path in files.list("tl") {

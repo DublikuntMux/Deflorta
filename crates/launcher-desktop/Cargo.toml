@@ -1,0 +1,26 @@
+[package]
+name = "deflorta-launcher-desktop"
+description = "Runs a published Deflorta game from its game.dm archive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "deflorta-launcher"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[features]
+default = ["dev-console", "debug-formats"]
+debug-formats = ["deflorta/debug-formats"]
+dev-console = ["deflorta/dev-console"]
+
+[dependencies]
+deflorta.workspace = true
+anyhow.workspace = true
+log.workspace = true
+clap.workspace = true
+deflorta-assets.workspace = true
+serde_json.workspace = true

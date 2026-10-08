@@ -20,44 +20,70 @@ Design goals
   embedded JavaScript modules; games replace default screens through the
   public screen API.
 
-Web builds, 3D rendering, and Live2D are outside the current scope.
+Web builds, 3D rendering, and Live2D(more likely be own open format) are outside the current scope.
 
 Subsystems
 ----------
 
-Within ``crates/engine/src/``:
+The engine is split into domain crates. Dependencies flow from the platform
+front end and headless runner through engine coordination to UI, the JS bridge,
+and assets. UI and the JS bridge share descriptions and callback IDs from
+``deflorta-common``; UI never depends on SpiderMonkey. This lets Cargo compile
+UI and scripting in parallel and keeps changes within their owning domains.
 
 .. list-table::
    :header-rows: 1
    :widths: 25 75
 
-   * - Path
+   * - Crate / path
      - Responsibility
-   * - ``script/``
+   * - ``crates/js-bridge``
      - SpiderMonkey host, modules, microtasks, typed native calls, and direct
-       JavaScript values.
-   * - ``engine.rs``
+       JavaScript values, persistence workers, and embedded runtime modules.
+   * - ``crates/engine-core/src/engine.rs``
      - Route input into JavaScript, apply commands, own timers/UI/audio,
        gate commits on image decoding, and capture save thumbnails.
-   * - ``ui/``
+   * - ``crates/ui``
      - Retained-tree reconciliation, taffy layout, animation programs,
        typewriter, rich text, scrolling, focus, widgets, and accessibility.
-   * - ``render/``
+   * - ``crates/engine-core/src/render/``
      - wgpu quads, glyphon text, and offscreen capture.
-   * - ``video/`` and ``video.rs``
-     - MP4/H.264 and WebM/VP8/VP9 playback with background decoding.
-   * - ``audio.rs`` and ``audio/``
+   * - ``crates/assets/src/video/`` and ``video.rs``
+     - VP9 WebM playback with background decoding; debug builds also support
+       MP4/H.264 and WebM/VP8 source assets.
+   * - ``crates/assets/src/audio.rs`` and ``audio/``
      - Music, sound, voice, and movie soundtracks through kira.
-   * - ``assets.rs``
-     - Sandboxed file access and background image decoding.
-   * - ``app.rs``
+   * - ``crates/assets``
+     - Sandboxed files, archives, fonts, JSX and module resolution, plus
+       background image decoding and media workers.
+   * - ``crates/engine/src/app.rs``
      - winit/gilrs desktop front end.
-   * - ``headless.rs``
+   * - ``crates/headless``
      - Scripted offscreen front end for tests and screenshots.
-   * - ``self_voicing.rs``
+   * - ``crates/engine-core/src/self_voicing.rs``
      - System speech service integration and retries.
-   * - ``dev_console/``
+   * - ``crates/engine-core/src/dev_console/``
      - Debug desktop console and live inspectors.
+   * - ``crates/common``
+     - UI descriptions, serialized callback IDs, speech snapshots, worker
+       wakeups, diagnostic records, numeric helpers, and platform data paths.
+
+Working on a domain
+-------------------
+
+Run ``cargo check -p deflorta-ui`` or ``cargo test -p deflorta-js-bridge`` to
+check one domain without rebuilding the platform front end. Use
+``cargo test --workspace --all-features`` for integration verification.
+The ``dev-console`` feature on ``deflorta`` forwards diagnostics support to
+the domain crates. Shader generation belongs to engine-core; JavaScript
+transformation and minification belong to js-bridge, so either build script
+can run independently.
+
+Keep shared contracts free of VM, GPU, windowing, and media dependencies.
+Cross-domain behavior belongs in engine-core, rather than introducing
+dependencies from UI or assets back to the coordinator. The release profile
+still uses fat LTO for optimized binaries; this split improves compilation
+scheduling and incremental rebuild boundaries, not final-link parallelism.
 
 Frame and event model
 ---------------------

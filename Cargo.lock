@@ -1306,44 +1306,136 @@ name = "deflorta"
 version = "0.1.0"
 dependencies = [
  "accesskit 0.25.1",
- "accesskit_consumer",
  "accesskit_winit",
  "anyhow",
- "bytemuck",
- "deflorta-data",
- "dirs",
- "egui",
- "egui-wgpu",
- "egui-winit",
+ "deflorta-assets",
+ "deflorta-common",
+ "deflorta-engine-core",
+ "deflorta-headless",
+ "deflorta-js-bridge",
+ "deflorta-ui",
  "gilrs",
- "glyphon",
+ "log",
+ "num-traits",
+ "pollster",
+ "pretty_env_logger",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "deflorta-assets"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "deflorta-common",
+ "fontdb",
  "image",
  "kira",
  "log",
- "mozjs",
+ "lz4",
  "mp4",
- "naga",
  "num-traits",
  "oxc",
  "oxideav-core",
  "oxideav-h264",
  "oxideav-vp8",
  "oxideav-vp9",
- "pollster",
- "pretty_env_logger",
  "serde",
- "serde_json",
  "symphonia",
- "sysinfo",
- "taffy",
- "tts",
- "wgpu",
- "winit",
+ "symphonia-core",
+ "tempfile",
  "yuv",
 ]
 
 [[package]]
-name = "deflorta-android"
+name = "deflorta-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "deflorta-assets",
+ "image",
+ "lz4",
+ "oxc",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "deflorta-common"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "deflorta-engine-core"
+version = "0.1.0"
+dependencies = [
+ "accesskit 0.25.1",
+ "anyhow",
+ "bytemuck",
+ "deflorta-assets",
+ "deflorta-common",
+ "deflorta-js-bridge",
+ "deflorta-ui",
+ "egui",
+ "egui-wgpu",
+ "egui-winit",
+ "glyphon",
+ "image",
+ "log",
+ "naga",
+ "num-traits",
+ "pollster",
+ "pretty_env_logger",
+ "serde_json",
+ "sysinfo",
+ "tts",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "deflorta-headless"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "deflorta-assets",
+ "deflorta-common",
+ "deflorta-engine-core",
+ "deflorta-js-bridge",
+ "deflorta-ui",
+ "log",
+ "num-traits",
+ "pollster",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "deflorta-js-bridge"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "deflorta-assets",
+ "deflorta-common",
+ "image",
+ "log",
+ "mozjs",
+ "num-traits",
+ "oxc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "deflorta-launcher-android"
 version = "0.1.0"
 dependencies = [
  "android_logger",
@@ -1354,41 +1446,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "deflorta-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "deflorta-data",
- "lz4",
- "oxc",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "deflorta-data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "fontdb",
- "log",
- "lz4",
- "oxc",
- "serde",
- "symphonia-core",
-]
-
-[[package]]
-name = "deflorta-launcher"
+name = "deflorta-launcher-desktop"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
  "deflorta",
- "deflorta-data",
+ "deflorta-assets",
  "log",
  "serde_json",
+]
+
+[[package]]
+name = "deflorta-ui"
+version = "0.1.0"
+dependencies = [
+ "accesskit 0.25.1",
+ "accesskit_consumer",
+ "deflorta-assets",
+ "deflorta-common",
+ "glyphon",
+ "image",
+ "log",
+ "num-traits",
+ "serde_json",
+ "taffy",
+ "wgpu",
 ]
 
 [[package]]
@@ -1841,7 +1924,6 @@ dependencies = [
  "miniz_oxide 0.8.9",
  "num-complex",
  "pulp",
- "rayon-core",
  "smallvec",
  "zune-inflate",
 ]
@@ -2771,7 +2853,6 @@ dependencies = [
  "png",
  "qoi",
  "ravif",
- "rayon",
  "rgb",
  "tiff",
  "zune-core",
@@ -3261,7 +3342,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea1f30cedd69f0a2954655f7188c6a834246d2bcf1e315e2ac40c4b24dc9519"
 dependencies = [
  "cfg-if",
- "rayon",
 ]
 
 [[package]]
@@ -5200,7 +5280,6 @@ dependencies = [
  "loop9",
  "quick-error",
  "rav1e",
- "rayon",
  "rgb",
 ]
 

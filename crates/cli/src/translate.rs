@@ -50,7 +50,7 @@ pub fn extract(project: &Project) -> Result<Strings> {
     }
 
     let runtime_allocator = Allocator::default();
-    let ids: Vec<&str> = deflorta_data::BUILTIN_MODULES
+    let ids: Vec<&str> = deflorta_assets::BUILTIN_MODULES
         .iter()
         .map(|(id, _)| *id)
         .collect();

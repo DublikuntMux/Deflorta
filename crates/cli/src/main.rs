@@ -5,6 +5,7 @@ mod check;
 mod create;
 mod distribution;
 mod graph;
+mod media;
 mod pack;
 mod project;
 mod report;
@@ -17,7 +18,7 @@ use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use deflorta_data::GameFiles;
+use deflorta_assets::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::pack::{ArchiveFile, Contents};
@@ -62,7 +63,7 @@ enum Command {
         #[arg(long)]
         no_boot: bool,
     },
-    /// Bundle the scripts and pack the game into a game.dm archive.
+    /// Bundle scripts, convert media with `FFmpeg`, and pack a game.dm archive.
     Bundle {
         #[arg(default_value = ".")]
         path: PathBuf,
@@ -79,7 +80,7 @@ enum Command {
         #[arg(long, value_name = "FILE")]
         emit_js: Option<PathBuf>,
     },
-    /// Create a folder with the target runtime and its game.dm archive.
+    /// Convert media and create a folder with the target runtime and game.dm.
     Publish {
         #[arg(default_value = ".")]
         path: PathBuf,
@@ -225,6 +226,7 @@ fn run(command: Command) -> Result<ExitCode> {
                 package: android_package,
                 format: android_format,
                 version_code: android_version_code,
+                debug,
             },
         )?,
         Command::Translate { command } => return translate(command),
@@ -277,12 +279,13 @@ fn build_archive(
     let partial_path = output.with_extension("dm.partial");
     let mut excluded = excluded.to_vec();
     excluded.extend([output, data_path.as_path(), partial_path.as_path()]);
-    let mut files: Vec<ArchiveFile> = project
-        .assets(&excluded)?
+    let paths = project.assets(&excluded)?;
+    let prepared = media::prepare(project, &paths)?;
+    let mut files: Vec<ArchiveFile> = paths
         .into_iter()
         .map(|path| ArchiveFile {
             path,
-            contents: Contents::File(project.files.clone()),
+            contents: Contents::File(prepared.files.clone()),
         })
         .collect();
     files.push(ArchiveFile {
@@ -358,7 +361,6 @@ fn publish(
             &runtime,
             &config,
             &platform,
-            debug,
             name.as_deref(),
             android,
         );

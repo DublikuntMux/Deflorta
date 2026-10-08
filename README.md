@@ -19,7 +19,13 @@ game-authoring guides, API references, and engine design notes.
 
 Install Rust through rustup, Python 3.9+, clang/libclang, and on Linux the
 Speech Dispatcher development library (such as `libspeechd-dev`). The repository
-selects nightly Rust. From the repository root:
+selects nightly Rust.
+
+Install FFmpeg and ffprobe with libwebp, libvpx-vp9, and libvorbis encoders to
+bundle or publish media. The debug launcher reads source assets directly; release games
+ship normalized WebP, WebM, and Ogg data and need no FFmpeg installation.
+
+From the repository root:
 
 ```sh
 python3 scripts/build-dist.py

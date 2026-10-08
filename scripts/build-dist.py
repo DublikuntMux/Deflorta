@@ -25,7 +25,7 @@ def build(package, release, target):
     command = ["cargo", "build", "--locked", "-p", package, "--message-format=json-render-diagnostics"]
     if release:
         command.append("--release")
-        if package == "deflorta-launcher":
+        if package == "deflorta-launcher-desktop":
             command.append("--no-default-features")
     if target:
         command.extend(["--target", target])
@@ -47,10 +47,12 @@ def build_android(abi, release, destination):
     command = [
         "cargo", "ndk", "-t", abi, "--platform", str(ANDROID_API),
         "-o", str(destination), "--link-libcxx-shared",
-        "build", "--locked", "-p", "deflorta-android",
+        "build", "--locked", "-p", "deflorta-launcher-android",
     ]
     if release:
         command.append("--release")
+    else:
+        command.extend(["--features", "debug-formats"])
     environment = os.environ.copy()
     ndk = environment.get("ANDROID_NDK_HOME") or environment.get("ANDROID_NDK_ROOT")
     if not ndk:
@@ -61,7 +63,7 @@ def build_android(abi, release, destination):
     environment["ANDROID_API_LEVEL"] = str(ANDROID_API)
     environment["CXXSTDLIB"] = "c++_shared"
     subprocess.run(command, cwd=ROOT, env=environment, check=True)
-    library = destination / abi / "libdeflorta_android.so"
+    library = destination / abi / "libdeflorta.so"
     if not library.is_file():
         raise RuntimeError(f"Android build did not produce {library}")
     # Keep debug info in Cargo output; exports must not require an NDK.
@@ -72,7 +74,7 @@ def build_android(abi, release, destination):
     subprocess.run([str(strip[0]), "--strip-debug", str(library)], check=True)
     # Rust dependencies are statically linked; only libc++ must ship separately.
     for extra in (destination / abi).glob("*.so"):
-        if extra.name not in {"libdeflorta_android.so", "libc++_shared.so"}:
+        if extra.name not in {"libdeflorta.so", "libc++_shared.so"}:
             extra.unlink()
 
 
@@ -132,8 +134,8 @@ def main():
             parser.error("install cargo-ndk with: cargo install cargo-ndk --locked")
 
     cli = build("deflorta-cli", True, args.target)
-    debug = build("deflorta-launcher", False, args.target)
-    release = build("deflorta-launcher", True, args.target)
+    debug = build("deflorta-launcher-desktop", False, args.target)
+    release = build("deflorta-launcher-desktop", True, args.target)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=".deflorta-dist-", dir=output.parent
@@ -149,11 +151,11 @@ def main():
         shutil.copytree(ROOT / "crates" / "cli" / "templates", template)
         (template / "gitignore").rename(template / ".gitignore")
         shutil.copytree(ROOT / "game" / "fonts", template / "fonts")
-        shutil.copy2(ROOT / "crates" / "engine" / "runtime" / "deflorta.d.ts", template)
+        shutil.copy2(ROOT / "crates" / "js-bridge" / "runtime" / "deflorta.d.ts", template)
         for directory in ["images", "audio", "movies", "tl"]:
             (template / directory).mkdir()
         shutil.copytree(
-            ROOT / "crates" / "engine" / "runtime", staging / "template" / "runtime"
+            ROOT / "crates" / "js-bridge" / "runtime", staging / "template" / "runtime"
         )
         shutil.copytree(
             ROOT / "android", staging / "template" / "android",

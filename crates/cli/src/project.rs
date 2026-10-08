@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use deflorta_data::GameFiles;
+use deflorta_assets::GameFiles;
 use oxc::allocator::Allocator;
 
 use crate::graph::{Graph, builtin_exports};
@@ -127,7 +127,7 @@ fn collect(root: &Path, dir: &Path, excluded: &[PathBuf], out: &mut Vec<String>)
             collect(root, &path, excluded, out)?;
         } else if kind.is_file() {
             let relative = path.strip_prefix(root)?;
-            let archive_path = deflorta_data::files::normalize_game_path(relative)
+            let archive_path = deflorta_assets::files::normalize_game_path(relative)
                 .with_context(|| format!("invalid file name {}", path.display()))?;
             out.push(archive_path);
         }

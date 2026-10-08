@@ -8,7 +8,7 @@ import com.google.androidgamesdk.gametextinput.State
 class DeflortaActivity : GameActivity() {
     companion object {
         init {
-            System.loadLibrary("deflorta_android")
+            System.loadLibrary("deflorta")
         }
     }
 

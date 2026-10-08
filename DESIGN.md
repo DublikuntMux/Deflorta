@@ -11,7 +11,7 @@ animation, input, rendering, media, and accessibility.
 - [Native UI, rendering, and media](docs/architecture/rendering.rst): retained
   layout, text, animation, graphics, decoding, and thumbnails.
 - [Workspace, distributions, and archives](docs/architecture/distribution.rst):
-  the five crates, launcher/template layout, bundling, and the version 2 format.
+  the workspace crates, launcher/template layout, bundling, and the version 2 format.
 
 For game development, start with [your first game](docs/getting-started.rst).
 See [Build and maintain the documentation](docs/documentation.rst) to generate

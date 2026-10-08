@@ -101,8 +101,10 @@ limit and thumbnail settling timeout. Connected gamepads still poll for input.
 see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
 Video uses a background thread decoding a few frames ahead, paced by the
-wall clock, and uploads frames into a reused texture. MP4 AAC and WebM Vorbis
-soundtracks play through kira. Format limits are in
+wall clock, and uploads frames into a reused texture. Normalized WebM Vorbis
+soundtracks play through kira; debug builds also decode source MP4 AAC.
+Container detection reads the file signature because archive entries preserve
+source asset names. Format limits are in
 :doc:`../reference/assets`. Both directories and archives provide seekable
 media reads through the shared file abstraction.
 

@@ -4,7 +4,8 @@ Workspace, distributions, and archives
 Workspace crates
 ----------------
 
-The Cargo workspace has five crates:
+The Cargo workspace separates tooling, domain libraries, and platform entry
+points:
 
 .. list-table::
    :header-rows: 1
@@ -12,21 +13,44 @@ The Cargo workspace has five crates:
 
    * - Crate
      - Responsibility
-   * - ``crates/data``
+   * - ``crates/assets``
      - Shared files, archives, font discovery, module resolution, and JSX
-       compilation. Exposes ``GameFiles`` for directory/archive reads and seeks.
+       compilation, plus image loading, audio, video, and background media
+       workers. Exposes ``GameFiles`` for directory/archive reads and seeks.
    * - ``crates/engine``
-     - Reusable ``deflorta`` library and embedded JavaScript runtime.
+     - Public ``deflorta`` entry points and desktop/Android window integration.
+   * - ``crates/common``
+     - Lightweight contracts and utilities shared by engine domains.
+   * - ``crates/ui``
+     - Retained UI, layout, text, animation, input, and accessibility.
+   * - ``crates/js-bridge``
+     - SpiderMonkey bridge, embedded JavaScript runtime, and save storage.
+   * - ``crates/engine-core``
+     - Engine coordination, rendering, self-voicing, and developer console.
+   * - ``crates/headless``
+     - Offscreen scripted execution and screenshots without the platform
+       front end's event loop or gamepad/accessibility adapter dependencies.
    * - ``crates/cli``
-     - clap-based developer CLI; links tooling and data without the engine,
-       renderer, or JavaScript VM.
-   * - ``crates/launcher``
+     - clap-based developer CLI; uses assets and FFmpeg for media conversion
+       without linking the engine, renderer, or JavaScript VM.
+   * - ``crates/launcher-desktop``
      - Desktop game launcher, shipped to players.
-   * - ``crates/android``
-     - Android native runtime as ``libdeflorta_android.so``.
+   * - ``crates/launcher-android``
+     - Android native runtime as ``libdeflorta.so``.
 
 Scripts, fonts, images, audio, and video use the same ``GameFiles`` abstraction
 for development directories and packed games.
+
+The assets crate includes its file and media APIs without a ``media`` feature
+gate. Its baseline codecs are WebP/PNG, VP9, and Vorbis in WebM/Ogg containers.
+The ``debug-formats`` feature adds source-format decoders such as H.264, VP8,
+JPEG, WAV, MP3, FLAC, and AAC. Desktop launchers enable it by default; the
+distribution builder disables default features for release launchers and
+explicitly enables ``debug-formats`` for debug Android launchers.
+
+To build a desktop release manually, use
+``cargo build -p deflorta-launcher-desktop --release --no-default-features``.
+For an Android debug runtime, enable ``deflorta-launcher-android/debug-formats``.
 
 Engine distribution layout
 --------------------------

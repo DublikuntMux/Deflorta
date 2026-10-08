@@ -3,7 +3,7 @@ use std::process::{Command, Output};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use deflorta_data::GameFiles;
+use deflorta_assets::GameFiles;
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
 
@@ -70,7 +70,7 @@ fn distribution() -> &'static Path {
         let mut build = Command::new(env!("CARGO"));
         build
             .current_dir(&root)
-            .args(["build", "--locked", "-p", "deflorta-launcher"]);
+            .args(["build", "--locked", "-p", "deflorta-launcher-desktop"]);
         if profile.file_name().unwrap() == "release" {
             build.arg("--release");
         }
@@ -91,7 +91,7 @@ fn distribution() -> &'static Path {
         std::fs::rename(template.join("gitignore"), template.join(".gitignore")).unwrap();
         copy_tree(&root.join("game/fonts"), &template.join("fonts"));
         std::fs::copy(
-            root.join("crates/engine/runtime/deflorta.d.ts"),
+            root.join("crates/js-bridge/runtime/deflorta.d.ts"),
             template.join("deflorta.d.ts"),
         )
         .unwrap();
@@ -99,7 +99,7 @@ fn distribution() -> &'static Path {
             std::fs::create_dir_all(template.join(dir)).unwrap();
         }
         copy_tree(
-            &root.join("crates/engine/runtime"),
+            &root.join("crates/js-bridge/runtime"),
             &path.join("template/runtime"),
         );
         let android = path.join("template/android");
@@ -142,6 +142,158 @@ fn success(output: &Output) -> String {
         String::from_utf8_lossy(&output.stderr)
     );
     String::from_utf8(output.stdout.clone()).unwrap()
+}
+
+#[test]
+fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() {
+    let project = Project::new();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let assets = [
+        ("images/portrait.PNG", "game/images/eileen/blush.png"),
+        ("movies/intro.mp4", "game/movies/intro.mp4"),
+        ("audio/chime.wav", "game/audio/chime.wav"),
+    ];
+    for (path, source) in assets {
+        std::fs::copy(root.join(source), project.0.join(path)).unwrap();
+    }
+    let source = image::open(project.0.join("images/portrait.PNG"))
+        .unwrap()
+        .into_rgba8();
+    source.save(project.0.join("images/portrait.webp")).unwrap();
+    for (path, cover) in [("audio/song.mp4", false), ("audio/album.m4a", true)] {
+        let mut encode = Command::new("ffmpeg");
+        encode
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+            .arg(project.0.join("audio/chime.wav"));
+        if cover {
+            encode
+                .arg("-i")
+                .arg(project.0.join("images/portrait.PNG"))
+                .args([
+                    "-map",
+                    "0:a:0",
+                    "-map",
+                    "1:v:0",
+                    "-c:v",
+                    "copy",
+                    "-disposition:v",
+                    "attached_pic",
+                ]);
+        }
+        encode.args(["-c:a", "aac"]).arg(project.0.join(path));
+        success(&encode.output().unwrap());
+    }
+    let paths: Vec<_> = assets
+        .iter()
+        .map(|(path, _)| *path)
+        .chain(["images/portrait.webp", "audio/song.mp4", "audio/album.m4a"])
+        .collect();
+    let originals: Vec<_> = paths
+        .iter()
+        .map(|path| std::fs::read(project.0.join(path)).unwrap())
+        .collect();
+    for mode in ["bundle", "publish"] {
+        let output = if mode == "bundle" {
+            cli(["bundle", project.path()])
+        } else {
+            project.publish("dist/test")
+        };
+        success(&output);
+        let archive = project.0.join(if mode == "bundle" {
+            "build/game.dm"
+        } else {
+            "dist/test/game.dm"
+        });
+        let files = GameFiles::open(&archive).unwrap();
+        for path in ["images/portrait.PNG", "images/portrait.webp"] {
+            let bytes = files.read(path).unwrap();
+            assert_eq!(&bytes[..4], b"RIFF");
+            assert_eq!(&bytes[8..12], b"WEBP");
+            let decoded = image::load_from_memory(&bytes).unwrap().into_rgba8();
+            assert_eq!(decoded.dimensions(), source.dimensions());
+            for (actual, expected) in decoded.pixels().zip(source.pixels()) {
+                assert_eq!(actual[3], expected[3]);
+                if expected[3] > 0 {
+                    assert_eq!(actual, expected);
+                }
+            }
+        }
+        for path in ["audio/chime.wav", "audio/song.mp4", "audio/album.m4a"] {
+            let bytes = files.read(path).unwrap();
+            assert!(bytes.starts_with(b"OggS"), "{path}");
+            assert!(
+                bytes.windows(7).any(|header| header == b"\x01vorbis"),
+                "{path}"
+            );
+        }
+        assert!(
+            files
+                .read("movies/intro.mp4")
+                .unwrap()
+                .starts_with(&[0x1a, 0x45, 0xdf, 0xa3])
+        );
+        verify_normalized_movie(&files, &project.0.join("build/verify.webm"));
+    }
+    for (path, original) in paths.iter().zip(originals) {
+        assert_eq!(std::fs::read(project.0.join(path)).unwrap(), original);
+    }
+}
+
+fn verify_normalized_movie(files: &GameFiles, unpacked: &Path) {
+    let started = std::time::Instant::now();
+    let video = deflorta_assets::video::VideoPlayer::open(
+        "intro",
+        files,
+        "movies/intro.mp4",
+        false,
+        started,
+    );
+    assert!(video.size().is_some());
+    while video.frame(std::time::Instant::now()).is_none() {
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "converted movie did not decode"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    std::fs::write(unpacked, files.read("movies/intro.mp4").unwrap()).unwrap();
+    let probe = Command::new("ffprobe")
+        .args([
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "json",
+        ])
+        .arg(unpacked)
+        .output()
+        .unwrap();
+    success(&probe);
+    let streams: serde_json::Value = serde_json::from_slice(&probe.stdout).unwrap();
+    assert_eq!(streams["streams"][0]["codec_name"], "vp9");
+    assert_eq!(streams["streams"][1]["codec_name"], "vorbis");
+}
+
+#[test]
+fn failed_media_conversion_keeps_the_previous_archive_and_source() {
+    let project = Project::new();
+    success(&cli(["bundle", project.path()]));
+    let archive = project.0.join("build/game.dm");
+    let original = std::fs::read(&archive).unwrap();
+    project.write("images/broken.png", "invalid image");
+    let output = cli(["bundle", project.path()]);
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("cannot convert media asset 'images/broken.png'")
+    );
+    assert_eq!(std::fs::read(&archive).unwrap(), original);
+    assert_eq!(
+        std::fs::read_to_string(project.0.join("images/broken.png")).unwrap(),
+        "invalid image"
+    );
+    assert!(!project.0.join("build/game.dm.partial").exists());
 }
 
 #[test]
@@ -733,7 +885,7 @@ label("start", async () => { await say("Hello Android"); });
     for mode in ["debug", "release"] {
         let libraries = moved.join(format!("target/android-aarch64/{mode}/jniLibs/arm64-v8a"));
         std::fs::create_dir_all(&libraries).unwrap();
-        std::fs::write(libraries.join("libdeflorta_android.so"), mode).unwrap();
+        std::fs::write(libraries.join("libdeflorta.so"), mode).unwrap();
         std::fs::write(libraries.join("libc++_shared.so"), "C++ runtime").unwrap();
     }
     // The real host launcher verifies startup; substitute only the Gradle
@@ -774,7 +926,7 @@ cp app/src/main/assets/game.dm app/build/outputs/apk/debug/app-debug.apk
     let gradle = output.join("android");
     let libraries = gradle.join("app/src/main/jniLibs/arm64-v8a");
     assert_eq!(
-        std::fs::read(libraries.join("libdeflorta_android.so")).unwrap(),
+        std::fs::read(libraries.join("libdeflorta.so")).unwrap(),
         b"debug"
     );
     assert!(libraries.join("libc++_shared.so").is_file());

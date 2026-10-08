@@ -70,9 +70,15 @@ Movies
 
 Movies work with ``playMovie()``, the ``Video`` component, and
 ``configure({ menuVideo })``. Video supports looping and end callbacks.
-Decoding uses pure Rust dependencies; FFmpeg and libvpx are not required.
+Player-side decoding uses pure Rust dependencies. The CLI uses FFmpeg when
+bundling or publishing, as described in :doc:`../guides/publishing`.
 
-.. list-table:: Supported formats
+Release archives contain WebP images, VP9/Vorbis WebM movies, and Vorbis Ogg
+audio. Original paths remain valid, including ``.png``, ``.mp4``, and ``.wav``
+names. Release runtimes omit the other decoders; PNG remains available for
+save thumbnails and headless screenshots.
+
+.. list-table:: Source formats supported by debug runtimes
    :header-rows: 1
    :widths: 20 45 35
 
@@ -88,7 +94,10 @@ Decoding uses pure Rust dependencies; FFmpeg and libvpx are not required.
      - Mono or stereo Vorbis; duration metadata is required for soundtracks.
 
 WebM files without audio play silently. Opus audio, AV1 video, and WebM alpha
-channels are not supported.
+channels are not supported by the debug runtime. FFmpeg can convert supported
+source codecs such as Opus and AV1 for release; alpha channels in video are
+not retained by the VP9 conversion. Images use the image crate's source-format
+decoders in debug builds; audio supports WAV/PCM, MP3, FLAC, AAC, and Vorbis.
 
 Archives
 --------

@@ -3,19 +3,16 @@ use std::io::{BufWriter, Cursor, Read, Write};
 use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
-use deflorta_data::archive::{BLOCK_COMPRESSED, BLOCK_SIZE, Block, Entry, Index, encode_header};
+use deflorta_assets::archive::{BLOCK_COMPRESSED, BLOCK_SIZE, Block, Entry, Index, encode_header};
 use lz4::liblz4::BlockChecksum;
 use lz4::{BlockMode, BlockSize, ContentChecksum, EncoderBuilder};
 
 pub const DEFAULT_LEVEL: u8 = 12;
 
-const COMPRESSED_FORMATS: &[&str] = &[
-    "png", "jpg", "jpeg", "webp", "gif", "avif", "mp4", "m4a", "webm", "mkv", "ogg", "oga", "opus",
-    "mp3", "flac", "aac", "zip", "gz", "woff2",
-];
+const COMPRESSED_FORMATS: &[&str] = &["zip", "gz", "woff2"];
 
 pub enum Contents {
-    File(deflorta_data::GameFiles),
+    File(deflorta_assets::GameFiles),
     Bytes(Vec<u8>),
 }
 
@@ -84,10 +81,11 @@ fn compress_blocks(data: &[u8], compress: bool, level: u8) -> Result<Vec<(Vec<u8
 }
 
 fn is_compressed_format(path: &str) -> bool {
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| COMPRESSED_FORMATS.iter().any(|f| e.eq_ignore_ascii_case(f)))
+    crate::media::is_media(path)
+        || Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| COMPRESSED_FORMATS.iter().any(|f| e.eq_ignore_ascii_case(f)))
 }
 
 /// Writes `files` to `output` atomically.
@@ -150,12 +148,12 @@ pub fn write_archive(output: &Path, mut files: Vec<ArchiveFile>, level: u8) -> R
 
     let raw_index = index.encode()?;
     ensure!(
-        raw_index.len() <= deflorta_data::archive::MAX_INDEX_SIZE as usize,
+        raw_index.len() <= deflorta_assets::archive::MAX_INDEX_SIZE as usize,
         "archive index is too large"
     );
     let stored_index = compress_frame(&raw_index, level)?;
     ensure!(
-        stored_index.len() <= deflorta_data::archive::MAX_INDEX_SIZE as usize,
+        stored_index.len() <= deflorta_assets::archive::MAX_INDEX_SIZE as usize,
         "archive index is too large"
     );
     let partial = output.with_extension("dm.partial");
@@ -176,7 +174,7 @@ pub fn write_archive(output: &Path, mut files: Vec<ArchiveFile>, level: u8) -> R
     std::fs::remove_file(&data_path)?;
     std::fs::rename(&partial, output)
         .with_context(|| format!("cannot write {}", output.display()))?;
-    stats.stored += (deflorta_data::archive::HEADER_SIZE + stored_index.len()) as u64;
+    stats.stored += (deflorta_assets::archive::HEADER_SIZE + stored_index.len()) as u64;
     Ok(stats)
 }
 
@@ -185,7 +183,7 @@ mod tests {
     use std::io::{Read, Seek, SeekFrom};
     use std::sync::Arc;
 
-    use deflorta_data::archive::{Archive, MAX_INDEX_SIZE, decompress_frame};
+    use deflorta_assets::archive::{Archive, MAX_INDEX_SIZE, decompress_frame};
 
     use super::*;
 
@@ -248,7 +246,7 @@ mod tests {
         let files = vec![
             ArchiveFile {
                 path: "main.js".into(),
-                contents: Contents::File(deflorta_data::GameFiles::directory(&dir).unwrap()),
+                contents: Contents::File(deflorta_assets::GameFiles::directory(&dir).unwrap()),
             },
             ArchiveFile {
                 path: "audio/noise.bin".into(),
@@ -270,7 +268,7 @@ mod tests {
         let bytes = std::fs::read(&output).unwrap();
         assert_eq!(&bytes[8..12], &2u32.to_le_bytes());
         assert_eq!(
-            &bytes[deflorta_data::archive::HEADER_SIZE..][..4],
+            &bytes[deflorta_assets::archive::HEADER_SIZE..][..4],
             &0x184D_2204u32.to_le_bytes()
         );
 
@@ -300,7 +298,7 @@ mod tests {
         reader.read_to_end(&mut tail).unwrap();
         assert_eq!(tail, &text[text.len() - 4..]);
 
-        let files = deflorta_data::GameFiles::open(&output).unwrap();
+        let files = deflorta_assets::GameFiles::open(&output).unwrap();
         assert_eq!(files.list("audio"), ["audio/noise.bin"]);
         assert!(files.exists("./main.js"));
         assert!(files.read("../main.js").is_err());
