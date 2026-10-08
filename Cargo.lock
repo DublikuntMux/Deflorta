@@ -1303,7 +1303,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accesskit 0.25.1",
  "accesskit_winit",
@@ -1325,7 +1325,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-assets"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "deflorta-common",
@@ -1349,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1365,7 +1365,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs",
  "num-traits",
@@ -1375,7 +1375,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-engine-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accesskit 0.25.1",
  "anyhow",
@@ -1405,7 +1405,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-headless"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "deflorta-assets",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-js-bridge"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "deflorta-assets",
@@ -1440,7 +1440,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-launcher-android"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "android_logger",
  "anyhow",
@@ -1451,7 +1451,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-launcher-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1463,7 +1463,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-script-build"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "oxc",
@@ -1471,7 +1471,7 @@ dependencies = [
 
 [[package]]
 name = "deflorta-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "accesskit 0.25.1",
  "accesskit_consumer",
