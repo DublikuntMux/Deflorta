@@ -12,7 +12,7 @@ workspace = true
 anyhow.workspace = true
 serde.workspace = true
 log.workspace = true
-lz4r.workspace = true
+lz4.workspace = true
 oxc.workspace = true
 # Same version as for cosmic-text
 fontdb = "0.23.0"

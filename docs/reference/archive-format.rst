@@ -188,7 +188,7 @@ matched without regard to case:
 This list controls compression only. Runtime media support is documented in
 :doc:`assets`.
 
-Packing uses the pure Rust ``lz4r`` library, imported as ``lz4``. The default
+Packing uses native LZ4 through the Rust ``lz4`` bindings. The default
 compression level is 12; levels 2–12 select HC effort and level 1 selects
 fast compression. Compression level is not an archive field and does not
 change the decoding procedure. Raw blocks have no content checksum, and the

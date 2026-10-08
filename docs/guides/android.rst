@@ -9,14 +9,14 @@ Build Android engine templates
 ------------------------------
 
 Start with the desktop prerequisites in :doc:`../getting-started`. Install
-``cargo-ndk``, the Rust targets, and Android NDK r28 or newer. Set
+``cargo-ndk``, the Rust targets, and Android NDK r30. Set
 ``ANDROID_NDK_HOME`` to the installed NDK directory.
 
 .. code-block:: sh
 
    cargo install cargo-ndk --locked
    rustup target add aarch64-linux-android x86_64-linux-android
-   export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+   export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/30.0.16248370"
    python3 scripts/build-dist.py --android
 
 The default ABI is arm64-v8a, named ``android-aarch64``. To include x86_64

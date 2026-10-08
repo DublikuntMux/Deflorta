@@ -19,4 +19,4 @@ serde.workspace = true
 serde_json.workspace = true
 oxc.workspace = true
 clap.workspace = true
-lz4r.workspace = true
+lz4.workspace = true

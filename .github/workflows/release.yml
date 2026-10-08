@@ -79,7 +79,7 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
           sudo apt-get update
-          sudo apt-get install -y clang libclang-dev mold pkg-config libspeechd-dev libudev-dev libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev autoconf2.13 yasm
+          sudo apt-get install -y clang libclang-dev mold pkg-config libspeechd-dev libdbus-1-dev libudev-dev libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev autoconf2.13 yasm
       - name: Configure MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -108,21 +108,69 @@ jobs:
       - name: Install Rust
         shell: bash
         run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal
+      # Downloads remain reusable when nightly changes; compiled outputs do not.
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-deps-v1-${{ matrix.platform }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml') }}
+          restore-keys: |
+            cargo-deps-v1-${{ matrix.platform }}-
+      - name: Cache Rust desktop and Android build outputs
+        uses: actions/cache@v5
+        with:
+          path: target
+          key: rust-build-v1-${{ matrix.platform }}-${{ needs.prepare.outputs.toolchain }}-${{ hashFiles('.cargo/config.toml', 'scripts/build-dist.py', '.github/workflows/release.yml') }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml') }}-${{ github.sha }}
+          restore-keys: |
+            rust-build-v1-${{ matrix.platform }}-${{ needs.prepare.outputs.toolchain }}-${{ hashFiles('.cargo/config.toml', 'scripts/build-dist.py', '.github/workflows/release.yml') }}-${{ hashFiles('Cargo.lock', '**/Cargo.toml') }}-
+            rust-build-v1-${{ matrix.platform }}-${{ needs.prepare.outputs.toolchain }}-${{ hashFiles('.cargo/config.toml', 'scripts/build-dist.py', '.github/workflows/release.yml') }}-
       - uses: actions/setup-java@v5
         if: runner.os == 'Linux'
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            android/*.gradle.kts
+            android/app/build.gradle.kts
+            android/gradle.properties
+            android/gradle/wrapper/gradle-wrapper.properties
+      - name: Locate Android SDK
+        if: runner.os == 'Linux'
+        id: android-sdk
+        run: echo "path=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+      - name: Cache Android SDK and NDK packages
+        if: runner.os == 'Linux'
+        uses: actions/cache@v5
+        with:
+          path: |
+            ${{ steps.android-sdk.outputs.path }}/platforms/android-36
+            ${{ steps.android-sdk.outputs.path }}/build-tools/36.0.0
+            ${{ steps.android-sdk.outputs.path }}/ndk/30.0.16248370
+          key: android-sdk-v1-${{ runner.os }}-${{ runner.arch }}-api36-build36.0.0-ndk30.0.16248370
       - uses: android-actions/setup-android@v4
         if: runner.os == 'Linux'
         with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.2.13676358'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;30.0.16248370'
       - name: Install Android native build tools
         if: runner.os == 'Linux'
         run: |
           rustup target add aarch64-linux-android x86_64-linux-android
-          cargo install cargo-ndk --version 4.1.2 --locked
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.2.13676358" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/30.0.16248370" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/cargo-ndk/bin" >> "$GITHUB_PATH"
+      - name: Cache cargo-ndk
+        if: runner.os == 'Linux'
+        id: cargo-ndk
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/cargo-ndk
+          key: cargo-ndk-v1-${{ runner.os }}-${{ runner.arch }}-4.1.2
+      - name: Install cargo-ndk on cache miss
+        if: runner.os == 'Linux' && steps.cargo-ndk.outputs.cache-hit != 'true'
+        run: cargo install cargo-ndk --version 4.1.2 --locked --root "$RUNNER_TEMP/cargo-ndk"
       - name: Set distribution version
         shell: bash
         run: python scripts/release.py stamp "$RELEASE_TAG"
@@ -132,6 +180,8 @@ jobs:
       - name: Build Windows distribution
         if: runner.os == 'Windows'
         run: python scripts/build-dist.py
+      - name: Verify archive compression and validation
+        run: cargo test --locked -p deflorta-cli --bin deflorta pack::tests
       - name: Include Windows C++ runtime libraries
         if: runner.os == 'Windows'
         shell: pwsh
@@ -154,6 +204,7 @@ jobs:
       - name: Verify Android APK and release bundle exports
         if: runner.os == 'Linux'
         env:
+          GRADLE_OPTS: -Dorg.gradle.caching=true
           DEFLORTA_KEYSTORE: ${{ runner.temp }}/smoke.jks
           DEFLORTA_KEYSTORE_PASSWORD: smoke-test
           DEFLORTA_KEY_ALIAS: smoke
@@ -225,7 +276,7 @@ jobs:
       - name: Verify combined exports
         run: |
           sudo apt-get update
-          sudo apt-get install -y libspeechd2 libasound2t64 libudev1
+          sudo apt-get install -y libspeechd2 libdbus-1-3 libasound2t64 libudev1
           cli="artifacts/linux-x86_64/dist/deflorta"
           "$cli" create smoke-game
           "$cli" publish smoke-game --platform windows-x86_64 -o cross-export

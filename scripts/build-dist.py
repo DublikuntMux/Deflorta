@@ -54,7 +54,7 @@ def build_android(abi, release, destination):
     environment = os.environ.copy()
     ndk = environment.get("ANDROID_NDK_HOME") or environment.get("ANDROID_NDK_ROOT")
     if not ndk:
-        raise RuntimeError("set ANDROID_NDK_HOME to your installed NDK (r28+)")
+        raise RuntimeError("set ANDROID_NDK_HOME to your installed NDK (r30)")
     # SpiderMonkey's configure/make build uses these names too.
     environment["ANDROID_NDK_HOME"] = ndk
     environment["ANDROID_NDK_ROOT"] = ndk
@@ -127,7 +127,7 @@ def main():
     if args.android:
         ndk = os.environ.get("ANDROID_NDK_HOME") or os.environ.get("ANDROID_NDK_ROOT")
         if not ndk or not Path(ndk).is_dir():
-            parser.error("set ANDROID_NDK_HOME to your installed NDK (r28+)")
+            parser.error("set ANDROID_NDK_HOME to your installed NDK (r30)")
         if not shutil.which("cargo-ndk"):
             parser.error("install cargo-ndk with: cargo install cargo-ndk --locked")
 

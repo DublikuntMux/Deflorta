@@ -36,7 +36,7 @@ so ``deflorta --version`` reports ``1.0.0``. It does not commit version changes
 back to the source branch.
 
 Linux and Windows builds create debug and release launchers. The Linux builder
-also creates Android arm64-v8a and x86_64 native libraries with NDK r28, then
+also creates Android arm64-v8a and x86_64 native libraries with NDK r30, then
 checks APK and signed AAB exports for both ABIs. Signing uses a temporary test
 key that is never included in release assets. Desktop exports are checked on
 both hosts, and Linux-to-Windows publishing is checked after assembly.
@@ -47,6 +47,30 @@ release. Its changelog lists commits since the closest preceding version tag
 in the commit history; the first release includes the complete history.
 Version-marker commits are omitted. Documentation from the same commit is
 then deployed to GitHub Pages.
+
+Build caching
+--------------
+
+The workflow reuses Cargo registry downloads and Git dependencies across
+releases. Compiled desktop and Android outputs under ``target/`` are cached
+separately for each host platform, resolved Rust toolchain, and native build
+configuration. Dependency updates can restore a compatible previous build;
+Cargo checks its fingerprints and rebuilds changed packages. The cache is
+restored before version stamping, so release numbers do not invalidate all
+dependency caches. Each commit saves an updated build cache after a successful
+job.
+
+Android SDK platform 36, build-tools 36.0.0, NDK 30.0.16248370, and the installed
+``cargo-ndk`` 4.1.2 tool are also cached. Java setup caches Gradle dependencies,
+wrapper distributions, and the local Gradle build cache. APK/AAB verification
+enables Gradle build caching; generated export projects and signing keys are
+created fresh for each run.
+
+The first run populates the caches. Because the repository selects a rolling
+nightly, a new nightly compiler requires a new compiled-output cache; Cargo
+downloads and Android tooling remain reusable. Unchanged dependencies are
+reused when the compiler and native configuration match. GitHub can evict old
+caches, in which case the workflow builds and downloads them again normally.
 
 Release downloads
 ------------------
@@ -68,8 +92,8 @@ Extract the Android archive over an existing distribution to install its
 ``target/`` and ``template/android/`` folders.
 
 Linux executables are built on Ubuntu 24.04 and require compatible system
-libraries, including Speech Dispatcher, ALSA, and udev. On Ubuntu 24.04,
-install ``libspeechd2``, ``libasound2t64``, and ``libudev1``. Game authors using
+libraries, including Speech Dispatcher, D-Bus, ALSA, and udev. On Ubuntu 24.04,
+install ``libspeechd2``, ``libdbus-1-3``, ``libasound2t64``, and ``libudev1``. Game authors using
 Android exports also need Java 17, SDK platform 36, and build-tools 36.0.0;
 follow :doc:`android` for their own release signing setup. Rust and the NDK
 are not needed to export games from downloaded distributions.

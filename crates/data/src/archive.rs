@@ -134,35 +134,20 @@ fn decode_header_field(header: &[u8; HEADER_SIZE], offset: usize) -> Result<u32>
 /// Decode one complete frame into an exactly sized buffer, checking its footer
 /// and rejecting trailing bytes or decoded data beyond the archive's size.
 pub fn decompress_frame(stored: &[u8], size: usize) -> Result<Vec<u8>> {
-    use lz4::frame::types::LZ4F_VERSION;
-    use lz4::frame::{lz4f_create_decompression_context, lz4f_decompress};
-
-    let mut context = lz4f_create_decompression_context(LZ4F_VERSION)?;
+    let mut decoder = lz4::Decoder::new(stored)?;
     let mut output = vec![0; size];
-    let mut source_pos = 0;
-    let mut output_pos = 0;
-    loop {
-        let (consumed, written, hint) = lz4f_decompress(
-            &mut context,
-            Some(&mut output[output_pos..]),
-            &stored[source_pos..],
-            None,
-        )?;
-        source_pos += consumed;
-        output_pos += written;
-        if hint == 0 {
-            ensure!(source_pos == stored.len(), "LZ4 frame has trailing data");
-            ensure!(
-                output_pos == size,
-                "LZ4 frame size does not match the archive"
-            );
-            return Ok(output);
-        }
-        ensure!(
-            consumed > 0 || written > 0,
-            "LZ4 frame is truncated or exceeds the archive size"
-        );
-    }
+    decoder.read_exact(&mut output)?;
+    // Read through the footer even when the destination filled exactly, while
+    // bounding excess decoded data to one byte for corrupt size metadata.
+    let mut extra = [0];
+    ensure!(
+        decoder.read(&mut extra)? == 0,
+        "LZ4 frame exceeds the archive size"
+    );
+    let (remaining, result) = decoder.finish();
+    result.context("LZ4 frame is truncated")?;
+    ensure!(remaining.is_empty(), "LZ4 frame has trailing data");
+    Ok(output)
 }
 
 struct BlockInfo {

@@ -4,10 +4,8 @@ use std::path::Path;
 
 use anyhow::{Context, Result, ensure};
 use deflorta_data::archive::{BLOCK_COMPRESSED, BLOCK_SIZE, Block, Entry, Index, encode_header};
-use lz4::frame::{
-    BlockMode, BlockSizeId, ContentChecksum, FrameInfo, Preferences, lz4f_compress_frame,
-    lz4f_compress_frame_bound,
-};
+use lz4::liblz4::BlockChecksum;
+use lz4::{BlockMode, BlockSize, ContentChecksum, EncoderBuilder};
 
 pub const DEFAULT_LEVEL: u8 = 12;
 
@@ -35,20 +33,17 @@ pub struct Stats {
 
 /// Encode standard independent-block LZ4 frames with content size and checksum.
 fn compress_frame(data: &[u8], level: u8) -> Result<Vec<u8>> {
-    let preferences = Preferences {
-        frame_info: FrameInfo {
-            block_size_id: BlockSizeId::Max256Kb,
-            block_mode: BlockMode::Independent,
-            content_checksum_flag: ContentChecksum::Enabled,
-            content_size: u64::try_from(data.len())?,
-            ..FrameInfo::default()
-        },
-        compression_level: i32::from(level),
-        ..Preferences::default()
-    };
-    let mut frame = vec![0; lz4f_compress_frame_bound(data.len(), Some(&preferences))];
-    let written = lz4f_compress_frame(&mut frame, data, Some(&preferences))?;
-    frame.truncate(written);
+    let mut encoder = EncoderBuilder::new()
+        .block_size(BlockSize::Max256KB)
+        .block_mode(BlockMode::Independent)
+        .block_checksum(BlockChecksum::NoBlockChecksum)
+        .checksum(ContentChecksum::ChecksumEnabled)
+        .content_size(u64::try_from(data.len())?)
+        .level(u32::from(level))
+        .build(Vec::new())?;
+    encoder.write_all(data)?;
+    let (frame, result) = encoder.finish();
+    result?;
     Ok(frame)
 }
 
@@ -191,16 +186,39 @@ mod tests {
     use std::sync::Arc;
 
     use deflorta_data::archive::{Archive, MAX_INDEX_SIZE, decompress_frame};
-    use lz4::frame::compress::LZ4F_MAGIC_NUMBER;
 
     use super::*;
+
+    #[test]
+    fn reads_frames_from_the_previous_lz4r_writer() {
+        // A version-2 archive index captured from the previous published CLI.
+        let stored = [
+            4, 34, 77, 24, 108, 64, 34, 0, 0, 0, 0, 0, 0, 0, 211, 32, 0, 0, 0, 144, 1, 0, 0, 0, 97,
+            0, 0, 0, 0, 9, 0, 145, 7, 0, 109, 97, 105, 110, 46, 106, 115, 18, 0, 112, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 95, 102, 167, 61,
+        ];
+        let index = Index::decode(&decompress_frame(&stored, 34).unwrap()).unwrap();
+        assert_eq!(index.entries.len(), 1);
+        assert_eq!(index.entries[0].path, "main.js");
+        assert_eq!(index.entries[0].size, 97);
+    }
+
+    #[test]
+    fn empty_frames_require_a_complete_footer_and_no_trailing_data() {
+        let frame = compress_frame(&[], DEFAULT_LEVEL).unwrap();
+        assert_eq!(decompress_frame(&frame, 0).unwrap(), [] as [u8; 0]);
+        assert!(decompress_frame(&frame[..frame.len() - 1], 0).is_err());
+        let mut trailing = frame;
+        trailing.push(0);
+        assert!(decompress_frame(&trailing, 0).is_err());
+    }
 
     #[test]
     fn hc_frames_round_trip_multiple_internal_blocks_and_verify_checksums() {
         let data = b"LZ4HC frames preserve seekable game resources.\n".repeat(12_000);
         for level in [1, DEFAULT_LEVEL, 12] {
             let frame = compress_frame(&data, level).unwrap();
-            assert_eq!(&frame[..4], &LZ4F_MAGIC_NUMBER.to_le_bytes());
+            assert_eq!(&frame[..4], &0x184D_2204u32.to_le_bytes());
             assert!(
                 frame.len() < data.len(),
                 "level {}: {} bytes for {} bytes of input",
@@ -267,7 +285,7 @@ mod tests {
         assert_eq!(&bytes[8..12], &2u32.to_le_bytes());
         assert_eq!(
             &bytes[deflorta_data::archive::HEADER_SIZE..][..4],
-            &LZ4F_MAGIC_NUMBER.to_le_bytes()
+            &0x184D_2204u32.to_le_bytes()
         );
 
         let archive = Arc::new(Archive::open(&output).unwrap());
