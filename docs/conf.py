@@ -1,7 +1,11 @@
 """Sphinx configuration for the Deflorta handbook."""
 
+import os
+
 project = "Deflorta"
 author = "Deflorta contributors"
+release = os.environ.get("DEFLORTA_DOCS_VERSION", "development")
+version = release
 extensions = ["sphinxcontrib.kroki"]
 root_doc = "index"
 source_suffix = ".rst"

@@ -47,6 +47,16 @@ Open `docs/_build/html/index.html`, or follow the
 [documentation build guide](docs/documentation.rst) for serving, Windows commands,
 and link checks. The site uses Sphinx with the Furo theme.
 
+## Automated releases
+
+Push a commit titled exactly `v1.0.0` (or another `vMAJOR.MINOR.PATCH`) as the
+latest commit on the default branch. GitHub Actions builds Linux and Windows
+engine distributions with Linux, Windows, and Android export runtimes, creates
+a GitHub release with a commit changelog and checksums, and publishes the
+handbook to GitHub Pages. Set **Settings → Pages → Source** to **GitHub Actions**
+once. See the [release guide](docs/guides/engine-releases.rst) for downloads,
+verification, and retries.
+
 ## License
 
 Engine: [MIT](LICENSE.md). Demo fonts: Noto Sans

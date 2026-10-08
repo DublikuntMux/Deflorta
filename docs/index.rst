@@ -65,6 +65,7 @@ Find what you need
    :caption: Contribute
 
    documentation
+   guides/engine-releases
 
 License
 -------
