@@ -171,10 +171,19 @@ declare module "deflorta" {
       volume(channel: "music" | "sound" | "voice", value: number): void;
     };
     ui: {
+      /**
+       * Shows a native tree and returns its generation. Nodes `{ key, unchanged: true }`
+       * reuse the node with that identity from the commit with generation `base`; when
+       * another commit followed it, nothing is committed and the result is null.
+       */
       commit(
         tree: NativeElement,
-        options?: { instant?: boolean; exits?: Record<string, Animation | null | undefined> },
-      ): void;
+        options?: {
+          instant?: boolean;
+          exits?: Record<string, Animation | null | undefined>;
+          base?: number;
+        },
+      ): number | null;
       /** Shows typewriter text up to the next click-wait. */
       revealSkip(): void;
       preload(images: string[]): void;
@@ -376,13 +385,20 @@ declare module "deflorta" {
     maxLength?: number;
   }
 
+  /** The node with this identity in the commit that `native.ui.commit` names as its base. */
+  export interface UnchangedElement {
+    key: string;
+    unchanged: true;
+  }
+
   export type NativeElement =
     | BoxElement
     | TextElement
     | ImageElement
     | VideoElement
     | SliderElement
-    | InputElement;
+    | InputElement
+    | UnchangedElement;
 
   export interface ComponentElement {
     readonly $$typeof: symbol;
@@ -486,6 +502,11 @@ declare module "deflorta" {
   /** Runs after native commits; cleanup runs before changed dependencies and on unmount. */
   export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
   export function useRef<T>(initial: T): { current: T };
+  /**
+   * Recomputes the value when dependencies change. A memoized element keeps its
+   * rendered output until its dependencies or the state inside it change, even
+   * across `invalidate()`.
+   */
   export function useMemo<T>(factory: () => T, deps?: readonly unknown[]): T;
   export function useCallback<T extends (...args: any[]) => any>(callback: T, deps?: readonly unknown[]): T;
 

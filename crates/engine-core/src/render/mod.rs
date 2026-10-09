@@ -523,7 +523,10 @@ impl Renderer {
         packed.map_or_else(
             || self.texture_from_pixels(img, 0).map(Resident::Own),
             |region| {
-                trace!("Packed {:?} image into atlas page {}", region.size, region.page);
+                trace!(
+                    "Packed {:?} image into atlas page {}",
+                    region.size, region.page
+                );
                 Some(Resident::Packed(region))
             },
         )
@@ -554,7 +557,11 @@ impl Renderer {
         let Some((serial, frame)) = &image.frame else {
             return self.ensure_image(&image.src, assets, now);
         };
-        let reusable = match self.textures.get(&image.src).and_then(|c| c.texture.as_ref()) {
+        let reusable = match self
+            .textures
+            .get(&image.src)
+            .and_then(|c| c.texture.as_ref())
+        {
             Some(Resident::Own(texture)) => {
                 texture.raw.width() == frame.width() && texture.raw.height() == frame.height()
             }
@@ -1228,7 +1235,11 @@ mod tests {
             }
         };
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
+        assert!(
+            renderer
+                .ensure_image(source, &mut assets, Instant::now())
+                .is_some()
+        );
         let now = Instant::now();
         let retained = HashSet::from([source.to_owned()]);
         renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
@@ -1239,18 +1250,30 @@ mod tests {
         assert!(!assets.is_settled(source));
 
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
+        assert!(
+            renderer
+                .ensure_image(source, &mut assets, Instant::now())
+                .is_some()
+        );
         assert!(renderer.unload_texture(source));
         assert!(assets.forget(source));
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
+        assert!(
+            renderer
+                .ensure_image(source, &mut assets, Instant::now())
+                .is_some()
+        );
 
         let invalid = ImageRef {
             src: "video:/invalid".into(),
             uv: [0.0; 4],
             frame: Some((1, Arc::new(image::RgbaImage::new(0, 0)))),
         };
-        assert!(renderer.ensure_texture(&invalid, &mut assets, now).is_none());
+        assert!(
+            renderer
+                .ensure_texture(&invalid, &mut assets, now)
+                .is_none()
+        );
         assert!(renderer.textures.contains_key(&invalid.src));
         renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
         assert!(!renderer.textures.contains_key(&invalid.src));

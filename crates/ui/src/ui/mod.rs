@@ -18,6 +18,16 @@ use crate::util::time::elapsed_secs;
 use crate::video::VideoPlayer;
 use deflorta_common::handler::Handler;
 use desc::{AnimDesc, Color, Ease, NodeDesc, NodeKind, SpanDesc, Style};
+use log::warn;
+
+type NodeIndex = rustc_hash::FxHashMap<String, usize>;
+
+/// The tree being replaced, which `unchanged` nodes refer to.
+#[derive(Clone, Copy)]
+struct Previous<'a> {
+    nodes: &'a [Node],
+    index: &'a NodeIndex,
+}
 use reveal::Reveal;
 use text::{TextStyle, TextSystem};
 
@@ -86,7 +96,8 @@ struct Move {
 #[derive(Clone)]
 struct Node {
     id: String,
-    desc: NodeDesc,
+    /// Shared with the previous tree's node when a commit left it unchanged.
+    desc: Arc<NodeDesc>,
     spans: Option<Arc<Vec<SpanDesc>>>,
     tooltip_hidden: bool,
     parent: Option<usize>,
@@ -154,7 +165,9 @@ pub enum DrawItem {
 
 pub struct Ui {
     nodes: Vec<Node>,
-    index: HashMap<String, usize>,
+    /// Node indices by id. Ids repeat their ancestors' keys, so they are long
+    /// and hashed often; a fast hasher keeps commits cheap.
+    index: NodeIndex,
     enters: HashMap<String, Timed>,
     moves: HashMap<String, Move>,
     pending_moves: HashMap<String, (Rect, AnimDesc)>,
@@ -191,7 +204,7 @@ impl Ui {
     pub fn new(text: TextSystem) -> Self {
         Self {
             nodes: Vec::new(),
-            index: HashMap::new(),
+            index: NodeIndex::default(),
             enters: HashMap::new(),
             moves: HashMap::new(),
             pending_moves: HashMap::new(),
@@ -395,6 +408,7 @@ impl Ui {
     ) {
         let old_nodes = std::mem::take(&mut self.nodes);
         let old_index = std::mem::take(&mut self.index);
+        self.index.reserve(old_index.len());
         let root_style = TextStyle {
             font_size: 24.0,
             line_height: 1.3,
@@ -403,7 +417,11 @@ impl Ui {
             italic: false,
             align: None,
         };
-        self.build(tree, None, "", 0, &root_style);
+        let previous = Previous {
+            nodes: &old_nodes,
+            index: &old_index,
+        };
+        self.build(tree, None, "", 0, &root_style, previous);
         let built = self.nodes.len();
         self.keep_exits(&old_nodes, &old_index, instant, exits, now);
 
@@ -486,7 +504,7 @@ impl Ui {
     fn keep_exits(
         &mut self,
         old_nodes: &[Node],
-        old_index: &HashMap<String, usize>,
+        old_index: &NodeIndex,
         instant: bool,
         exits: &HashMap<String, Option<AnimDesc>>,
         now: Instant,
@@ -502,7 +520,11 @@ impl Ui {
                     .get(&old.id)
                     .is_some_and(|&c| self.nodes[c].parent == Some(i))
             };
-            if old_nodes[oi].children.iter().all(|&oc| kept(&old_nodes[oc])) {
+            if old_nodes[oi]
+                .children
+                .iter()
+                .all(|&oc| kept(&old_nodes[oc]))
+            {
                 continue;
             }
             let positions: HashMap<&str, usize> = self.nodes[i]
@@ -620,24 +642,30 @@ impl Ui {
         parent_id: &str,
         child_index: usize,
         inherited: &TextStyle,
+        previous: Previous,
     ) -> usize {
         let id = desc.key.as_ref().map_or_else(
             || format!("{parent_id}/#{child_index}"),
             |key| format!("{parent_id}/{key}"),
         );
+        if desc.unchanged {
+            if let Some(&oi) = previous.index.get(&id) {
+                return self.reuse(previous.nodes, oi, parent, inherited);
+            }
+            warn!("'{id}' refers to an earlier tree that does not contain it");
+        }
         let text_style = inherit_text(inherited, &desc.style);
         let children = std::mem::take(&mut desc.children);
         if desc.kind() == NodeKind::Text && desc.tooltip_text {
             desc.cps = None;
         }
-        let tooltip_hidden = desc.kind() == NodeKind::Text
-            && desc.tooltip_text
-            && self.tooltip.as_deref().is_none_or(str::is_empty);
+        let mut tooltip_hidden = false;
         let spans = match desc.kind() {
-            NodeKind::Text if desc.tooltip_text => Some(Arc::new(vec![SpanDesc {
-                text: self.tooltip.clone().unwrap_or_default(),
-                ..Default::default()
-            }])),
+            NodeKind::Text if desc.tooltip_text => {
+                let (spans, hidden) = self.tooltip_spans();
+                tooltip_hidden = hidden;
+                Some(spans)
+            }
             NodeKind::Text => Some(Arc::new(desc.spans.take().unwrap_or_else(|| {
                 vec![SpanDesc {
                     text: desc.text.take().unwrap_or_default(),
@@ -649,7 +677,7 @@ impl Ui {
         let idx = self.nodes.len();
         self.nodes.push(Node {
             id: id.clone(),
-            desc,
+            desc: Arc::new(desc),
             spans,
             tooltip_hidden,
             parent,
@@ -665,10 +693,67 @@ impl Ui {
         let kids = children
             .into_iter()
             .enumerate()
-            .map(|(i, child)| self.build(child, Some(idx), &id, i, &text_style))
+            .map(|(i, child)| self.build(child, Some(idx), &id, i, &text_style, previous))
             .collect();
         self.nodes[idx].children = kids;
         idx
+    }
+
+    /// Rebuilds the nodes of a subtree the commit left unchanged, sharing their
+    /// descriptors. Exiting ghosts are left to `keep_exits`; inherited text
+    /// styles are recomputed because ancestors may have changed.
+    fn reuse(
+        &mut self,
+        old: &[Node],
+        oi: usize,
+        parent: Option<usize>,
+        inherited: &TextStyle,
+    ) -> usize {
+        let source = &old[oi];
+        let text_style = inherit_text(inherited, &source.desc.style);
+        let (spans, tooltip_hidden) = if source.desc.tooltip_text && source.spans.is_some() {
+            let (spans, hidden) = self.tooltip_spans();
+            (Some(spans), hidden)
+        } else {
+            (source.spans.clone(), source.tooltip_hidden)
+        };
+        let idx = self.nodes.len();
+        self.nodes.push(Node {
+            id: source.id.clone(),
+            desc: source.desc.clone(),
+            spans,
+            tooltip_hidden,
+            parent,
+            children: Vec::new(),
+            text_style: text_style.clone(),
+            rect: Rect::default(),
+            content: (0.0, 0.0),
+            layout_id: None,
+            ghost: None,
+            in_ghost: false,
+        });
+        self.index.insert(source.id.clone(), idx);
+        let kids = source
+            .children
+            .iter()
+            .filter(|&&c| !old[c].in_ghost)
+            .map(|&c| self.reuse(old, c, Some(idx), &text_style))
+            .collect();
+        self.nodes[idx].children = kids;
+        idx
+    }
+
+    /// Spans of a text node bound to the tooltip, and whether it is hidden.
+    fn tooltip_spans(&self) -> (Arc<Vec<SpanDesc>>, bool) {
+        let text = self.tooltip.clone().unwrap_or_default();
+        let hidden = text.is_empty();
+        (
+            Arc::new(vec![SpanDesc {
+                text,
+                ..Default::default()
+            }]),
+            hidden,
+        )
     }
 
     fn copy_ghost(
@@ -914,7 +999,13 @@ mod tests {
                 .map(|&c| ui.nodes[c].desc.key.clone().unwrap())
                 .collect()
         };
-        ui.commit(tree(&["a", "b", "c", "d", "e"]), true, &HashMap::new(), &assets, now);
+        ui.commit(
+            tree(&["a", "b", "c", "d", "e"]),
+            true,
+            &HashMap::new(),
+            &assets,
+            now,
+        );
         ui.commit(tree(&["c", "e", "f"]), false, &HashMap::new(), &assets, now);
         assert_eq!(order(&ui), ["a", "b", "c", "d", "e", "f"]);
         assert!(ui.nodes[0].children.iter().all(|&c| {

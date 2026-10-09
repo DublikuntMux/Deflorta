@@ -188,6 +188,8 @@ struct CommitOptions {
     instant: bool,
     #[serde(default)]
     exits: HashMap<String, Option<AnimDesc>>,
+    /// Generation of the commit that `unchanged` nodes refer to.
+    base: Option<u32>,
 }
 
 type Native = unsafe extern "C" fn(*mut RawJSContext, u32, *mut Value) -> bool;
@@ -529,8 +531,18 @@ native! {
     }
 }
 
-unsafe fn commit(args: &Args) -> Result<()> {
+/// Returns the commit's generation, or null without committing when `base`
+/// is no longer the latest commit, so `unchanged` nodes cannot be resolved.
+unsafe fn commit(args: &Args) -> Result<Option<u32>> {
     let cx = args.cx;
+    let options: Option<CommitOptions> = args.get(1)?;
+    let options = options.unwrap_or_default();
+    if options
+        .base
+        .is_some_and(|base| base != with_state(|s| s.generation))
+    {
+        return Ok(None);
+    }
     let generation = with_state(super::HostState::next_generation);
     unsafe {
         rooted!(in(cx) let handlers = jsapi::NewArrayObject1(cx, 0));
@@ -539,8 +551,6 @@ unsafe fn commit(args: &Args) -> Result<()> {
         }
         let sink = HandlerSink::new(generation, handlers.handle());
         let tree: NodeDesc = from_js_with_handlers(cx, args.handle(0), &sink)?;
-        let options: Option<CommitOptions> = args.get(1)?;
-        let options = options.unwrap_or_default();
         let table = HandlerTable {
             generation,
             functions: RootedTraceableBox::from_box(Heap::boxed(handlers.get())),
@@ -555,5 +565,5 @@ unsafe fn commit(args: &Args) -> Result<()> {
             })));
         });
     }
-    Ok(())
+    Ok(Some(generation))
 }

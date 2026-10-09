@@ -57,6 +57,7 @@ export function useState(initial) {
       const next = typeof update === "function" ? update(state.value) : update;
       if (Object.is(next, state.value)) return;
       state.value = next;
+      instance.stale = true;
       schedule();
     };
     return state;
@@ -74,6 +75,7 @@ export function useReducer(reducer, initial, init) {
       const next = state.reducer(state.value, action);
       if (Object.is(next, state.value)) return;
       state.value = next;
+      instance.stale = true;
       schedule();
     };
     return state;
@@ -138,6 +140,30 @@ function childrenOf(children, result = []) {
 export function createRenderer() {
   const instances = new Map();
   let cleanups = [];
+  // Native nodes flattened from an array output, by array; see resolveChildren.
+  const flattened = new WeakMap();
+
+  /**
+   * Keeps a component's previous output when it receives the identical element
+   * and nothing below it changed state, like React's bailout for memoized
+   * elements. Its mounted descendants stay as they are.
+   */
+  function reuse(path, instance, element, inheritedKey) {
+    if (
+      instance.element !== element ||
+      instance.inheritedKey !== inheritedKey ||
+      !instance.rendered
+    )
+      return false;
+    const below = [];
+    for (const [id, other] of instances) {
+      if (id !== path && !id.startsWith(`${path}/`)) continue;
+      if (other.stale) return false;
+      below.push(other);
+    }
+    for (const other of below) other.visited = true;
+    return true;
+  }
 
   function dispose(path) {
     for (const [id, instance] of instances) {
@@ -167,14 +193,20 @@ export function createRenderer() {
       const node = resolve(child, `${path}/${id}`);
       // Fragments and components returning arrays flatten into one native
       // child list. Scope their keys so distinct groups cannot collide.
-      if (Array.isArray(node))
-        result.push(
-          ...node.map((item) => ({
+      // A reused output keeps its flattened nodes, so they stay identical.
+      if (Array.isArray(node)) {
+        const prefix = `${path}/${id}/`;
+        let items = flattened.get(node);
+        if (items?.prefix !== prefix) {
+          items = node.map((item) => ({
             ...item,
-            key: `${path}/${id}/${JSON.stringify(["output", item.key])}`,
-          })),
-        );
-      else if (node) result.push(node);
+            key: prefix + JSON.stringify(["output", item.key]),
+          }));
+          items.prefix = prefix;
+          flattened.set(node, items);
+        }
+        result.push(...items);
+      } else if (node) result.push(node);
     });
     return result;
   }
@@ -202,8 +234,11 @@ export function createRenderer() {
       if (!instance) {
         instance = { type, hooks: [], mounted: true, rendered: false };
         instances.set(path, instance);
+      } else if (reuse(path, instance, element, inheritedKey)) {
+        return instance.output;
       }
       instance.visited = true;
+      instance.stale = false;
       instance.cursor = 0;
       instance.effects = [];
       const parent = current;
@@ -220,7 +255,10 @@ export function createRenderer() {
       } finally {
         current = parent;
       }
-      return resolve(content, `${path}/render`, key ?? inheritedKey);
+      instance.element = element;
+      instance.inheritedKey = inheritedKey;
+      instance.output = resolve(content, `${path}/render`, key ?? inheritedKey);
+      return instance.output;
     }
     if (element.t) {
       return {

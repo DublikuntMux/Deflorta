@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use super::desc::{NodeKind, Overflow};
 use super::{Rect, Ui};
@@ -345,7 +346,7 @@ impl Ui {
 
     pub fn type_text(&mut self, text: &str) -> Option<InputEvent> {
         let i = self.focused_input()?;
-        let desc = &mut self.nodes[i].desc;
+        let desc = &self.nodes[i].desc;
         let mut value = desc.string_value().to_owned();
         for c in text.chars().filter(|c| !c.is_control()) {
             if desc
@@ -371,7 +372,7 @@ impl Ui {
         if desc.string_value() == value {
             return None;
         }
-        desc.value = Some(serde_json::Value::String(value.clone()));
+        Arc::make_mut(desc).value = Some(serde_json::Value::String(value.clone()));
         self.layout_dirty = true;
         if let Some(id) = self.nodes[i].layout_id {
             self.layout_tree

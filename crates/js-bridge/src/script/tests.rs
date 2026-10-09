@@ -557,3 +557,89 @@ fn check_grouped_properties(tree: &NodeDesc) {
     assert!(span.reveal.click && span.reveal.fast);
     assert_eq!(span.reveal.wait, Some(0.25));
 }
+
+fn find_node<'a>(tree: &'a NodeDesc, key: &str) -> &'a NodeDesc {
+    fn search<'a>(tree: &'a NodeDesc, key: &str) -> Option<&'a NodeDesc> {
+        if tree.key.as_deref() == Some(key) {
+            return Some(tree);
+        }
+        tree.children.iter().find_map(|child| search(child, key))
+    }
+    search(tree, key).unwrap_or_else(|| panic!("no node with key {key}"))
+}
+
+fn references(tree: &NodeDesc) -> bool {
+    tree.unchanged || tree.children.iter().any(references)
+}
+
+#[test]
+fn unchanged_subtrees_are_sent_by_reference_and_memoized_elements_bail_out() {
+    // SpiderMonkey can initialize only once per process.
+    if std::env::var_os("DEFLORTA_REUSE_TEST_CHILD").is_some() {
+        check_unchanged_subtrees();
+        return;
+    }
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "script::tests::unchanged_subtrees_are_sent_by_reference_and_memoized_elements_bail_out",
+        ])
+        .env("DEFLORTA_REUSE_TEST_CHILD", "1")
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+fn check_unchanged_subtrees() {
+    let (_scripts, files) = compiled_fixture("ui-reuse");
+    let mut host = ScriptHost::new(files).unwrap();
+    host.run_main().unwrap();
+    drop(ScriptHost::take_commands());
+    host.flush().unwrap();
+    assert!(!references(committed_tree(&ScriptHost::take_commands())));
+    let renders = |host: &mut ScriptHost| {
+        runtime_key(host, "renders")
+            .into_iter()
+            .find_map(|command| match command {
+                Command::Voice { file } => file,
+                _ => None,
+            })
+            .unwrap()
+    };
+    assert_eq!(renders(&mut host), "1");
+
+    let commands = runtime_key(&mut host, "label");
+    let tree = committed_tree(&commands);
+    assert!(find_node(tree, "static").unchanged);
+    assert_eq!(find_node(tree, "label").text.as_deref(), Some("second"));
+    // Callbacks are registered per commit, so their nodes are always sent.
+    let button = find_node(tree, "button");
+    assert!(!button.unchanged && button.on_click.is_some());
+    assert!(find_node(tree, "caption").unchanged);
+    assert!(find_node(tree, "shared").unchanged);
+    // The memoized element keeps its output, although it reads the label.
+    assert!(find_node(tree, "memo").unchanged);
+    assert_eq!(renders(&mut host), "1");
+
+    // Its own state still renders it, and then it sees the current label.
+    let commands = runtime_key(&mut host, "bump");
+    let tree = committed_tree(&commands);
+    assert!(!find_node(tree, "memo").unchanged);
+    assert_eq!(find_node(tree, "count").text.as_deref(), Some("count 1"));
+    assert_eq!(find_node(tree, "global").text.as_deref(), Some("second"));
+    assert_eq!(renders(&mut host), "2");
+
+    let commands = runtime_key(&mut host, "mutate");
+    let shared = find_node(committed_tree(&commands), "shared");
+    assert!(!shared.unchanged);
+    assert!(shared.style.color.is_some());
+
+    // A direct commit replaces the base, so the next tree is sent in full.
+    let commands = runtime_key(&mut host, "direct");
+    let commits = commands
+        .iter()
+        .filter(|command| matches!(command, Command::Commit(_)))
+        .count();
+    assert_eq!(commits, 2);
+    assert!(!references(committed_tree(&commands)));
+}

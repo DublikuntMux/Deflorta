@@ -69,10 +69,12 @@ impl Atlas {
         self.pages[page].as_ref().expect("atlas page is resident")
     }
 
+    #[cfg(feature = "dev-console")]
     pub fn page_count(&self) -> usize {
         self.pages.iter().flatten().count()
     }
 
+    #[cfg(feature = "dev-console")]
     pub fn page_bytes(&self) -> u64 {
         u64::from(self.size) * u64::from(self.size) * 4
     }
@@ -144,10 +146,14 @@ impl Atlas {
             images: 0,
             white: [0.0; 2],
         };
-        let index = self.pages.iter().position(Option::is_none).unwrap_or_else(|| {
-            self.pages.push(None);
-            self.pages.len() - 1
-        });
+        let index = self
+            .pages
+            .iter()
+            .position(Option::is_none)
+            .unwrap_or_else(|| {
+                self.pages.push(None);
+                self.pages.len() - 1
+            });
         self.pages[index] = Some(page);
         let white = image::RgbaImage::from_pixel(1, 1, image::Rgba([255; 4]));
         let region = self
@@ -161,7 +167,12 @@ impl Atlas {
         index
     }
 
-    fn write(&mut self, queue: &wgpu::Queue, index: usize, image: &image::RgbaImage) -> Option<Region> {
+    fn write(
+        &mut self,
+        queue: &wgpu::Queue,
+        index: usize,
+        image: &image::RgbaImage,
+    ) -> Option<Region> {
         let size = self.size;
         let page = self.pages[index].as_mut()?;
         let (width, height) = image.dimensions();
@@ -229,9 +240,8 @@ mod tests {
 
     #[test]
     fn padding_repeats_edge_texels() {
-        let image = image::RgbaImage::from_fn(2, 1, |x, _| {
-            image::Rgba([u8::try_from(x + 1).unwrap(); 4])
-        });
+        let image =
+            image::RgbaImage::from_fn(2, 1, |x, _| image::Rgba([u8::try_from(x + 1).unwrap(); 4]));
         let px = |v: u8| [v; 4];
         let row = [px(1), px(1), px(2), px(2)].concat();
         assert_eq!(padded(&image), [row.clone(), row.clone(), row].concat());

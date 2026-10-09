@@ -43,6 +43,41 @@ fn assert_matches_fresh(
 }
 
 #[test]
+fn unchanged_references_share_nodes_with_current_inherited_styles() {
+    let (mut ui, mut assets) = setup();
+    let now = Instant::now();
+    commit(&mut ui, fixture(), &assets, now);
+    ui.draw(&mut assets, now);
+    let label = ui.nodes[ui.index["/root/panel/label"]].desc.clone();
+    let layout = ui.nodes[ui.index["/root/panel"]].layout_id;
+    // The panel is unchanged, but the font size it inherits is not.
+    let mut full = fixture();
+    full.style.font_size = Some(40.0);
+    let mut referenced = full.clone();
+    referenced.children[0] =
+        serde_json::from_value(serde_json::json!({ "key": "panel", "unchanged": true })).unwrap();
+    commit(&mut ui, referenced, &assets, now);
+    let reused = &ui.nodes[ui.index["/root/panel/label"]];
+    assert!(std::sync::Arc::ptr_eq(&reused.desc, &label));
+    assert!((reused.text_style.font_size - 40.0).abs() < f32::EPSILON);
+    assert_eq!(ui.nodes[ui.index["/root/panel"]].layout_id, layout);
+    assert_matches_fresh(&mut ui, full, &mut assets, now);
+
+    // A reference the displayed tree cannot resolve becomes an empty node.
+    let (mut fresh, mut fresh_assets) = setup();
+    let dangling = serde_json::from_value(serde_json::json!({ "key": "root", "children": [
+            { "key": "panel", "unchanged": true }
+        ] }))
+    .unwrap();
+    commit(&mut fresh, dangling, &fresh_assets, now);
+    fresh.draw(&mut fresh_assets, now);
+    assert_eq!(
+        fresh.nodes[fresh.index["/root/panel"]].children,
+        Vec::<usize>::new()
+    );
+}
+
+#[test]
 fn paint_and_handler_updates_skip_layout() {
     let (mut ui, mut assets) = setup();
     let now = Instant::now();

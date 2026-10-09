@@ -310,6 +310,79 @@ export function tooltip() {
   return tooltipText;
 }
 
+// Signatures of the last committed tree, to send unchanged subtrees by reference.
+let committed = null;
+
+/**
+ * Replaces subtrees equal to `previous` with `{ key, unchanged: true }`, so the
+ * engine reuses its copy instead of reading them again. Subtrees with callbacks
+ * are always sent: each commit registers its own handlers.
+ *
+ * A node object committed before is the output of a component that kept it
+ * (see `reuse` in the renderer), so it is referenced without being read.
+ * Others are compared by signature strings, so objects mutated after a commit
+ * still compare correctly. Nodes are updated in place; replaced children are
+ * added to `replaced` as `[children, index, child]` to be restored.
+ */
+function compact(node, previous, replaced) {
+  const { children, key } = node;
+  if (previous?.node === node && previous.clean && key != null) {
+    return { node: { key, unchanged: true }, record: previous, same: true };
+  }
+  // Keys are compared as identities, so long generated keys stay out of signatures.
+  node.children = undefined;
+  node.key = undefined;
+  const sig = signature(node);
+  node.key = key;
+  let same = sig !== null && previous?.sig === sig;
+  let clean = sig !== null;
+  const ids = [];
+  const records = [];
+  if (children?.length) {
+    same &&= previous.ids.length === children.length;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      // Native node identity: the key, or the position of an unkeyed child.
+      const id = child.key ?? i;
+      const earlier = previous && (previous.ids[i] === id ? previous.records[i] : find(previous, id));
+      const result = compact(child, earlier, replaced);
+      ids.push(id);
+      records.push(result.record);
+      clean &&= result.record.clean;
+      same &&= result.same && previous.ids[i] === id;
+      if (result.node !== child) {
+        replaced.push([children, i, child]);
+        children[i] = result.node;
+      }
+    }
+  } else {
+    same &&= previous.ids.length === 0;
+  }
+  node.children = children;
+  const record = { sig, ids, records, index: null, node, clean };
+  if (same && key != null) return { node: { key, unchanged: true }, record, same };
+  return { node, record, same: false };
+}
+
+/** The record of a reordered child, by native identity. */
+function find(record, id) {
+  record.index ??= new Map(record.ids.map((id, i) => [id, i]));
+  const i = record.index.get(id);
+  return i === undefined ? undefined : record.records[i];
+}
+
+/** Node properties as JSON, or null when they include a callback. */
+function signature(props) {
+  for (const key in props) {
+    if (typeof props[key] === "function") return null;
+  }
+  try {
+    return JSON.stringify(props);
+  } catch {
+    return null;
+  }
+}
+
 function renderRoot() {
   tooltipObserved = false;
   const children = [sceneLayer()];
@@ -358,7 +431,23 @@ onFlush(() => {
       : [];
     const tree = renderer.render(renderRoot(), retainedRoots);
     const options = { instant, exits: { ...exits } };
-    native.ui.commit(tree, options);
+    const base = committed;
+    const replaced = [];
+    let generation = null;
+    let record;
+    try {
+      const compacted = compact(tree, base?.record, replaced);
+      record = compacted.record;
+      if (base) {
+        generation = native.ui.commit(compacted.node, { ...options, base: base.generation });
+      }
+    } finally {
+      // Components may return these nodes again, so they must stay complete.
+      for (const [children, i, child] of replaced) children[i] = child;
+    }
+    // Another commit replaced the base, so its nodes cannot be referenced.
+    generation ??= native.ui.commit(tree, options);
+    committed = { generation, record };
     instant = false;
     for (const k of Object.keys(exits)) delete exits[k];
     renderer.commit();

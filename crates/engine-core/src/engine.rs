@@ -408,7 +408,7 @@ impl Engine {
 
     fn stage_tree(&mut self, commit: UiCommit, now: Instant) {
         let UiCommit {
-            tree,
+            mut tree,
             generation,
             instant,
             exits,
@@ -421,6 +421,8 @@ impl Engine {
         // Successive trees replace each other; transitions of all of them still apply.
         let pending = match self.pending.take() {
             Some(mut previous) => {
+                // `unchanged` nodes refer to the tree being replaced, not the displayed one.
+                tree.resolve_unchanged(&previous.tree);
                 previous.tree = tree;
                 previous.generation = generation;
                 previous.instant |= instant;

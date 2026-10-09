@@ -47,7 +47,10 @@ the screen stack. Game screens participate in saves and rollback.
 Hooks are ``useState``, ``useReducer``, ``useEffect``, ``useRef``, ``useMemo``,
 and ``useCallback``. Hook state belongs to the mounted component; use ``store``
 for saved story state. ``invalidate()`` schedules rendering after external
-state changes.
+state changes. An element memoized with ``useMemo`` (or created once outside
+a component) is not rendered again until its dependencies or the state of a
+component inside it change; ``invalidate()`` alone does not update it. Do not
+mutate the props of a memoized element.
 
 ``theme`` supplies colors and sizes for default screens. ``tooltip()`` returns
 the current tooltip.

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::time::Instant;
 
 use log::error;
@@ -45,9 +44,9 @@ impl Ui {
         }
     }
 
-    pub(super) fn reconcile_layout(&mut self, old: &[Node], old_index: &HashMap<String, usize>) {
+    pub(super) fn reconcile_layout(&mut self, old: &[Node], old_index: &super::NodeIndex) {
         let tree = &mut self.layout_tree;
-        let mut retained = HashSet::new();
+        let mut retained = rustc_hash::FxHashSet::default();
         for (i, node) in self
             .nodes
             .iter_mut()

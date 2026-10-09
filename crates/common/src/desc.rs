@@ -54,6 +54,10 @@ pub struct AccessibilityDesc {
 }
 
 #[derive(Clone, Default)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "flags mirror JavaScript properties"
+)]
 pub struct NodeDesc {
     pub t: Option<NodeKind>,
     pub key: Option<String>,
@@ -99,6 +103,9 @@ pub struct NodeDesc {
     pub placeholder: Option<String>,
     pub max_length: Option<usize>,
     pub r#loop: bool,
+    /// A reference to the node with this key in the tree the commit was diffed
+    /// against; its subtree is reused as committed then.
+    pub unchanged: bool,
 }
 
 impl NodeDesc {
@@ -118,6 +125,39 @@ impl NodeDesc {
     #[must_use]
     pub fn string_value(&self) -> &str {
         self.value.as_ref().and_then(|v| v.as_str()).unwrap_or("")
+    }
+
+    /// Replaces `unchanged` references with the matching subtrees of `previous`,
+    /// the tree this one was diffed against. References into subtrees that
+    /// `previous` itself left unchanged stay references to the tree before it.
+    pub fn resolve_unchanged(&mut self, previous: &Self) {
+        if self.unchanged {
+            if self.key == previous.key {
+                self.clone_from(previous);
+            }
+            return;
+        }
+        if previous.unchanged || previous.children.is_empty() {
+            return;
+        }
+        let earlier: std::collections::HashMap<_, _> = previous
+            .children
+            .iter()
+            .enumerate()
+            .map(|(index, child)| (child.identity(index), child))
+            .collect();
+        for (index, child) in self.children.iter_mut().enumerate() {
+            if let Some(previous) = earlier.get(&child.identity(index)) {
+                child.resolve_unchanged(previous);
+            }
+        }
+    }
+
+    /// Native identity among siblings: the key, or the position when unkeyed.
+    fn identity(&self, index: usize) -> (Option<&str>, usize) {
+        self.key
+            .as_deref()
+            .map_or((None, index), |key| (Some(key), 0))
     }
 
     #[must_use]
@@ -252,6 +292,7 @@ deserialize_properties!(NodeDesc, {
     Placeholder: "placeholder" => placeholder,
     MaxLength: "maxLength" => max_length,
     Loop: "loop" => r#loop,
+    Unchanged: "unchanged" => unchanged,
 });
 
 deserialize_properties!(SpanDesc, {
@@ -656,4 +697,39 @@ pub struct Style {
     pub italic: Option<bool>,
     pub text_align: Option<TextAlign>,
     pub text_shadow: Option<Shadow>,
+}
+
+#[cfg(test)]
+mod unchanged_tests {
+    use super::NodeDesc;
+
+    fn tree(value: serde_json::Value) -> NodeDesc {
+        serde_json::from_value(value).unwrap()
+    }
+
+    #[test]
+    fn references_resolve_against_the_replaced_tree_by_key_or_position() {
+        let previous = tree(serde_json::json!({ "key": "root", "children": [
+            { "key": "a", "children": [{ "t": "text", "text": "kept" }] },
+            { "key": "b", "unchanged": true },
+            { "children": [{ "key": "x", "t": "text", "text": "unkeyed parent" }] },
+        ] }));
+        let mut next = tree(serde_json::json!({ "key": "root", "children": [
+            { "key": "b", "unchanged": true },
+            { "key": "a", "unchanged": true },
+            { "children": [{ "key": "x", "unchanged": true }] },
+            { "key": "c", "unchanged": true },
+        ] }));
+        next.resolve_unchanged(&previous);
+        let [b, a, unkeyed, c] = &next.children[..] else {
+            panic!()
+        };
+        assert!(!a.unchanged);
+        assert_eq!(a.children[0].text.as_deref(), Some("kept"));
+        // Still a reference to the tree before the replaced one.
+        assert!(b.unchanged);
+        assert_eq!(unkeyed.children[0].text.as_deref(), Some("unkeyed parent"));
+        // Not in the replaced tree: left for the displayed tree to resolve.
+        assert!(c.unchanged);
+    }
 }

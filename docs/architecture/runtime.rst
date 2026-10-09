@@ -75,8 +75,16 @@ and index, and events resolve these handles to functions. The displayed tree's
 callbacks stay alive while a replacement waits for images or thumbnail capture.
 Older arrays are released when the replacement is shown.
 
-Commits read the full tree. Native nodes reconcile by identity and kind,
-retaining taffy layout and measurement caches. Changes to layout styles,
+Commits send only what changed since the previous commit. A subtree that is
+unchanged and has no callbacks goes as ``{ key, unchanged: true }``, and Rust
+shares its previous nodes. Signatures of each node's properties detect
+changes, so objects mutated in place are still sent. The output of a
+component that bailed out (see below) is known to be unchanged without
+comparing it. Callbacks register with each commit's generation, so their
+nodes are always sent. A commit names the generation it was compared with;
+when another commit came first, the runtime sends the full tree instead.
+Native nodes reconcile by identity and kind, retaining taffy layout and
+measurement caches. Changes to layout styles,
 children, or intrinsic measurements dirty affected nodes and ancestors.
 Paint and handler changes skip layout. This is not Fabric's immutable
 shadow-node sharing or a concurrent renderer.
@@ -123,7 +131,10 @@ runtime JavaScript with Oxc before embedding it. ``build.rs`` also compiles
 
 The component renderer resolves functions and fragments into native
 descriptors before a commit. Component type, parent, and key determine hook
-identity. Setters batch updates until flush; effects run after commit, with
+identity. A component that receives the identical element object as in its
+previous render, with no state updates below it, keeps its previous output
+without rendering, as React does for memoized elements. Setters batch
+updates until flush; effects run after commit, with
 cleanup on dependency changes or unmount. Setters on unmounted components do
 nothing. A temporarily hidden interface retains mounted screens without
 rendering them. Hook state remains local; saved story state lives in ``store``.

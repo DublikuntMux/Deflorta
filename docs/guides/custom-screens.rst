@@ -53,6 +53,9 @@ Manage component state
 * Use stable ``key`` values in lists to preserve state when items reorder.
 * Hook setters schedule rendering automatically. After changing external
   state a component reads, call ``invalidate()``; story functions already do so.
+* Memoize expensive, mostly static content with ``useMemo(() => <Stage />, deps)``.
+  The memoized element renders again only when ``deps`` or state inside it
+  change, so list every external value it reads in ``deps``.
 * Effects run after native commits. Cleanup runs before changed dependencies
   take effect and when the component unmounts.
 

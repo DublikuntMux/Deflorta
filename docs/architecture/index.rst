@@ -100,8 +100,9 @@ Frame and event model
    waits for input or timers.
 
 Animation interpolation, text reveal, and hover styles remain in Rust, so
-they do not call JavaScript once per frame. UI commits still read the whole
-element tree, while native reconciliation retains unchanged layout caches.
+they do not call JavaScript once per frame. UI commits send unchanged
+subtrees by reference, and native reconciliation retains unchanged layout
+caches.
 
 Platform status and future work
 -------------------------------
