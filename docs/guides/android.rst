@@ -28,8 +28,8 @@ for emulators as well:
 
 Both profiles contain native libraries under
 ``target/<platform>/<debug|release>/jniLibs/``. Android debug exports use an
-unoptimized engine without the desktop developer console. The script also
-builds the host CLI and launchers needed to check games.
+optimized engine with debug assertions, without the desktop developer console.
+The script also builds the host CLI and launchers needed to check games.
 
 The x86_64 ABI needs NASM on PATH for libvpx's assembly kernels.
 When no prebuilt SpiderMonkey archive exists, native compilation needs its

@@ -1,4 +1,12 @@
 const ELEMENT = Symbol("deflorta.element");
+const HOST = Symbol("deflorta.host");
+
+/** Marks a hook-free function that builds native nodes, so it needs no component instance. */
+export function hostComponent(fn) {
+  fn[HOST] = true;
+  return fn;
+}
+
 export function Fragment({ children } = {}) {
   return children;
 }
@@ -185,6 +193,7 @@ export function createRenderer() {
           "Use native UI components such as View and Text, or a function component",
         );
       }
+      if (type[HOST]) return resolve(type(props), `${path}/render`, key ?? inheritedKey);
       let instance = instances.get(path);
       if (instance && instance.type !== type) {
         dispose(path);

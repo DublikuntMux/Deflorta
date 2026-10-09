@@ -1389,6 +1389,7 @@ dependencies = [
  "egui",
  "egui-wgpu",
  "egui-winit",
+ "etagere",
  "glyphon",
  "image",
  "log",

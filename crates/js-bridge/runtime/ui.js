@@ -3,6 +3,7 @@ import { parseMarkup } from "deflorta/text";
 import {
   createElement,
   createRenderer,
+  hostComponent,
   setComponentScheduler,
 } from "deflorta/components";
 
@@ -182,6 +183,11 @@ export function Pressable({
     disabled: !!disabled,
     children,
   });
+}
+
+// Native element constructors use no hooks; the renderer calls them directly.
+for (const fn of [View, Grid, ScrollView, Text, RichText, Image, Video, Slider, TextInput, Pressable]) {
+  hostComponent(fn);
 }
 
 function mergeStyle(style) {

@@ -57,6 +57,9 @@ explicitly enables ``debug-formats`` for debug Android launchers.
 
 To build a desktop release manually, use
 ``cargo build -p deflorta-launcher-desktop --release --no-default-features``.
+Debug runtimes use the ``debug-runtime`` Cargo profile: development settings,
+including debug assertions and debug information, with an optimized engine.
+Build one with ``cargo build -p deflorta-launcher-desktop --profile debug-runtime``.
 For an Android debug runtime, enable ``deflorta-launcher-android/debug-formats``.
 
 Engine distribution layout

@@ -52,6 +52,8 @@ dirs = "7.0.0"
 egui = "0.36.2"
 egui-winit = { version = "0.36.2", default-features = false }
 egui-wgpu = { version = "0.36.2", default-features = false }
+# Keep aligned with glyphon's atlas allocator.
+etagere = "0.3.0"
 # Keep aligned with cosmic-text's font database dependency.
 fontdb = "0.23.0"
 gilrs = "0.11.2"
@@ -86,4 +88,9 @@ panic = "abort"
 strip = true
 
 [profile.dev.package."*"]
+opt-level = 2
+
+# Runtimes used by `deflorta run` and debug exports (see scripts/build-dist.py).
+[profile.debug-runtime]
+inherits = "dev"
 opt-level = 2

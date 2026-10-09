@@ -19,6 +19,7 @@ struct Instance {
     @location(4) params: vec4<f32>,       // border width, rotation (radians), mask invert, unused
     @location(5) mask: vec4<f32>,         // kind, progress, ramp / block size, unused
     @location(6) radii: vec4<f32>,        // top left, top right, bottom right, bottom left
+    @location(7) mask_uv: vec4<f32>,      // u0, v0, u1, v1 of the mask image in its texture
 };
 
 struct VsOut {
@@ -32,6 +33,7 @@ struct VsOut {
     @location(6) mask: vec4<f32>,
     @location(7) uv_rect: vec4<f32>,
     @location(8) radii: vec4<f32>,
+    @location(9) mask_uv: vec4<f32>,
 };
 
 @vertex
@@ -54,6 +56,7 @@ fn vs_main(@builtin(vertex_index) index: u32, inst: Instance) -> VsOut {
     out.mask = inst.mask;
     out.uv_rect = inst.uv;
     out.radii = inst.radii;
+    out.mask_uv = inst.mask_uv;
     return out;
 }
 
@@ -82,6 +85,10 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         let dims = vec2<f32>(textureDimensions(tex));
         let texel = (uv - in.uv_rect.xy) * dims;
         uv = in.uv_rect.xy + (floor(texel / block) + 0.5) * block / dims;
+        // Partial blocks at the far edge must not sample past the image; it may
+        // share an atlas page with others.
+        let half = 0.5 / dims;
+        uv = clamp(uv, min(in.uv_rect.xy, in.uv_rect.zw) + half, max(in.uv_rect.xy, in.uv_rect.zw) - half);
     }
 
     let top_radius = select(in.radii.x, in.radii.y, in.local.x > 0.0);
@@ -98,7 +105,8 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
 
     var visibility = 1.0;
     if kind == 1u {
-        let m = textureSampleLevel(mask_tex, mask_samp, screen_pos, 0.0).r;
+        let mask_pos = mix(in.mask_uv.xy, in.mask_uv.zw, clamp(screen_pos, vec2<f32>(0.0), vec2<f32>(1.0)));
+        let m = textureSampleLevel(mask_tex, mask_samp, mask_pos, 0.0).r;
         visibility = reveal(m, progress, in.mask.z);
     } else if kind >= 2u && kind <= 5u {
         var v = screen_pos.x;

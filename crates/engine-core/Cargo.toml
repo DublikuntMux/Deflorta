@@ -23,6 +23,7 @@ accesskit.workspace = true
 tts.workspace = true
 wgpu.workspace = true
 glyphon.workspace = true
+etagere.workspace = true
 bytemuck = { workspace = true, features = ["derive"] }
 anyhow.workspace = true
 log.workspace = true

@@ -15,6 +15,9 @@ ANDROID_TARGETS = {
     "x86_64": "android-x86_64",
 }
 ANDROID_API = 26
+# Debug runtimes keep assertions, debug info and developer tools, but optimize
+# the engine so games and benchmarks run at representative speed.
+DEBUG_RUNTIME_PROFILE = "debug-runtime"
 
 
 def capture(*args):
@@ -27,6 +30,8 @@ def build(package, release, target):
         command.append("--release")
         if package == "deflorta-launcher-desktop":
             command.append("--no-default-features")
+    else:
+        command.extend(["--profile", DEBUG_RUNTIME_PROFILE])
     if target:
         command.extend(["--target", target])
     result = subprocess.run(
@@ -52,7 +57,7 @@ def build_android(abi, release, destination):
     if release:
         command.append("--release")
     else:
-        command.extend(["--features", "debug-formats"])
+        command.extend(["--profile", DEBUG_RUNTIME_PROFILE, "--features", "debug-formats"])
     environment = os.environ.copy()
     ndk = environment.get("ANDROID_NDK_HOME") or environment.get("ANDROID_NDK_ROOT")
     if not ndk:

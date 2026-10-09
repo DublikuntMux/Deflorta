@@ -496,11 +496,27 @@ impl Ui {
             let Some(&oi) = old_index.get(&self.nodes[i].id) else {
                 continue;
             };
-            let mut children = self.nodes[i].children.clone();
+            // Most commits keep every child; only parents that lost one need merging.
+            let kept = |old: &Node| {
+                self.index
+                    .get(&old.id)
+                    .is_some_and(|&c| self.nodes[c].parent == Some(i))
+            };
+            if old_nodes[oi].children.iter().all(|&oc| kept(&old_nodes[oc])) {
+                continue;
+            }
+            let positions: HashMap<&str, usize> = self.nodes[i]
+                .children
+                .iter()
+                .enumerate()
+                .map(|(p, &c)| (self.nodes[c].id.as_str(), p))
+                .collect();
+            // Ghosts go after the last surviving sibling that preceded them.
+            let mut ghosts = Vec::new();
             let mut pos = 0;
             for &oc in &old_nodes[oi].children {
                 let old = &old_nodes[oc];
-                if let Some(p) = children.iter().position(|&c| self.nodes[c].id == old.id) {
+                if let Some(&p) = positions.get(old.id.as_str()) {
                     pos = p + 1;
                     continue;
                 }
@@ -519,10 +535,26 @@ impl Ui {
                     }
                 };
                 if let Some(ghost) = ghost.filter(|g| !g.finished(now)) {
-                    let gi = self.copy_ghost(old_nodes, oc, i, Some(ghost));
-                    children.insert(pos, gi);
-                    pos += 1;
+                    ghosts.push((pos, oc, ghost));
                 }
+            }
+            drop(positions);
+            if ghosts.is_empty() {
+                continue;
+            }
+            // Reordered siblings can move the insertion point backwards.
+            ghosts.sort_by_key(|(at, ..)| *at);
+            let current = std::mem::take(&mut self.nodes[i].children);
+            let mut children = Vec::with_capacity(current.len() + ghosts.len());
+            let mut ghosts = ghosts.into_iter().peekable();
+            for (p, &child) in current.iter().enumerate() {
+                while let Some((_, oc, ghost)) = ghosts.next_if(|(at, ..)| *at <= p) {
+                    children.push(self.copy_ghost(old_nodes, oc, i, Some(ghost)));
+                }
+                children.push(child);
+            }
+            for (_, oc, ghost) in ghosts {
+                children.push(self.copy_ghost(old_nodes, oc, i, Some(ghost)));
             }
             self.nodes[i].children = children;
         }
@@ -859,6 +891,40 @@ mod tests {
             ui.retained_assets(now + std::time::Duration::from_secs(2)),
             HashSet::from(["current.png".to_owned(), "hover.png".to_owned()])
         );
+    }
+
+    #[test]
+    fn exit_ghosts_stay_after_their_previous_sibling() {
+        let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut ui = Ui::new(TextSystem::new(&files));
+        let assets = Assets::new(files);
+        let now = Instant::now();
+        let tree = |keys: &[&str]| -> NodeDesc {
+            serde_json::from_value(serde_json::json!({
+                "children": keys.iter().map(|key| serde_json::json!({
+                    "key": key, "exit": { "dur": 1 }
+                })).collect::<Vec<_>>()
+            }))
+            .unwrap()
+        };
+        let order = |ui: &Ui| -> Vec<String> {
+            ui.nodes[0]
+                .children
+                .iter()
+                .map(|&c| ui.nodes[c].desc.key.clone().unwrap())
+                .collect()
+        };
+        ui.commit(tree(&["a", "b", "c", "d", "e"]), true, &HashMap::new(), &assets, now);
+        ui.commit(tree(&["c", "e", "f"]), false, &HashMap::new(), &assets, now);
+        assert_eq!(order(&ui), ["a", "b", "c", "d", "e", "f"]);
+        assert!(ui.nodes[0].children.iter().all(|&c| {
+            let ghost = ui.nodes[c].ghost.is_some();
+            ghost == ["a", "b", "d"].contains(&ui.nodes[c].desc.key.as_deref().unwrap())
+        }));
+        // Unchanged children keep the tree as built, without ghosts.
+        ui.commit(tree(&["x"]), true, &HashMap::new(), &assets, now);
+        ui.commit(tree(&["x"]), false, &HashMap::new(), &assets, now);
+        assert_eq!(order(&ui), ["x"]);
     }
 
     #[test]

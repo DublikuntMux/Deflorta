@@ -20,6 +20,9 @@ use crate::ui::desc::Color;
 use crate::ui::{DrawItem, ImageRef, Quad, Rect, TextDraw, Ui};
 use crate::util::math::{clamp_to_u32, saturating_i32};
 
+mod atlas;
+use atlas::Atlas;
+
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 struct QuadInstance {
@@ -30,6 +33,7 @@ struct QuadInstance {
     params: [f32; 4],
     mask: [f32; 4],
     radii: [f32; 4],
+    mask_uv: [f32; 4],
 }
 
 #[repr(C)]
@@ -46,23 +50,37 @@ struct Texture {
     serial: u64,
 }
 
+/// Small still images share atlas pages; video frames and large images keep a texture.
+enum Resident {
+    Own(Texture),
+    Packed(atlas::Region),
+}
+
 struct CachedTexture {
-    texture: Option<Texture>,
+    texture: Option<Resident>,
     last_used: Instant,
 }
 
-/// Draw batches share a texture, a mask texture and a clip rectangle.
-#[derive(Clone, PartialEq)]
-struct BatchKey {
-    texture: Option<String>,
-    mask: Option<String>,
+/// Where a quad samples an image: the bound texture and the image's UV rectangle in it.
+#[derive(Clone)]
+struct Binding {
+    group: wgpu::BindGroup,
+    uv: [f32; 4],
+    page: Option<usize>,
+}
+
+/// Consecutive quads sharing a texture, a mask texture and a clip rectangle.
+struct Batch {
+    texture: wgpu::BindGroup,
+    mask: wgpu::BindGroup,
     clip: [u32; 4],
+    range: std::ops::Range<u32>,
 }
 
 /// Quads followed by text; a new layer starts whenever a quad follows text.
 #[derive(Default)]
 struct Layer {
-    batches: Vec<(BatchKey, std::ops::Range<u32>)>,
+    batches: Vec<Batch>,
     texts: Vec<TextDraw>,
 }
 
@@ -92,7 +110,7 @@ pub struct Renderer {
     globals_bind_group: wgpu::BindGroup,
     texture_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
-    white: wgpu::BindGroup,
+    image_atlas: Atlas,
     textures: HashMap<String, CachedTexture>,
     instance_buffer: wgpu::Buffer,
     instance_capacity: usize,
@@ -105,19 +123,38 @@ pub struct Renderer {
 impl Renderer {
     #[cfg(feature = "dev-console")]
     pub fn loaded_assets(&self) -> Vec<crate::dev_console::diagnostics::LoadedAsset> {
+        let pages = (0..self.image_atlas.page_count()).map(|page| {
+            crate::dev_console::diagnostics::LoadedAsset {
+                kind: "GPU texture",
+                source: format!("image atlas page {page}"),
+                state: "Resident".into(),
+                detail: "Shared by small images".into(),
+                bytes: Some(self.image_atlas.page_bytes()),
+            }
+        });
         self.textures
             .iter()
             .filter_map(|(source, texture)| {
-                let texture = texture.texture.as_ref()?;
-                let (w, h) = (texture.raw.width(), texture.raw.height());
+                let (kind, detail, bytes) = match texture.texture.as_ref()? {
+                    Resident::Own(texture) => {
+                        let (w, h) = (texture.raw.width(), texture.raw.height());
+                        let bytes = u64::from(w) * u64::from(h) * 4;
+                        ("GPU texture", format!("{w}×{h} RGBA8"), Some(bytes))
+                    }
+                    Resident::Packed(region) => {
+                        let ((w, h), page) = (region.size, region.page);
+                        ("Atlas image", format!("{w}×{h} on page {page}"), None)
+                    }
+                };
                 Some(crate::dev_console::diagnostics::LoadedAsset {
-                    kind: "GPU texture",
+                    kind,
                     source: source.clone(),
                     state: "Resident".into(),
-                    detail: format!("{w}×{h} RGBA8"),
-                    bytes: Some(u64::from(w) * u64::from(h) * 4),
+                    detail,
+                    bytes,
                 })
             })
+            .chain(pages)
             .collect()
     }
 
@@ -133,7 +170,7 @@ impl Renderer {
                 "{} · {:?} · {:?}",
                 info.name, info.backend, info.device_type
             ),
-            textures: assets.len(),
+            textures: assets.iter().filter(|asset| asset.bytes.is_some()).count(),
             texture_bytes: assets.iter().filter_map(|asset| asset.bytes).sum(),
             buffer_bytes: memory_counters.then(|| counters.hal.buffer_memory.read()),
             all_texture_bytes: memory_counters.then(|| counters.hal.texture_memory.read()),
@@ -292,8 +329,7 @@ impl Renderer {
         let pipeline =
             Self::create_quad_pipeline(&device, format, &globals_layout, &texture_layout);
 
-        let (_, white) =
-            Self::upload_texture(&device, &queue, &texture_layout, &sampler, 1, 1, &[255; 4]);
+        let image_atlas = Atlas::new(&device, &queue, &texture_layout, &sampler);
         let instance_capacity = 256;
         let instance_buffer = Self::create_instance_buffer(&device, instance_capacity);
 
@@ -313,7 +349,7 @@ impl Renderer {
             globals_bind_group,
             texture_layout,
             sampler,
-            white,
+            image_atlas,
             textures: HashMap::new(),
             instance_buffer,
             instance_capacity,
@@ -360,7 +396,7 @@ impl Renderer {
                     attributes: &wgpu::vertex_attr_array![
                         0 => Float32x4, 1 => Float32x4, 2 => Float32x4,
                         3 => Float32x4, 4 => Float32x4, 5 => Float32x4,
-                        6 => Float32x4
+                        6 => Float32x4, 7 => Float32x4
                     ],
                 })],
             },
@@ -416,36 +452,14 @@ impl Renderer {
         })
     }
 
-    fn upload_texture(
+    pub(crate) fn texture_bind_group(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
         layout: &wgpu::BindGroupLayout,
         sampler: &wgpu::Sampler,
-        width: u32,
-        height: u32,
-        rgba: &[u8],
-    ) -> (wgpu::Texture, wgpu::BindGroup) {
-        let texture = device.create_texture_with_data(
-            queue,
-            &wgpu::TextureDescriptor {
-                label: None,
-                size: wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                view_formats: &[],
-            },
-            wgpu::util::TextureDataOrder::LayerMajor,
-            rgba,
-        );
+        texture: &wgpu::Texture,
+    ) -> wgpu::BindGroup {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout,
             entries: &[
@@ -458,8 +472,7 @@ impl Renderer {
                     resource: wgpu::BindingResource::Sampler(sampler),
                 },
             ],
-        });
-        (texture, bind_group)
+        })
     }
 
     fn texture_from_pixels(&self, img: &image::RgbaImage, serial: u64) -> Option<Texture> {
@@ -470,49 +483,91 @@ impl Renderer {
             return None;
         }
         trace!("Uploading {w}x{h} texture");
-        let (texture, bind_group) = Self::upload_texture(
-            &self.device,
+        let raw = self.device.create_texture_with_data(
             &self.queue,
-            &self.texture_layout,
-            &self.sampler,
-            w,
-            h,
+            &wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
             img.as_raw(),
         );
+        let bind_group =
+            Self::texture_bind_group(&self.device, &self.texture_layout, &self.sampler, &raw);
         Some(Texture {
-            raw: texture,
+            raw,
             bind_group,
             serial,
         })
     }
 
-    fn ensure_texture(&mut self, image: &ImageRef, assets: &mut Assets, now: Instant) -> bool {
+    /// Packs a small still image into the atlas, or gives it its own texture.
+    fn resident_from_pixels(&mut self, img: &image::RgbaImage) -> Option<Resident> {
+        let packed = self.image_atlas.insert(
+            &self.device,
+            &self.queue,
+            &self.texture_layout,
+            &self.sampler,
+            img,
+        );
+        packed.map_or_else(
+            || self.texture_from_pixels(img, 0).map(Resident::Own),
+            |region| {
+                trace!("Packed {:?} image into atlas page {}", region.size, region.page);
+                Some(Resident::Packed(region))
+            },
+        )
+    }
+
+    fn store(&mut self, src: String, texture: Option<Resident>, now: Instant) {
+        let cached = CachedTexture {
+            texture,
+            last_used: now,
+        };
+        if let Some(old) = self.textures.insert(src, cached) {
+            self.release(old);
+        }
+    }
+
+    fn release(&mut self, cached: CachedTexture) {
+        if let Some(Resident::Packed(region)) = cached.texture {
+            self.image_atlas.remove(&region);
+        }
+    }
+
+    fn ensure_texture(
+        &mut self,
+        image: &ImageRef,
+        assets: &mut Assets,
+        now: Instant,
+    ) -> Option<Binding> {
         let Some((serial, frame)) = &image.frame else {
             return self.ensure_image(&image.src, assets, now);
         };
-        let reusable = self
-            .textures
-            .get(&image.src)
-            .and_then(|cached| cached.texture.as_ref())
-            .is_some_and(|texture| {
+        let reusable = match self.textures.get(&image.src).and_then(|c| c.texture.as_ref()) {
+            Some(Resident::Own(texture)) => {
                 texture.raw.width() == frame.width() && texture.raw.height() == frame.height()
-            });
-        if !reusable {
-            let texture = self.texture_from_pixels(frame, *serial);
-            self.textures.insert(
-                image.src.clone(),
-                CachedTexture {
-                    texture,
-                    last_used: now,
-                },
-            );
-        }
-        let Some(cached) = self.textures.get_mut(&image.src) else {
-            return false;
+            }
+            _ => false,
         };
+        if !reusable {
+            let texture = self.texture_from_pixels(frame, *serial).map(Resident::Own);
+            self.store(image.src.clone(), texture, now);
+        }
+        let cached = self.textures.get_mut(&image.src)?;
         cached.last_used = now;
-        let Some(texture) = cached.texture.as_mut() else {
-            return false;
+        let Some(Resident::Own(texture)) = cached.texture.as_mut() else {
+            return None;
         };
         if texture.serial != *serial {
             texture.serial = *serial;
@@ -527,42 +582,64 @@ impl Renderer {
                 texture.raw.size(),
             );
         }
-        true
+        Some(binding(&self.image_atlas, cached.texture.as_ref()?))
     }
 
-    fn ensure_image(&mut self, src: &str, assets: &mut Assets, now: Instant) -> bool {
+    fn ensure_image(&mut self, src: &str, assets: &mut Assets, now: Instant) -> Option<Binding> {
         assets.request(src);
         if !self.textures.contains_key(src) {
             match assets.take_pixels(src) {
                 Some(img) => {
-                    let texture = self.texture_from_pixels(&img, 0);
-                    self.textures.insert(
-                        src.to_owned(),
-                        CachedTexture {
-                            texture,
-                            last_used: now,
-                        },
-                    );
+                    let texture = self.resident_from_pixels(&img);
+                    self.store(src.to_owned(), texture, now);
                 }
-                None if assets.is_settled(src) => {
-                    self.textures.insert(
-                        src.to_owned(),
-                        CachedTexture {
-                            texture: None,
-                            last_used: now,
-                        },
-                    );
-                }
-                None => return false,
+                None if assets.is_settled(src) => self.store(src.to_owned(), None, now),
+                None => return None,
             }
         }
-        match self.textures.get_mut(src) {
-            Some(cached) => {
-                cached.last_used = now;
-                cached.texture.is_some()
+        let cached = self.textures.get_mut(src)?;
+        cached.last_used = now;
+        Some(binding(&self.image_atlas, cached.texture.as_ref()?))
+    }
+
+    /// The texture a quad samples, or None while its image is unavailable.
+    /// Plain fills use the white texel of `page`, the last atlas page drawn.
+    fn quad_texture(
+        &mut self,
+        quad: &Quad,
+        seen: &mut HashMap<String, Option<Binding>>,
+        page: Option<usize>,
+        assets: &mut Assets,
+        now: Instant,
+    ) -> Option<Binding> {
+        match &quad.image {
+            Some(image) if image.frame.is_some() => self.ensure_texture(image, assets, now),
+            Some(image) => self.frame_image(seen, &image.src, assets, now),
+            None => {
+                let (index, [u, v]) = self.image_atlas.white(page);
+                Some(Binding {
+                    group: self.image_atlas.bind_group(index).clone(),
+                    uv: [u, v, u, v],
+                    page: Some(index),
+                })
             }
-            _ => false,
         }
+    }
+
+    /// `ensure_image` once per source and frame; sprites often repeat an image.
+    fn frame_image(
+        &mut self,
+        seen: &mut HashMap<String, Option<Binding>>,
+        src: &str,
+        assets: &mut Assets,
+        now: Instant,
+    ) -> Option<Binding> {
+        if let Some(binding) = seen.get(src) {
+            return binding.clone();
+        }
+        let binding = self.ensure_image(src, assets, now);
+        seen.insert(src.to_owned(), binding.clone());
+        binding
     }
 
     fn prepare(
@@ -594,42 +671,55 @@ impl Renderer {
             mask: None,
         });
 
-        let mut instances: Vec<QuadInstance> = Vec::new();
+        let mut instances: Vec<QuadInstance> = Vec::with_capacity(items.len() + 1);
         let mut layers: Vec<Layer> = vec![Layer::default()];
+        let mut seen = HashMap::new();
+        // Plain fills join the batch of the atlas sprites around them.
+        let mut page = None;
         for item in std::iter::once(background).chain(items) {
             match item {
                 DrawItem::Quad(quad) => {
                     if !layers.last().unwrap().texts.is_empty() {
                         layers.push(Layer::default());
                     }
-                    let texture = match &quad.image {
-                        Some(image) if self.ensure_texture(image, assets, now) => {
-                            Some(image.src.clone())
-                        }
-                        Some(_) => continue,
-                        None => None,
+                    let Some(texture) = self.quad_texture(&quad, &mut seen, page, assets, now)
+                    else {
+                        continue;
                     };
-                    let mask = match quad.mask.as_ref().and_then(|m| m.src.clone()) {
-                        Some(src) if self.ensure_image(&src, assets, now) => Some(src),
-                        Some(_) => continue,
+                    page = texture.page.or(page);
+                    let mask = match quad.mask.as_ref().and_then(|m| m.src.as_deref()) {
+                        Some(src) => match self.frame_image(&mut seen, src, assets, now) {
+                            Some(binding) => Some(binding),
+                            None => continue,
+                        },
                         None => None,
                     };
                     let Some(clip) = scissor(quad.clip.intersect(&full), width, height) else {
                         continue;
                     };
-                    let key = BatchKey {
-                        texture,
-                        mask,
-                        clip,
-                    };
                     let index =
                         u32::try_from(instances.len()).context("too many quad instances")?;
                     let end = index.checked_add(1).context("too many quad instances")?;
-                    instances.push(quad_instance(&quad));
+                    let mask_uv = mask.as_ref().map_or([0.0, 0.0, 1.0, 1.0], |m| m.uv);
+                    instances.push(quad_instance(&quad, texture.uv, mask_uv));
+                    // Unmasked quads never sample the mask slot; reuse the texture there.
+                    let mask = mask.map_or_else(|| texture.group.clone(), |m| m.group);
                     let layer = layers.last_mut().unwrap();
                     match layer.batches.last_mut() {
-                        Some((k, range)) if *k == key && range.end == index => range.end = end,
-                        _ => layer.batches.push((key, index..end)),
+                        Some(batch)
+                            if batch.texture == texture.group
+                                && batch.mask == mask
+                                && batch.clip == clip
+                                && batch.range.end == index =>
+                        {
+                            batch.range.end = end;
+                        }
+                        _ => layer.batches.push(Batch {
+                            texture: texture.group,
+                            mask,
+                            clip,
+                            range: index..end,
+                        }),
                     }
                 }
                 DrawItem::Text(text) => layers.last_mut().unwrap().texts.push(text),
@@ -741,30 +831,28 @@ impl Renderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            let bind_group = |key: &Option<String>| {
-                key.as_ref().map_or(Some(&self.white), |src| {
-                    self.textures
-                        .get(src)
-                        .and_then(|t| t.texture.as_ref())
-                        .map(|t| &t.bind_group)
-                })
-            };
             let mut renderer_index = 0;
             for layer in layers {
-                for (key, range) in &layer.batches {
-                    let (Some(texture), Some(mask)) =
-                        (bind_group(&key.texture), bind_group(&key.mask))
-                    else {
-                        continue;
-                    };
-                    let [x, y, w, h] = key.clip;
-                    pass.set_scissor_rect(x, y, w, h);
-                    pass.set_pipeline(&self.pipeline);
-                    pass.set_bind_group(0, &self.globals_bind_group, &[]);
-                    pass.set_bind_group(1, texture, &[]);
-                    pass.set_bind_group(2, mask, &[]);
-                    pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
-                    pass.draw(0..4, range.clone());
+                // Text rendering binds its own pipeline, so quad state restarts per layer.
+                let mut bound: Option<&Batch> = None;
+                for batch in &layer.batches {
+                    if bound.is_none() {
+                        pass.set_pipeline(&self.pipeline);
+                        pass.set_bind_group(0, &self.globals_bind_group, &[]);
+                        pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
+                    }
+                    if bound.is_none_or(|b| b.clip != batch.clip) {
+                        let [x, y, w, h] = batch.clip;
+                        pass.set_scissor_rect(x, y, w, h);
+                    }
+                    if bound.is_none_or(|b| b.texture != batch.texture) {
+                        pass.set_bind_group(1, &batch.texture, &[]);
+                    }
+                    if bound.is_none_or(|b| b.mask != batch.mask) {
+                        pass.set_bind_group(2, &batch.mask, &[]);
+                    }
+                    pass.draw(0..4, batch.range.clone());
+                    bound = Some(batch);
                 }
                 if !layer.texts.is_empty() {
                     pass.set_scissor_rect(0, 0, self.width, self.height);
@@ -781,7 +869,11 @@ impl Renderer {
     }
 
     pub fn unload_texture(&mut self, src: &str) -> bool {
-        self.textures.remove(src).is_some()
+        let Some(cached) = self.textures.remove(src) else {
+            return false;
+        };
+        self.release(cached);
+        true
     }
 
     pub fn collect_unused(
@@ -793,11 +885,15 @@ impl Renderer {
         for src in assets.collect_unused(retained, now) {
             self.unload_texture(&src);
         }
+        let atlas = &mut self.image_atlas;
         self.textures.retain(|src, t| {
             let keep = retained.contains(src)
                 || now.saturating_duration_since(t.last_used) < ASSET_IDLE_LIMIT;
             if !keep {
                 assets.forget(src);
+                if let Some(Resident::Packed(region)) = &t.texture {
+                    atlas.remove(region);
+                }
             }
             keep
         });
@@ -1054,6 +1150,21 @@ async fn request_device(
     Ok((adapter, device, queue))
 }
 
+fn binding(atlas: &Atlas, resident: &Resident) -> Binding {
+    match resident {
+        Resident::Own(texture) => Binding {
+            group: texture.bind_group.clone(),
+            uv: [0.0, 0.0, 1.0, 1.0],
+            page: None,
+        },
+        Resident::Packed(region) => Binding {
+            group: atlas.bind_group(region.page).clone(),
+            uv: region.uv,
+            page: Some(region.page),
+        },
+    }
+}
+
 /// Integer scissor rectangle, or None when empty.
 fn scissor(rect: Rect, width: u32, height: u32) -> Option<[u32; 4]> {
     let x = clamp_to_u32(rect.x.floor(), width);
@@ -1063,8 +1174,16 @@ fn scissor(rect: Rect, width: u32, height: u32) -> Option<[u32; 4]> {
     (x1 > x && y1 > y).then(|| [x, y, x1 - x, y1 - y])
 }
 
-fn quad_instance(quad: &Quad) -> QuadInstance {
-    let uv = quad.image.as_ref().map_or([0.0, 0.0, 1.0, 1.0], |i| i.uv);
+/// `texture_uv` and `mask_uv` place the quad's images within their bound textures.
+fn quad_instance(quad: &Quad, texture_uv: [f32; 4], mask_uv: [f32; 4]) -> QuadInstance {
+    let [u0, v0, u1, v1] = quad.image.as_ref().map_or([0.0, 0.0, 1.0, 1.0], |i| i.uv);
+    let [x0, y0, x1, y1] = texture_uv;
+    let uv = [
+        f32::mul_add(u0, x1 - x0, x0),
+        f32::mul_add(v0, y1 - y0, y0),
+        f32::mul_add(u1, x1 - x0, x0),
+        f32::mul_add(v1, y1 - y0, y0),
+    ];
     let (mask, invert) = quad.mask.as_ref().map_or(([0.0; 4], 0.0), |m| {
         (
             [m.kind.as_(), m.progress, m.param, 0.0],
@@ -1079,6 +1198,7 @@ fn quad_instance(quad: &Quad) -> QuadInstance {
         params: [quad.border_width, quad.rotation, invert, 0.0],
         mask,
         radii: quad.radii,
+        mask_uv,
     }
 }
 
@@ -1108,7 +1228,7 @@ mod tests {
             }
         };
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
         let now = Instant::now();
         let retained = HashSet::from([source.to_owned()]);
         renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
@@ -1119,18 +1239,18 @@ mod tests {
         assert!(!assets.is_settled(source));
 
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
         assert!(renderer.unload_texture(source));
         assert!(assets.forget(source));
         wait_for_image(&mut assets);
-        assert!(renderer.ensure_image(source, &mut assets, Instant::now()));
+        assert!(renderer.ensure_image(source, &mut assets, Instant::now()).is_some());
 
         let invalid = ImageRef {
             src: "video:/invalid".into(),
             uv: [0.0; 4],
             frame: Some((1, Arc::new(image::RgbaImage::new(0, 0)))),
         };
-        assert!(!renderer.ensure_texture(&invalid, &mut assets, now));
+        assert!(renderer.ensure_texture(&invalid, &mut assets, now).is_none());
         assert!(renderer.textures.contains_key(&invalid.src));
         renderer.collect_unused(&mut assets, &retained, now + ASSET_IDLE_LIMIT);
         assert!(!renderer.textures.contains_key(&invalid.src));
