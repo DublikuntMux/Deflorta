@@ -90,8 +90,9 @@ save thumbnails and headless screenshots.
      - H.264, 8-bit 4:2:0, cropping and presentation-order B-frames.
      - AAC.
    * - WebM
-     - VP8 or VP9. VP9 supports 8/10/12-bit and 4:2:0, 4:2:2, or 4:4:4
-       chroma, displayed as 8-bit RGBA. Both codecs support WebM alpha channels.
+     - VP8 or VP9. VP9 supports 8-bit 4:2:0, 4:2:2, or 4:4:4 chroma; packaging
+       converts other bit depths to 8-bit 4:2:0. Both codecs support WebM alpha
+       channels.
      - Mono or stereo Vorbis; duration metadata is required for soundtracks.
 
 Transparent VP9 WebM videos work in both debug and release runtimes. VP8 WebM

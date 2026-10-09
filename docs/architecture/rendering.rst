@@ -102,9 +102,11 @@ see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
 Video uses a background thread decoding a few frames ahead, paced by the
 wall clock, and uploads frames into a reused texture. WebM video demuxing uses
-oxideav-mkv to retain ``BlockAdditional`` alpha data. A separate VP8/VP9 decoder
-reads that stream's luma plane as alpha, combining it with straight RGB before
-the renderer blends the frame. Normalized WebM Vorbis
+oxideav-mkv to retain ``BlockAdditional`` alpha data. VP9 decodes through a
+vendored libvpx build (``crates/vpx``) with SIMD kernels selected at runtime and
+row-based multithreading; debug builds decode VP8 with oxideav-vp8. A separate
+decoder reads the alpha stream's luma plane, combining it with straight RGB
+before the renderer blends the frame. Normalized WebM Vorbis
 soundtracks play through kira; debug builds also decode source MP4 AAC.
 Container detection reads the file signature because archive entries preserve
 source asset names. Format limits are in

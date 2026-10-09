@@ -1329,6 +1329,7 @@ version = "0.2.0"
 dependencies = [
  "anyhow",
  "deflorta-common",
+ "deflorta-vpx",
  "fontdb",
  "image",
  "kira",
@@ -1340,7 +1341,6 @@ dependencies = [
  "oxideav-h264",
  "oxideav-mkv",
  "oxideav-vp8",
- "oxideav-vp9",
  "serde",
  "symphonia",
  "symphonia-core",
@@ -1485,6 +1485,15 @@ dependencies = [
  "serde_json",
  "taffy",
  "wgpu",
+]
+
+[[package]]
+name = "deflorta-vpx"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "cc",
+ "nasm-rs",
 ]
 
 [[package]]
@@ -3687,6 +3696,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nasm-rs"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "706bf8a5e8c8ddb99128c3291d31bd21f4bcde17f0f4c20ec678d85c74faa149"
+dependencies = [
+ "jobserver",
+ "log",
+]
+
+[[package]]
 name = "ndk"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4801,15 +4820,6 @@ name = "oxideav-vp8"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "506f2495a728488c2fee1ee54bc7f819ca934dc3246369b4100c83848f057852"
-
-[[package]]
-name = "oxideav-vp9"
-version = "0.0.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01151d83fdb9dc1183ea47117e76a17421f8c08b9716506f61eccc493bb70d2c"
-dependencies = [
- "oxideav-core",
-]
 
 [[package]]
 name = "oxilangtag"
@@ -6340,9 +6350,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.16+spec-1.1.0"
+version = "0.25.17+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88f38f3af8bf71841c67a990f4e2b52143b2d0a1a994c72513ff4c14977fc722"
+checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
 dependencies = [
  "indexmap",
  "toml_datetime 1.1.2+spec-1.1.0",
@@ -6352,9 +6362,9 @@ dependencies = [
 
 [[package]]
 name = "toml_parser"
-version = "1.1.4+spec-1.1.0"
+version = "1.1.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed810ee007d8e7f9cf20b4774e7198142fa27186e0f805871da7f3c39eaf333"
+checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
 dependencies = [
  "winnow 1.0.4",
 ]

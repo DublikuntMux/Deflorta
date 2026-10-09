@@ -15,6 +15,9 @@ You need:
 * Python 3.9 or newer for the distribution script.
 * clang and libclang for bindgen. SpiderMonkey is downloaded as a prebuilt
   library for common targets; source builds also need Python and make.
+* A C compiler and, for x86-64 targets, NASM on PATH. They build the vendored
+  libvpx VP9 decoder from the ``crates/vpx/libvpx`` Git submodule; clone with
+  ``--recursive`` or run ``git submodule update --init``.
 * On Linux, the Speech Dispatcher development library, for example
   ``libspeechd-dev`` on Debian or Ubuntu.
 * FFmpeg and ffprobe on PATH, with libwebp, libvpx-vp9, and libvorbis encoders,

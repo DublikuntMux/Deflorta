@@ -1,0 +1,4 @@
+[submodule "crates/vpx/libvpx"]
+	path = crates/vpx/libvpx
+	url = https://chromium.googlesource.com/webm/libvpx
+	shallow = true

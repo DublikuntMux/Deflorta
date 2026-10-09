@@ -18,9 +18,10 @@ game-authoring guides, API references, and engine design notes.
 
 ## Quick start
 
-Install Rust through rustup, Python 3.9+, clang/libclang, and on Linux the
+Install Rust through rustup, Python 3.11+, clang/libclang, NASM, and on Linux the
 Speech Dispatcher development library (such as `libspeechd-dev`). The repository
-selects nightly Rust.
+selects nightly Rust. Clone with `--recursive`, or run
+`git submodule update --init`, to fetch the vendored libvpx decoder.
 
 Install FFmpeg and ffprobe with libwebp, libvpx-vp9, and libvorbis encoders to
 bundle or publish media. The debug launcher reads source assets directly; release games

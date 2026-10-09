@@ -1,0 +1,17 @@
+[package]
+name = "deflorta-vpx"
+description = "Vendored libvpx VP9 decoder for Deflorta video playback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "vpx"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+
+[build-dependencies]
+cc.workspace = true
+nasm-rs.workspace = true

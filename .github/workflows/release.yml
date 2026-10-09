@@ -71,6 +71,8 @@ jobs:
       RUSTUP_TOOLCHAIN: ${{ needs.prepare.outputs.toolchain }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
@@ -79,7 +81,10 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
           sudo apt-get update
-          sudo apt-get install -y clang libclang-dev mold pkg-config libspeechd-dev libdbus-1-dev libudev-dev libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev autoconf2.13 yasm
+          sudo apt-get install -y clang libclang-dev mold pkg-config libspeechd-dev libdbus-1-dev libudev-dev libasound2-dev libxkbcommon-dev libwayland-dev libx11-dev libxi-dev libxcursor-dev libxrandr-dev libxinerama-dev autoconf2.13 yasm nasm
+      - name: Install NASM
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
       - name: Configure MSVC
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1

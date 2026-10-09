@@ -33,7 +33,7 @@ oxideav-h264 = { workspace = true, optional = true }
 mp4 = { workspace = true, optional = true }
 oxideav-vp8 = { workspace = true, optional = true }
 symphonia = { workspace = true, features = ["mkv", "ogg", "vorbis"] }
-oxideav-vp9.workspace = true
+deflorta-vpx.workspace = true
 yuv.workspace = true
 log.workspace = true
 num-traits.workspace = true
