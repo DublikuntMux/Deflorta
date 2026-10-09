@@ -173,46 +173,7 @@ fn launcher_runtime_dependencies_exclude_script_compilers() {
 fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() {
     let project = Project::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let assets = [
-        ("images/portrait.PNG", "game/images/eileen/blush.png"),
-        ("movies/intro.mp4", "game/movies/intro.mp4"),
-        ("audio/chime.wav", "game/audio/chime.wav"),
-    ];
-    for (path, source) in assets {
-        std::fs::copy(root.join(source), project.0.join(path)).unwrap();
-    }
-    let source = image::open(project.0.join("images/portrait.PNG"))
-        .unwrap()
-        .into_rgba8();
-    source.save(project.0.join("images/portrait.webp")).unwrap();
-    for (path, cover) in [("audio/song.mp4", false), ("audio/album.m4a", true)] {
-        let mut encode = Command::new("ffmpeg");
-        encode
-            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
-            .arg(project.0.join("audio/chime.wav"));
-        if cover {
-            encode
-                .arg("-i")
-                .arg(project.0.join("images/portrait.PNG"))
-                .args([
-                    "-map",
-                    "0:a:0",
-                    "-map",
-                    "1:v:0",
-                    "-c:v",
-                    "copy",
-                    "-disposition:v",
-                    "attached_pic",
-                ]);
-        }
-        encode.args(["-c:a", "aac"]).arg(project.0.join(path));
-        success(&encode.output().unwrap());
-    }
-    let paths: Vec<_> = assets
-        .iter()
-        .map(|(path, _)| *path)
-        .chain(["images/portrait.webp", "audio/song.mp4", "audio/album.m4a"])
-        .collect();
+    let (paths, source) = prepare_media_sources(&project, &root);
     let originals: Vec<_> = paths
         .iter()
         .map(|path| std::fs::read(project.0.join(path)).unwrap())
@@ -264,9 +225,130 @@ fn bundle_and_publish_transcode_media_without_changing_asset_paths_or_sources() 
                 .starts_with(&[0x1a, 0x45, 0xdf, 0xa3])
         );
         verify_normalized_movie(&files, &project.0.join("build/verify.webm"));
+        for (path, codec) in [
+            ("movies/alpha-vp9.webm", "vp9"),
+            ("movies/alpha-vp8.webm", "vp8"),
+            ("movies/alpha.mov", "vp9"),
+        ] {
+            let reference =
+                image::open(root.join(format!("tests/fixtures/{codec}-alpha-reference.png")))
+                    .unwrap()
+                    .into_rgba8();
+            verify_transparent_movie(&files, path, &reference);
+        }
     }
     for (path, original) in paths.iter().zip(originals) {
         assert_eq!(std::fs::read(project.0.join(path)).unwrap(), original);
+    }
+}
+
+fn prepare_media_sources(project: &Project, root: &Path) -> (Vec<&'static str>, image::RgbaImage) {
+    let assets = [
+        ("images/portrait.PNG", "game/images/eileen/blush.png"),
+        ("movies/intro.mp4", "game/movies/intro.mp4"),
+        ("movies/alpha-vp9.webm", "tests/fixtures/vp9-alpha.webm"),
+        ("movies/alpha-vp8.webm", "tests/fixtures/vp8-alpha.webm"),
+        ("audio/chime.wav", "game/audio/chime.wav"),
+    ];
+    for (path, source) in assets {
+        std::fs::copy(root.join(source), project.0.join(path)).unwrap();
+    }
+    let source = image::open(project.0.join("images/portrait.PNG"))
+        .unwrap()
+        .into_rgba8();
+    source.save(project.0.join("images/portrait.webp")).unwrap();
+    // A non-WebM source must preserve alpha through FFmpeg's normal decoder too.
+    success(
+        &Command::new("ffmpeg")
+            .args([
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-c:v",
+                "libvpx-vp9",
+                "-i",
+            ])
+            .arg(project.0.join("movies/alpha-vp9.webm"))
+            .args(["-c:v", "qtrle"])
+            .arg(project.0.join("movies/alpha.mov"))
+            .output()
+            .unwrap(),
+    );
+    for (path, cover) in [("audio/song.mp4", false), ("audio/album.m4a", true)] {
+        let mut encode = Command::new("ffmpeg");
+        encode
+            .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-i"])
+            .arg(project.0.join("audio/chime.wav"));
+        if cover {
+            encode
+                .arg("-i")
+                .arg(project.0.join("images/portrait.PNG"))
+                .args([
+                    "-map",
+                    "0:a:0",
+                    "-map",
+                    "1:v:0",
+                    "-c:v",
+                    "copy",
+                    "-disposition:v",
+                    "attached_pic",
+                ]);
+        }
+        encode.args(["-c:a", "aac"]).arg(project.0.join(path));
+        success(&encode.output().unwrap());
+    }
+    let paths = assets
+        .iter()
+        .map(|(path, _)| *path)
+        .chain([
+            "images/portrait.webp",
+            "audio/song.mp4",
+            "audio/album.m4a",
+            "movies/alpha.mov",
+        ])
+        .collect();
+    (paths, source)
+}
+
+fn verify_transparent_movie(files: &GameFiles, path: &str, reference: &image::RgbaImage) {
+    let started = std::time::Instant::now();
+    let video = deflorta_assets::video::VideoPlayer::open(path, files, path, false, started);
+    assert_eq!(video.size(), Some((64, 48)));
+    let mut serial = 0;
+    for index in 0..6u32 {
+        let now = started + std::time::Duration::from_millis(u64::from(index) * 100);
+        let frame = loop {
+            if let Some((next, image)) = video.frame(now)
+                && next > serial
+            {
+                serial = next;
+                break image;
+            }
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(5),
+                "{path}: missing frame {index}"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        let mut error = 0u64;
+        let mut max_error = 0u8;
+        for (x, y, pixel) in frame.enumerate_pixels() {
+            let difference = pixel[3].abs_diff(reference.get_pixel(x + index * 64, y)[3]);
+            error += u64::from(difference);
+            max_error = max_error.max(difference);
+        }
+        assert!(
+            error < 64 * 48 * 4,
+            "{path} frame {index}: total alpha error {error}"
+        );
+        assert!(
+            max_error <= 16,
+            "{path} frame {index}: max alpha error {max_error}"
+        );
+        assert!(frame.get_pixel(0, 0)[3] <= 4);
+        assert!(frame.get_pixel(63, 0)[3] >= 251);
+        assert!(frame.pixels().any(|pixel| (32..224).contains(&pixel[3])));
     }
 }
 

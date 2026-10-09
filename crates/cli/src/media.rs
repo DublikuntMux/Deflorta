@@ -126,8 +126,8 @@ impl Kind {
                 "0:a:0?",
                 "-c:v",
                 "libvpx-vp9",
-                "-pix_fmt",
-                "yuv420p",
+                "-vf",
+                "format=yuv420p|yuva420p",
                 "-b:v",
                 "0",
                 "-crf",
@@ -227,12 +227,19 @@ pub fn prepare(project: &Project, paths: &[String]) -> Result<PreparedAssets> {
 }
 
 fn transcode(input: &Path, output: &Path, kind: Kind) -> Result<()> {
-    let kind = match kind {
-        Kind::Image => Kind::Image,
-        Kind::Video | Kind::Audio => stream_kind(input)?,
+    let (kind, decoder) = match kind {
+        Kind::Image => (Kind::Image, None),
+        Kind::Video | Kind::Audio => probe_media(input)?,
     };
-    let result = Command::new("ffmpeg")
-        .args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y", "-i"])
+    let mut command = Command::new("ffmpeg");
+    command.args(["-nostdin", "-hide_banner", "-loglevel", "error", "-y"]);
+    // FFmpeg's native VP8/VP9 decoders ignore WebM alpha. libvpx decodes
+    // both the color and BlockAdditional streams before conversion.
+    if let Some(decoder) = decoder {
+        command.args(["-c:V:0", decoder]);
+    }
+    let result = command
+        .arg("-i")
         .arg(input)
         .args(["-map_metadata", "-1", "-map_chapters", "-1"])
         .args(kind.options())
@@ -259,6 +266,8 @@ struct Probe {
 struct Stream {
     codec_type: String,
     #[serde(default)]
+    codec_name: String,
+    #[serde(default)]
     disposition: Disposition,
 }
 
@@ -269,13 +278,13 @@ struct Disposition {
 }
 
 /// MP4 can hold only audio, and Ogg can hold video. Album art is not a movie.
-fn stream_kind(input: &Path) -> Result<Kind> {
+fn probe_media(input: &Path) -> Result<(Kind, Option<&'static str>)> {
     let output = Command::new("ffprobe")
         .args([
             "-v",
             "error",
             "-show_entries",
-            "stream=codec_type:stream_disposition=attached_pic",
+            "stream=codec_type,codec_name:stream_disposition=attached_pic",
             "-of",
             "json",
         ])
@@ -292,19 +301,24 @@ fn stream_kind(input: &Path) -> Result<Kind> {
     }
     let probe: Probe = serde_json::from_slice(&output.stdout)
         .context("ffprobe returned invalid stream metadata")?;
-    if probe
+    if let Some(stream) = probe
         .streams
         .iter()
-        .any(|stream| stream.codec_type == "video" && stream.disposition.attached_pic == 0)
+        .find(|stream| stream.codec_type == "video" && stream.disposition.attached_pic == 0)
     {
-        return Ok(Kind::Video);
+        let decoder = match stream.codec_name.as_str() {
+            "vp8" => Some("libvpx"),
+            "vp9" => Some("libvpx-vp9"),
+            _ => None,
+        };
+        return Ok((Kind::Video, decoder));
     }
     if probe
         .streams
         .iter()
         .any(|stream| stream.codec_type == "audio")
     {
-        return Ok(Kind::Audio);
+        return Ok((Kind::Audio, None));
     }
     bail!("media has no video or audio stream")
 }

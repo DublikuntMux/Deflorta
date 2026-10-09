@@ -91,13 +91,19 @@ save thumbnails and headless screenshots.
      - AAC.
    * - WebM
      - VP8 or VP9. VP9 supports 8/10/12-bit and 4:2:0, 4:2:2, or 4:4:4
-       chroma, displayed as 8-bit RGBA.
+       chroma, displayed as 8-bit RGBA. Both codecs support WebM alpha channels.
      - Mono or stereo Vorbis; duration metadata is required for soundtracks.
 
-WebM files without audio play silently. Opus audio, AV1 video, and WebM alpha
-channels are not supported by the debug runtime. FFmpeg can convert supported
-source codecs such as Opus and AV1 for release; alpha channels in video are
-not retained by the VP9 conversion. Images use the image crate's source-format
+Transparent VP9 WebM videos work in both debug and release runtimes. VP8 WebM
+alpha is also supported in debug runtimes and converted to VP9 when packaging.
+Use a ``Video`` component over other UI elements to show them through the
+transparent parts of the movie; no extra property is required. Partial alpha
+and the component's ``opacity`` combine when blending.
+
+WebM files without audio play silently. Opus audio and AV1 video are not
+supported by the debug runtime. FFmpeg can convert supported source codecs
+such as Opus and AV1 for release while preserving video transparency.
+Images use the image crate's source-format
 decoders in debug builds; audio supports WAV/PCM, MP3, FLAC, AAC, and Vorbis.
 
 Archives

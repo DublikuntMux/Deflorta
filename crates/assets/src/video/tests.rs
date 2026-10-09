@@ -74,10 +74,58 @@ fn decodes_webm_key_and_inter_frames() {
 }
 
 #[test]
+fn decodes_webm_alpha_key_and_inter_frames() {
+    let files = fixtures();
+    for codec in [
+        "vp9",
+        #[cfg(feature = "debug-formats")]
+        "vp8",
+    ] {
+        let path = format!("{codec}-alpha.webm");
+        assert_eq!(probe_size(&files, &path).unwrap(), (64, 48));
+        let (frames, duration) = decode_frames(&files, &path);
+        assert_eq!(frames.len(), 6, "{codec}");
+        assert!((duration - 0.6).abs() < 0.001, "{codec}: {duration}");
+        let reference =
+            image::load_from_memory(&files.read(&format!("{codec}-alpha-reference.png")).unwrap())
+                .unwrap()
+                .into_rgba8();
+        for (index, frame) in frames.iter().enumerate() {
+            assert!(
+                f64::from(u32::try_from(index).unwrap())
+                    .mul_add(-0.1, frame.pts)
+                    .abs()
+                    < 0.001
+            );
+            for (x, y, pixel) in frame.image.enumerate_pixels() {
+                let expected = reference.get_pixel(x + u32::try_from(index).unwrap() * 64, y);
+                assert_eq!(pixel[3], expected[3], "{codec} frame {index} at {x},{y}");
+                for channel in 0..3 {
+                    assert!(pixel[channel].abs_diff(expected[channel]) <= 8);
+                }
+            }
+            assert_eq!(frame.image.get_pixel(0, 0)[3], 0);
+            assert_eq!(frame.image.get_pixel(63, 0)[3], 255);
+            assert!(
+                frame
+                    .image
+                    .pixels()
+                    .any(|pixel| (1..255).contains(&pixel[3]))
+            );
+        }
+        assert_ne!(
+            frames[0].image.get_pixel(24, 0)[3],
+            frames[5].image.get_pixel(24, 0)[3]
+        );
+    }
+}
+
+#[test]
 fn loops_video_and_stops_when_dropped() {
     check_video_loop("vp9-vorbis.webm");
+    check_video_loop("vp9-alpha.webm");
     #[cfg(feature = "debug-formats")]
-    for path in ["vp8-vorbis.webm", "h264-main.mp4"] {
+    for path in ["vp8-vorbis.webm", "vp8-alpha.webm", "h264-main.mp4"] {
         check_video_loop(path);
     }
 }

@@ -18,7 +18,6 @@ debug-formats = [
     "kira/flac",
     "kira/wav",
     "kira/pcm",
-    "dep:oxideav-core",
     "dep:oxideav-h264",
     "dep:mp4",
     "dep:oxideav-vp8",
@@ -28,7 +27,8 @@ debug-formats = [
 image.workspace = true
 kira = { workspace = true, features = ["cpal", "cpal-realtime", "cpal-realtime-dbus", "ogg", "vorbis"] }
 anyhow.workspace = true
-oxideav-core = { workspace = true, optional = true }
+oxideav-core.workspace = true
+oxideav-mkv.workspace = true
 oxideav-h264 = { workspace = true, optional = true }
 mp4 = { workspace = true, optional = true }
 oxideav-vp8 = { workspace = true, optional = true }

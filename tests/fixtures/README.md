@@ -27,6 +27,30 @@ for codec in vp8 vp9; do
 done
 ```
 
+The silent alpha fixtures contain six 64×48 frames at 10 fps. Their alpha
+planes have transparent and opaque regions plus an animated gradient, testing
+keyframes, inter frames, partial transparency, and decoder reset on looping.
+VP9 is lossless; VP8 uses its default quality. Reference PNGs must be decoded
+with libvpx because FFmpeg's native VP8/VP9 decoders discard alpha.
+
+```sh
+for codec in vp8 vp9; do
+  encoder=libvpx
+  lossless=
+  if [ "$codec" = vp9 ]; then
+    encoder=libvpx-vp9
+    lossless='-lossless 1'
+  fi
+  ffmpeg -nostdin -hide_banner -loglevel error -y -f lavfi \
+    -i "testsrc2=size=64x48:rate=10:duration=0.6,format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='if(lt(X,16),0,if(gt(X,47),255,mod(16*X+40*N,256)))'" \
+    -c:v "$encoder" -pix_fmt yuva420p $lossless -g 30 -auto-alt-ref 0 \
+    "tests/fixtures/$codec-alpha.webm"
+  ffmpeg -nostdin -hide_banner -loglevel error -y -c:v "$encoder" \
+    -i "tests/fixtures/$codec-alpha.webm" -vf tile=6x1 -frames:v 1 \
+    "tests/fixtures/$codec-alpha-reference.png"
+done
+```
+
 Vorbis fixtures for the audio loader are generated from the demo's source WAVs:
 
 ```sh

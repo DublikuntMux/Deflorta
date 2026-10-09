@@ -24,6 +24,9 @@ as 8-bit VP9 WebM with a Vorbis soundtrack, and every audio file as Vorbis Ogg.
 Install `FFmpeg <https://ffmpeg.org/download.html>`_ and its ffprobe tool on PATH
 with the libwebp, libvpx-vp9, and libvorbis encoders. Video uses CRF 30; audio uses quality 5
 and stereo output. Still images keep their dimensions and transparency.
+Movies retain alpha channels, including transparent VP8/VP9 WebM and
+alpha-capable source formats such as QuickTime Animation MOV. The output
+uses 8-bit YUVA for transparent movies and YUV for opaque movies.
 Audio/video containers are identified by their streams, so audio-only MP4
 files become Ogg audio and embedded album art is discarded.
 

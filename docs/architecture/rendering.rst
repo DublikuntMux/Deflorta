@@ -101,7 +101,10 @@ limit and thumbnail settling timeout. Connected gamepads still poll for input.
 see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
 Video uses a background thread decoding a few frames ahead, paced by the
-wall clock, and uploads frames into a reused texture. Normalized WebM Vorbis
+wall clock, and uploads frames into a reused texture. WebM video demuxing uses
+oxideav-mkv to retain ``BlockAdditional`` alpha data. A separate VP8/VP9 decoder
+reads that stream's luma plane as alpha, combining it with straight RGB before
+the renderer blends the frame. Normalized WebM Vorbis
 soundtracks play through kira; debug builds also decode source MP4 AAC.
 Container detection reads the file signature because archive entries preserve
 source asset names. Format limits are in

@@ -1338,6 +1338,7 @@ dependencies = [
  "num-traits",
  "oxideav-core",
  "oxideav-h264",
+ "oxideav-mkv",
  "oxideav-vp8",
  "oxideav-vp9",
  "serde",
@@ -4784,6 +4785,15 @@ checksum = "b6bbe6bb48d3460e4c5348699de767e9aa43711e75c585e1b61cb3bc2fe6c207"
 dependencies = [
  "oxideav-core",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "oxideav-mkv"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2129bb035c2f4f848265f998846338c953b5fec2fd2e0cb56c05070e8f0fee3"
+dependencies = [
+ "oxideav-core",
 ]
 
 [[package]]
