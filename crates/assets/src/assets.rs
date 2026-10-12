@@ -1,16 +1,19 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use image::ImageReader;
 use log::{debug, info, trace, warn};
+use tokio::sync::Mutex;
+use tokio::sync::mpsc::{
+    UnboundedReceiver as Receiver, UnboundedSender as Sender, unbounded_channel as channel,
+};
 
 use crate::files::{GameFiles, normalize_game_path};
-use crate::worker::{WakeCallback, WorkerWake};
+use crate::worker::{WakeCallback, WorkerWake, runtime};
 
-const DECODE_THREADS: usize = 2;
+const CONCURRENT_DECODES: usize = 2;
 
 /// Unreferenced image data, metadata and textures expire together.
 pub const ASSET_IDLE_LIMIT: Duration = Duration::from_secs(60);
@@ -53,6 +56,54 @@ enum ImageState {
 type Job = (String, u64, AssetPath);
 type Decoded = (String, u64, Option<image::RgbaImage>);
 
+/// Only active decodes occupy blocking workers; idle queues wait asynchronously.
+fn start_decoders(
+    jobs: Receiver<Job>,
+    results: &Sender<Decoded>,
+    wake: &WorkerWake,
+    decode: impl Fn(&str, AssetPath) -> Option<image::RgbaImage> + Send + Sync + 'static,
+) {
+    let jobs = Arc::new(Mutex::new(jobs));
+    let decode = Arc::new(decode);
+    for _ in 0..CONCURRENT_DECODES {
+        let jobs = jobs.clone();
+        let results = results.clone();
+        let decode = decode.clone();
+        let wake = wake.clone();
+        runtime().spawn(async move {
+            loop {
+                let job = tokio::select! {
+                    biased;
+                    () = results.closed() => return,
+                    job = async { jobs.lock().await.recv().await } => job,
+                };
+                let Some((src, generation, path)) = job else {
+                    return;
+                };
+                let decoder = decode.clone();
+                let source = src.clone();
+                let output = results.clone();
+                let image = runtime()
+                    .spawn_blocking(move || {
+                        if output.is_closed() {
+                            return None;
+                        }
+                        decoder(&source, path)
+                    })
+                    .await
+                    .unwrap_or_else(|error| {
+                        warn!("Image decoder for '{src}' failed: {error}");
+                        None
+                    });
+                if results.send((src, generation, image)).is_err() {
+                    return;
+                }
+                wake.notify();
+            }
+        });
+    }
+}
+
 pub struct Assets {
     files: GameFiles,
     user_dir: Option<PathBuf>,
@@ -71,51 +122,32 @@ impl Assets {
     ///
     /// # Panics
     ///
-    /// Panics if an image decoder worker thread cannot be started.
+    /// Panics if the shared worker runtime cannot be started.
     pub fn new(files: GameFiles) -> Self {
         let (jobs, job_rx) = channel::<Job>();
         let (result_tx, results) = channel::<Decoded>();
-        let job_rx = Arc::new(Mutex::new(job_rx));
         let wake = WorkerWake::default();
-        for n in 0..DECODE_THREADS {
-            let job_rx = job_rx.clone();
-            let result_tx = result_tx.clone();
-            let files = files.clone();
-            let wake = wake.clone();
-            std::thread::Builder::new()
-                .name(format!("image decoder {n}"))
-                .spawn(move || {
-                    loop {
-                        let job = job_rx.lock().unwrap().recv();
-                        let Ok((src, generation, path)) = job else {
-                            return;
-                        };
-                        let started = Instant::now();
-                        let image = match path.decode(&files) {
-                            Ok(img) => {
-                                debug!(
-                                    "Decoded '{src}' ({}x{}) in {:.0?}",
-                                    img.width(),
-                                    img.height(),
-                                    started.elapsed()
-                                );
-                                Some(img)
-                            }
-                            Err(err) => {
-                                warn!("Cannot load image '{src}': {err:#}");
-                                None
-                            }
-                        };
-                        if result_tx.send((src, generation, image)).is_err() {
-                            return;
-                        }
-                        wake.notify();
-                    }
-                })
-                .expect("spawn image decoder");
-        }
+        let decode_files = files.clone();
+        start_decoders(job_rx, &result_tx, &wake, move |src, path| {
+            let started = Instant::now();
+            match path.decode(&decode_files) {
+                Ok(img) => {
+                    debug!(
+                        "Decoded '{src}' ({}x{}) in {:.0?}",
+                        img.width(),
+                        img.height(),
+                        started.elapsed()
+                    );
+                    Some(img)
+                }
+                Err(err) => {
+                    warn!("Cannot load image '{src}': {err:#}");
+                    None
+                }
+            }
+        });
         info!(
-            "Assets: {} with {DECODE_THREADS} image decoding threads",
+            "Assets: {} with {CONCURRENT_DECODES} concurrent image decodes",
             files.location().display()
         );
         Self {
@@ -372,6 +404,54 @@ impl Assets {
 mod tests {
     use super::*;
 
+    #[test]
+    fn decoding_is_limited_and_dropping_results_discards_queued_work() {
+        let (jobs, requests) = channel();
+        let (sender, results) = channel();
+        let (started, starts) = std::sync::mpsc::channel();
+        let (release, releases) = std::sync::mpsc::channel();
+        let releases = std::sync::Mutex::new(releases);
+        start_decoders(requests, &sender, &WorkerWake::default(), move |src, _| {
+            started.send(src.to_owned()).unwrap();
+            releases.lock().unwrap().recv().unwrap();
+            Some(image::RgbaImage::new(1, 1))
+        });
+        for generation in 0..3 {
+            jobs.send((
+                generation.to_string(),
+                generation,
+                AssetPath::Game("unused".into()),
+            ))
+            .unwrap();
+        }
+        for _ in 0..CONCURRENT_DECODES {
+            starts.recv_timeout(Duration::from_secs(5)).unwrap();
+        }
+        // Both decoders are blocked, but async timers still run. A third decode
+        // must wait outside the blocking pool until one of the two completes.
+        runtime().block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            })
+            .await
+            .unwrap();
+        });
+        assert!(starts.try_recv().is_err());
+        drop(results);
+        for _ in 0..CONCURRENT_DECODES {
+            release.send(()).unwrap();
+        }
+        runtime().block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), jobs.closed())
+                .await
+                .unwrap();
+        });
+        assert!(
+            starts.try_recv().is_err(),
+            "queued decode ran after the owner was dropped"
+        );
+    }
+
     fn controlled_assets() -> (Assets, Receiver<Job>, Sender<Decoded>) {
         let files = GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
         let mut assets = Assets::new(files);
@@ -413,10 +493,10 @@ mod tests {
 
     #[test]
     fn idle_cleanup_releases_preloads_pending_failed_uploaded_and_metadata() {
-        let (mut assets, requests, results) = controlled_assets();
+        let (mut assets, mut requests, results) = controlled_assets();
         for source in ["ready.png", "pending.png", "uploaded.png", "failed.png"] {
             assets.request(source);
-            let (source, generation, _) = requests.recv().unwrap();
+            let (source, generation, _) = requests.blocking_recv().unwrap();
             match source.as_str() {
                 "pending.png" => {}
                 "failed.png" => results.send((source, generation, None)).unwrap(),
@@ -463,10 +543,10 @@ mod tests {
 
     #[test]
     fn unload_discards_late_decodes_and_reload_uses_only_the_new_job() {
-        let (mut assets, requests, results) = controlled_assets();
+        let (mut assets, mut requests, results) = controlled_assets();
         let source = "images/title screen.png?2";
         assets.request(source);
-        let (_, old, _) = requests.recv().unwrap();
+        let (_, old, _) = requests.blocking_recv().unwrap();
         assets.sizes.insert(source.into(), Some((8, 4)));
         assert!(assets.forget(source));
         results
@@ -476,7 +556,7 @@ mod tests {
         assert!(assets.images.is_empty());
         assert!(assets.sizes.is_empty());
         assets.request(source);
-        let (_, new, _) = requests.recv().unwrap();
+        let (_, new, _) = requests.blocking_recv().unwrap();
         assert_ne!(old, new);
         results.send((source.into(), old, None)).unwrap();
         assert!(!assets.poll());
@@ -492,7 +572,7 @@ mod tests {
     fn decoders_publish_success_and_failure_before_waking() {
         let files = GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
         let mut assets = Assets::new(files);
-        let (sender, receiver) = channel();
+        let (sender, receiver) = std::sync::mpsc::channel();
         assets.set_waker(Arc::new(move || {
             let _ = sender.send(());
         }));
@@ -508,18 +588,18 @@ mod tests {
 
     #[test]
     fn thumbnail_completion_retries_failed_aliases_and_discards_old_decodes() {
-        let (mut assets, requests, results) = controlled_assets();
+        let (mut assets, mut requests, results) = controlled_assets();
         let dir = PathBuf::from("/saved-data");
         assets.set_user_dir(dir.clone());
         let failed = "user:thumb-1.png?1";
         let pending = "user:thumb-1.png?2";
         assets.request(failed);
-        let (_, first, _) = requests.recv().unwrap();
+        let (_, first, _) = requests.blocking_recv().unwrap();
         results.send((failed.into(), first, None)).unwrap();
         assets.poll();
         assert_eq!(assets.image_size(failed), None);
         assets.request(pending);
-        let (_, old, _) = requests.recv().unwrap();
+        let (_, old, _) = requests.blocking_recv().unwrap();
         assert_eq!(
             assets
                 .user_file_changed(&dir.join("thumb-1.png"), true)
@@ -528,7 +608,7 @@ mod tests {
         );
         let mut jobs = HashMap::new();
         for _ in 0..2 {
-            let (source, revision, _) = requests.recv().unwrap();
+            let (source, revision, _) = requests.blocking_recv().unwrap();
             jobs.insert(source, revision);
         }
         results
@@ -549,7 +629,7 @@ mod tests {
 
     #[test]
     fn thumbnail_decode_waits_for_all_writes_and_a_failed_write_releases_the_wait() {
-        let (mut assets, requests, results) = controlled_assets();
+        let (mut assets, mut requests, results) = controlled_assets();
         let dir = PathBuf::from("/saved-data");
         assets.set_user_dir(dir.clone());
         let path = dir.join("thumb-1.png");

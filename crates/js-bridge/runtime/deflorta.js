@@ -4,6 +4,7 @@ export {
   clearTimer,
   config,
   configure,
+  discord,
   log,
   native,
   on,

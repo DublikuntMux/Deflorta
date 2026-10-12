@@ -37,9 +37,26 @@ export const config = {
 };
 
 export function configure(options) {
-  Object.assign(config, options);
-  native.app.configure(config);
+  const next = { ...config, ...options };
+  if (next.discord != null &&
+      (typeof next.discord !== "object" || Array.isArray(next.discord))) {
+    throw new TypeError("Discord configuration must be an object or null");
+  }
+  native.app.configure(next);
+  Object.assign(config, next);
 }
+
+export const discord = Object.freeze({
+  setActivity(activity) {
+    if (activity === null || typeof activity !== "object" || Array.isArray(activity)) {
+      throw new TypeError("Discord activity must be an object");
+    }
+    native.discord.setActivity(activity);
+  },
+  clearActivity() {
+    native.discord.clearActivity();
+  },
+});
 
 let timerSeq = 0;
 const timers = new Map();

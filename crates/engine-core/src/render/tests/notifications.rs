@@ -1,5 +1,6 @@
 use super::super::*;
 use deflorta_common::notification::{NotificationOptions, NotificationState};
+use deflorta_common::worker::runtime;
 
 #[test]
 #[ignore = "Requires a native GPU adapter"]
@@ -11,7 +12,9 @@ fn notification_outer_corners_render_on_scaled_and_narrow_surfaces() {
         std::fs::create_dir_all(directory).unwrap();
     }
     for (width, height) in [(320_u32, 180_u32), (720, 1280), (2048, 923)] {
-        let mut renderer = pollster::block_on(Renderer::offscreen(width, height)).unwrap();
+        let mut renderer = runtime()
+            .block_on(Renderer::offscreen(width, height))
+            .unwrap();
         for count in [1_u64, 2, 3, 5] {
             let mut ui = Ui::new(deflorta_ui::ui::text::TextSystem::new(&files));
             ui.set_config(1280.0, 720.0, "Noto Sans");

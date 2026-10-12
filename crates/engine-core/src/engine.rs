@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use deflorta_common::discord::DiscordActivity;
 use log::{debug, error, info, trace, warn};
 use num_traits::{AsPrimitive, ToPrimitive};
 
@@ -75,6 +76,7 @@ pub struct Engine {
     pub ui: Ui,
     audio: Option<Audio>,
     config: GameConfig,
+    discord_activity: Option<DiscordActivity>,
     data_dir: PathBuf,
     timers: Vec<(Instant, u64)>,
     requests: PlatformRequests,
@@ -117,7 +119,9 @@ impl Engine {
                 version: None,
                 clear_color: None,
                 frame_events: false,
+                discord: None,
             },
+            discord_activity: Some(DiscordActivity::default()),
             data_dir: PathBuf::from("."),
             timers: Vec::new(),
             requests: PlatformRequests::default(),
@@ -136,6 +140,10 @@ impl Engine {
 
     pub const fn config(&self) -> &GameConfig {
         &self.config
+    }
+
+    pub const fn discord_activity(&self) -> &Option<DiscordActivity> {
+        &self.discord_activity
     }
 
     pub fn accessibility_update(&mut self) -> accesskit::TreeUpdate {
@@ -298,92 +306,10 @@ impl Engine {
             .iter()
             .rposition(|c| matches!(c, Command::Configure(_)));
         for (index, command) in commands.into_iter().enumerate() {
-            match command {
-                Command::Configure(config) if Some(index) == last_config => self.set_config(config),
-                Command::Configure(_) => {}
-                Command::SetTimer { id, ms } => self
-                    .timers
-                    .push((now + Duration::from_secs_f64(ms / 1000.0), id)),
-                Command::ClearTimer { id } => self.timers.retain(|(_, t)| *t != id),
-                Command::Music(music, fade) => {
-                    if let Some(audio) = &mut self.audio {
-                        audio.play_music(
-                            &self.assets,
-                            music.as_ref().map(|m| m.file.as_str()),
-                            music.as_ref().is_none_or(|m| m.r#loop),
-                            music.as_ref().map_or(1.0, |m| m.volume),
-                            fade.fade_in,
-                            fade.fade_out,
-                        );
-                    }
-                }
-                Command::Sound { file, volume } => {
-                    if let Some(audio) = &mut self.audio {
-                        audio.play_sound(&self.assets, &file, volume);
-                    }
-                }
-                Command::Voice { file } => {
-                    if let Some(audio) = &mut self.audio {
-                        audio.play_voice(&self.assets, file.as_deref());
-                    }
-                }
-                Command::Volume { channel, value } => {
-                    if let Some(audio) = &mut self.audio {
-                        audio.set_volume(&channel, value);
-                    }
-                }
-                Command::RevealSkip => {
-                    self.ui.reveal_skip(now);
-                    self.requests.redraw = true;
-                }
-                Command::UiKey { key, down, repeat } => self.ui_key(&key, down, repeat),
-                Command::Preload { images } => {
-                    debug!("Preloading {} images", images.len());
-                    for src in &images {
-                        self.assets.request(src);
-                    }
-                }
-                Command::CaptureThumbnail { after } => self.request_capture(after),
-                Command::SaveThumbnail { name } => {
-                    if self.capture.is_some() {
-                        self.thumbnail_names.push(name);
-                    } else {
-                        self.save_thumbnail(&name);
-                    }
-                }
-                Command::DeleteThumbnail { name } => {
-                    // A save waiting for its capture may be deleted before it arrives.
-                    self.thumbnail_names.retain(|n| *n != name);
-                    self.delete_thumbnail(&name);
-                }
-                Command::Fullscreen { on } => self.requests.fullscreen = Some(on),
-                Command::SelfVoicing { on } => self.requests.self_voicing = Some(on),
-                Command::Notify {
-                    id,
-                    message,
-                    options,
-                } => {
-                    self.ui.show_notification(id, message, options, now);
-                    self.requests.redraw = true;
-                }
-                Command::UpdateNotification {
-                    id,
-                    message,
-                    options,
-                } => {
-                    self.ui.update_notification(id, message, options, now);
-                    self.requests.redraw = true;
-                }
-                Command::DismissNotification { id } => {
-                    self.ui.dismiss_notification(id);
-                    self.requests.redraw = true;
-                }
-                Command::Quit => {
-                    info!("Game requested quit");
-                    self.requests.quit = true;
-                }
-                Command::Commit(commit) => self.stage_tree(*commit, now),
+            if matches!(&command, Command::Configure(_)) && Some(index) != last_config {
+                continue;
             }
+            self.apply_command(command, now);
         }
         match self.capture {
             Some(CaptureTiming::AfterCommit) if self.pending.is_none() => {
@@ -394,6 +320,95 @@ impl Engine {
             _ => {}
         }
         self.try_commit();
+    }
+
+    fn apply_command(&mut self, command: Command, now: Instant) {
+        match command {
+            Command::Configure(config) => self.set_config(config),
+            Command::DiscordActivity(activity) => self.discord_activity = activity,
+            Command::SetTimer { id, ms } => self
+                .timers
+                .push((now + Duration::from_secs_f64(ms / 1000.0), id)),
+            Command::ClearTimer { id } => self.timers.retain(|(_, t)| *t != id),
+            Command::Music(music, fade) => {
+                if let Some(audio) = &mut self.audio {
+                    audio.play_music(
+                        &self.assets,
+                        music.as_ref().map(|m| m.file.as_str()),
+                        music.as_ref().is_none_or(|m| m.r#loop),
+                        music.as_ref().map_or(1.0, |m| m.volume),
+                        fade.fade_in,
+                        fade.fade_out,
+                    );
+                }
+            }
+            Command::Sound { file, volume } => {
+                if let Some(audio) = &mut self.audio {
+                    audio.play_sound(&self.assets, &file, volume);
+                }
+            }
+            Command::Voice { file } => {
+                if let Some(audio) = &mut self.audio {
+                    audio.play_voice(&self.assets, file.as_deref());
+                }
+            }
+            Command::Volume { channel, value } => {
+                if let Some(audio) = &mut self.audio {
+                    audio.set_volume(&channel, value);
+                }
+            }
+            Command::RevealSkip => {
+                self.ui.reveal_skip(now);
+                self.requests.redraw = true;
+            }
+            Command::UiKey { key, down, repeat } => self.ui_key(&key, down, repeat),
+            Command::Preload { images } => {
+                debug!("Preloading {} images", images.len());
+                for src in &images {
+                    self.assets.request(src);
+                }
+            }
+            Command::CaptureThumbnail { after } => self.request_capture(after),
+            Command::SaveThumbnail { name } => {
+                if self.capture.is_some() {
+                    self.thumbnail_names.push(name);
+                } else {
+                    self.save_thumbnail(&name);
+                }
+            }
+            Command::DeleteThumbnail { name } => {
+                // A save waiting for its capture may be deleted before it arrives.
+                self.thumbnail_names.retain(|n| *n != name);
+                self.delete_thumbnail(&name);
+            }
+            Command::Fullscreen { on } => self.requests.fullscreen = Some(on),
+            Command::SelfVoicing { on } => self.requests.self_voicing = Some(on),
+            Command::Notify {
+                id,
+                message,
+                options,
+            } => {
+                self.ui.show_notification(id, message, options, now);
+                self.requests.redraw = true;
+            }
+            Command::UpdateNotification {
+                id,
+                message,
+                options,
+            } => {
+                self.ui.update_notification(id, message, options, now);
+                self.requests.redraw = true;
+            }
+            Command::DismissNotification { id } => {
+                self.ui.dismiss_notification(id);
+                self.requests.redraw = true;
+            }
+            Command::Quit => {
+                info!("Game requested quit");
+                self.requests.quit = true;
+            }
+            Command::Commit(commit) => self.stage_tree(*commit, now),
+        }
     }
 
     fn request_capture(&mut self, after: bool) {

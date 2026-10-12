@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Instant;
 
@@ -8,10 +7,13 @@ use kira::sound::static_sound::StaticSoundData;
 use kira::sound::streaming::{StreamingSoundData, StreamingSoundHandle};
 use kira::sound::{FromFileError, Sound, SoundData};
 use log::warn;
+use tokio::sync::mpsc::{
+    UnboundedReceiver as Receiver, UnboundedSender as Sender, unbounded_channel as channel,
+};
 
 use crate::files::GameFiles;
 use crate::video::PlaybackClock;
-use crate::worker::{WakeCallback, WorkerWake};
+use crate::worker::{WakeCallback, WorkerWake, runtime};
 
 #[derive(Clone)]
 pub(super) enum LoadKind {
@@ -35,7 +37,7 @@ pub(super) enum LoadedSound {
     Stream(PreparedStream),
 }
 
-/// Kira seeks the decoder in `into_sound`. Prepare it on the loader thread;
+/// Kira seeks the decoder in `into_sound`. Prepare it in a blocking task;
 /// handing this value to a track only transfers the prepared sound and handle.
 pub(super) struct PreparedStream {
     sound: ManagedStream,
@@ -232,6 +234,72 @@ struct Job {
 
 type Completion = (u64, Result<LoadedSound, String>);
 
+fn load(job: &Job) -> Result<LoadedSound, String> {
+    if matches!(job.kind, LoadKind::Sound { .. }) {
+        job.files
+            .open_file(&job.path)
+            .map_err(|error| error.to_string())
+            .and_then(|reader| {
+                StaticSoundData::from_media_source(reader).map_err(|error| error.to_string())
+            })
+            .map(|data| LoadedSound::Static(Box::new(data)))
+    } else {
+        super::open_stream(&job.files, &job.path)
+            .map_err(|error| error.to_string())
+            .and_then(|data| prepare_stream(data, job.kind.clone()))
+            .map(LoadedSound::Stream)
+    }
+}
+
+fn start_loader(
+    mut jobs: Receiver<Job>,
+    results: Sender<Completion>,
+    wake: WorkerWake,
+    load: impl Fn(&Job) -> Result<LoadedSound, String> + Send + Sync + 'static,
+) {
+    let load = Arc::new(load);
+    runtime().spawn(async move {
+        loop {
+            let job = tokio::select! {
+                biased;
+                () = results.closed() => return,
+                job = jobs.recv() => job,
+            };
+            let Some(job) = job else {
+                return;
+            };
+            if job.cancelled.load(Ordering::Relaxed) {
+                continue;
+            }
+            let id = job.id;
+            let cancelled = job.cancelled.clone();
+            let output = results.clone();
+            let load = load.clone();
+            let completion = runtime()
+                .spawn_blocking(move || {
+                    if output.is_closed() || job.cancelled.load(Ordering::Relaxed) {
+                        return None;
+                    }
+                    let data = load(&job);
+                    if job.cancelled.load(Ordering::Relaxed) {
+                        return None;
+                    }
+                    Some(data)
+                })
+                .await
+                .unwrap_or_else(|error| Some(Err(format!("Audio decoder failed: {error}"))));
+            if let Some(data) = completion
+                && !cancelled.load(Ordering::Relaxed)
+            {
+                if results.send((id, data)).is_err() {
+                    return;
+                }
+                wake.notify();
+            }
+        }
+    });
+}
+
 pub(super) struct AudioLoader {
     jobs: Sender<Job>,
     results: Receiver<Completion>,
@@ -245,39 +313,7 @@ impl AudioLoader {
         let (jobs, receiver) = channel::<Job>();
         let (sender, results) = channel();
         let wake = WorkerWake::default();
-        let worker_wake = wake.clone();
-        std::thread::Builder::new()
-            .name("audio loader".into())
-            .spawn(move || {
-                while let Ok(job) = receiver.recv() {
-                    if job.cancelled.load(Ordering::Relaxed) {
-                        continue;
-                    }
-                    let data = if matches!(job.kind, LoadKind::Sound { .. }) {
-                        job.files
-                            .open_file(&job.path)
-                            .map_err(|e| e.to_string())
-                            .and_then(|reader| {
-                                StaticSoundData::from_media_source(reader)
-                                    .map_err(|e| e.to_string())
-                            })
-                            .map(|data| LoadedSound::Static(Box::new(data)))
-                    } else {
-                        super::open_stream(&job.files, &job.path)
-                            .map_err(|e| e.to_string())
-                            .and_then(|data| prepare_stream(data, job.kind))
-                            .map(LoadedSound::Stream)
-                    };
-                    if job.cancelled.load(Ordering::Relaxed) {
-                        continue;
-                    }
-                    if sender.send((job.id, data)).is_err() {
-                        return;
-                    }
-                    worker_wake.notify();
-                }
-            })
-            .expect("spawn audio loader");
+        start_loader(receiver, sender, wake.clone(), load);
         Self {
             jobs,
             results,
@@ -377,6 +413,7 @@ impl Drop for AudioLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc::{Sender, channel};
     use std::time::Duration;
 
     #[test]
@@ -430,8 +467,8 @@ mod tests {
 
     #[test]
     fn cancellation_discards_already_published_results_even_for_the_same_source() {
-        let (jobs, requests) = channel();
-        let (sender, results) = channel();
+        let (jobs, mut requests) = tokio::sync::mpsc::unbounded_channel();
+        let (sender, results) = tokio::sync::mpsc::unbounded_channel();
         let mut loader = AudioLoader {
             jobs,
             results,
@@ -448,7 +485,7 @@ mod tests {
                 LoadKind::Voice,
             )
             .unwrap();
-        let job = requests.recv().unwrap();
+        let job = requests.blocking_recv().unwrap();
         sender.send((old, Err("old completion".into()))).unwrap();
         loader.cancel(old);
         assert!(job.cancelled.load(Ordering::Relaxed));
@@ -467,6 +504,73 @@ mod tests {
         assert_eq!(completions[0].0.source, "voice");
         assert!(matches!(&completions[0].1, Err(message) if message == "new completion"));
         assert!(loader.pending.is_empty());
+    }
+
+    #[test]
+    fn dropping_loader_cancels_requests_and_closes_its_worker_queue() {
+        let mut loader = AudioLoader::new();
+        let jobs = loader.jobs.clone();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        loader.pending.insert(
+            0,
+            LoadRequest {
+                source: "cancelled".into(),
+                kind: LoadKind::Voice,
+                cancelled: cancelled.clone(),
+            },
+        );
+        drop(loader);
+        assert!(cancelled.load(Ordering::Relaxed));
+        runtime().block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), jobs.closed())
+                .await
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn worker_skips_cancelled_jobs_and_reports_panics_without_stalling_queue() {
+        let (jobs, requests) = tokio::sync::mpsc::unbounded_channel();
+        let (sender, mut results) = tokio::sync::mpsc::unbounded_channel();
+        let wake = WorkerWake::default();
+        let (notify, notified) = channel();
+        wake.set(Arc::new(move || {
+            let _ = notify.send(());
+        }));
+        notified.try_recv().unwrap();
+        start_loader(requests, sender, wake, |job| match job.id {
+            0 => panic!("cancelled job must never be decoded"),
+            1 => panic!("test decoder panic"),
+            _ => Err("next job completed".into()),
+        });
+        let files = GameFiles::directory(&crate::workspace_dir().join("tests/fixtures")).unwrap();
+        for id in 0..3 {
+            jobs.send(Job {
+                id,
+                files: files.clone(),
+                path: "unused".into(),
+                kind: LoadKind::Voice,
+                cancelled: Arc::new(AtomicBool::new(id == 0)),
+            })
+            .unwrap();
+        }
+        let completions = runtime().block_on(async {
+            tokio::time::timeout(Duration::from_secs(5), async {
+                let first = results.recv().await.unwrap();
+                let second = results.recv().await.unwrap();
+                (first, second)
+            })
+            .await
+            .unwrap()
+        });
+        assert_eq!(completions.0.0, 1);
+        assert!(matches!(completions.0.1, Err(message) if message.contains("test decoder panic")));
+        assert_eq!(completions.1.0, 2);
+        assert!(matches!(completions.1.1, Err(message) if message == "next job completed"));
+        for _ in 0..2 {
+            notified.recv_timeout(Duration::from_secs(5)).unwrap();
+        }
+        assert!(results.try_recv().is_err());
     }
 
     #[test]

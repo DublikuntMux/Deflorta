@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
+use deflorta_common::worker::runtime;
 use log::{error, info, trace};
 use num_traits::ToPrimitive;
 use serde::Deserialize;
@@ -58,7 +59,7 @@ pub fn run(mut engine: Engine, script: &Path) -> Result<()> {
         .to_u32()
         .filter(|&h| h > 0)
         .context("game height must fit in a positive u32 pixel count")?;
-    let mut renderer = pollster::block_on(Renderer::offscreen(width, height))?;
+    let mut renderer = runtime().block_on(Renderer::offscreen(width, height))?;
     engine.resize(width, height);
     engine.boot();
     let quit_at_boot = tick(&mut engine, &mut renderer);

@@ -4,6 +4,7 @@ use std::time::Instant;
 use deflorta_common::notification::{
     NotificationId, NotificationOptions, NotificationState, next_notification_id,
 };
+use deflorta_common::worker::runtime;
 use log::{debug, error, info};
 use num_traits::AsPrimitive;
 use winit::application::ApplicationHandler;
@@ -68,6 +69,8 @@ pub struct App {
     proxy: EventLoopProxy<AppEvent>,
     self_voicing: crate::self_voicing::SelfVoicing,
     self_voicing_notification: Option<NotificationId>,
+    #[cfg(not(target_os = "android"))]
+    discord: crate::discord::Discord,
     #[cfg(feature = "dev-console")]
     console: Option<crate::dev_console::DevConsole>,
     #[cfg(feature = "dev-console")]
@@ -104,6 +107,8 @@ impl App {
             proxy,
             self_voicing,
             self_voicing_notification: None,
+            #[cfg(not(target_os = "android"))]
+            discord: crate::discord::Discord::default(),
             #[cfg(feature = "dev-console")]
             console: None,
             #[cfg(feature = "dev-console")]
@@ -144,7 +149,7 @@ impl App {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
             Box::new(event_loop.owned_display_handle()),
         ));
-        let renderer = pollster::block_on(Renderer::for_window(&instance, window.clone()))?;
+        let renderer = runtime().block_on(Renderer::for_window(&instance, window.clone()))?;
         #[cfg(feature = "dev-console")]
         {
             self.engine.enable_console()?;
@@ -160,6 +165,11 @@ impl App {
 
     /// Carries out window changes, captures and redraw/quit requests made by the engine.
     fn handle_requests(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(not(target_os = "android"))]
+        self.discord.sync(
+            self.engine.config().discord.as_ref(),
+            self.engine.discord_activity().as_ref(),
+        );
         #[cfg(target_os = "android")]
         if self.window.is_some() {
             use winit::platform::android::ActiveEventLoopExtAndroid;
@@ -608,6 +618,8 @@ impl ApplicationHandler<AppEvent> for App {
     }
 
     fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        #[cfg(not(target_os = "android"))]
+        self.discord.shutdown();
         self.engine.flush_storage();
         info!("Event loop exiting");
     }

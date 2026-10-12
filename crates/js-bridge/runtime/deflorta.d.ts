@@ -24,6 +24,8 @@ declare module "deflorta" {
     autosave?: boolean;
     /** Continuous window redraws with `frame` events. Disabled by default. */
     frameEvents?: boolean;
+    /** Desktop Rich Presence; null disables it. Use an application ID, never a bot token. */
+    discord?: DiscordConfig | null;
     languages?: Language[];
     menuBackground?: string;
     /** Main menu background video (loops). */
@@ -34,6 +36,30 @@ declare module "deflorta" {
   export const config: Config;
   /** Updates the configuration. Call at the top level of main.js. */
   export function configure(options: Partial<Config>): void;
+
+  export interface DiscordConfig {
+    /** Discord Developer Portal application ID, supplied as a decimal string. */
+    applicationId: string;
+  }
+
+  export interface DiscordActivity {
+    /** Optional text fields contain 2..128 UTF-8 bytes. */
+    details?: string | null;
+    state?: string | null;
+    /** Developer Portal asset keys or image URLs; 1..256 UTF-8 bytes. */
+    largeImage?: string | null;
+    largeText?: string | null;
+    smallImage?: string | null;
+    smallText?: string | null;
+    /** Unix timestamp in seconds; use Math.floor(Date.now() / 1000). */
+    startTimestamp?: number | null;
+  }
+
+  /** Desktop Discord integration. Updates replace the previous activity. */
+  export const discord: Readonly<{
+    setActivity(activity: DiscordActivity): void;
+    clearActivity(): void;
+  }>;
 
   /** Logs at info level (shown under `deflorta::js`). */
   export function log(...values: unknown[]): void;
@@ -161,6 +187,10 @@ declare module "deflorta" {
       list(): StorageEntry[];
     }>;
     readonly timers: Readonly<{ set(id: number, ms: number): void; clear(id: number): void }>;
+    readonly discord: Readonly<{
+      setActivity(activity: DiscordActivity): void;
+      clearActivity(): void;
+    }>;
     readonly notifications: Readonly<{
       create(message: string, options: NotificationOptions): number;
       update(id: number, message: string, options: NotificationOptions): void;
@@ -942,6 +972,7 @@ declare module "deflorta/core" {
     log,
     config,
     configure,
+    discord,
     setTimer,
     clearTimer,
     storage,

@@ -1,6 +1,7 @@
 pub mod crash;
 pub mod desc;
 pub mod diagnostics;
+pub mod discord;
 pub mod handler;
 pub mod notification;
 pub mod speech;

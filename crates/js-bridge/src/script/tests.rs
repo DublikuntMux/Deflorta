@@ -1,6 +1,88 @@
 use super::*;
 use deflorta_common::desc::NodeDesc;
 
+#[test]
+fn discord_commands_validate_inputs_and_configuration_changes_are_atomic() {
+    const CHILD: &str = "DEFLORTA_DISCORD_BRIDGE_TEST_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "script::tests::discord_commands_validate_inputs_and_configuration_changes_are_atomic"])
+            .env(CHILD, "1")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::write(
+        directory.path().join("main.js"),
+        r#"
+        import { configure, config, discord, native } from "deflorta";
+        configure({ title: "Before", discord: { applicationId: "1234567890123456789" } });
+        let rejected = 0;
+        const reject = fn => { try { fn(); } catch { rejected++; } };
+        reject(() => configure({ title: "Invalid", discord: { applicationId: 123 } }));
+        reject(() => configure({ discord: { applicationId: "0" } }));
+        reject(() => discord.setActivity({ details: "x" }));
+        reject(() => discord.setActivity({ state: "é".repeat(65) }));
+        reject(() => discord.setActivity({ smallImage: "" }));
+        reject(() => discord.setActivity({ startTimestamp: 1.5 }));
+        reject(() => discord.setActivity([]));
+        reject(() => configure({ discord: NaN }));
+        discord.setActivity({ details: "Reading", state: "Chapter one",
+            largeImage: "cover", largeText: "Cover art", startTimestamp: 123 });
+        discord.clearActivity();
+        discord.setActivity({});
+        native.audio.voice(JSON.stringify({ rejected, title: config.title,
+            applicationId: config.discord.applicationId, frozen: Object.isFrozen(discord) }));
+        configure({ discord: null });
+    "#,
+    )
+    .unwrap();
+    let files = GameFiles::open(directory.path()).unwrap();
+    let mut host = ScriptHost::new(files).unwrap();
+    host.run_main().unwrap();
+    let commands = ScriptHost::take_commands();
+    let activities: Vec<_> = commands
+        .iter()
+        .filter_map(|command| match command {
+            Command::DiscordActivity(activity) => Some(activity),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(activities.len(), 3);
+    let activity = activities[0].as_ref().unwrap();
+    assert_eq!(activity.details.as_deref(), Some("Reading"));
+    assert_eq!(activity.start_timestamp, Some(123));
+    assert!(activities[1].is_none());
+    assert_eq!(
+        activities[2],
+        &Some(deflorta_common::discord::DiscordActivity::default())
+    );
+    let state = commands
+        .iter()
+        .find_map(|command| match command {
+            Command::Voice { file: Some(text) } => {
+                Some(serde_json::from_str::<serde_json::Value>(text).unwrap())
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(state["rejected"], 8);
+    assert_eq!(state["title"], "Before");
+    assert_eq!(state["applicationId"], "1234567890123456789");
+    assert_eq!(state["frozen"], true);
+    let configs: Vec<_> = commands
+        .iter()
+        .filter_map(|command| match command {
+            Command::Configure(config) => Some(config),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(configs.len(), 3);
+    assert!(configs.last().unwrap().discord.is_none());
+}
+
 fn compiled_fixture(name: &str) -> (tempfile::TempDir, GameFiles) {
     let root = crate::workspace_dir().join("tests").join(name);
     let scripts = tempfile::tempdir().unwrap();

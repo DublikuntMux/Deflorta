@@ -1263,6 +1263,7 @@ fn quad_instance(quad: &Quad, texture_uv: [f32; 4], mask_uv: [f32; 4]) -> QuadIn
 #[cfg(test)]
 mod tests {
     use super::{Rect, scissor};
+    use deflorta_common::worker::runtime;
 
     mod notifications;
     mod video;
@@ -1275,7 +1276,7 @@ mod tests {
 
         let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
         let mut assets = Assets::new(files);
-        let mut renderer = pollster::block_on(Renderer::offscreen(32, 32)).unwrap();
+        let mut renderer = runtime().block_on(Renderer::offscreen(32, 32)).unwrap();
         let source = "images/masks/clouds.png";
         let wait_for_image = |assets: &mut Assets| {
             assets.request(source);

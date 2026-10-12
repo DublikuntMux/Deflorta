@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::mpsc::SyncSender;
+use tokio::sync::mpsc::Sender;
 
 use super::{ColorMatrix, ColorRange, Frame, Message, Plane, VideoFrame};
 use crate::files::GameFiles;
@@ -46,11 +46,17 @@ fn decoder_threads() -> u32 {
     })
 }
 
+fn new_vp9_decoder(enabled: bool) -> Result<Option<Vp9Decoder>> {
+    enabled
+        .then(|| Vp9Decoder::new(decoder_threads()))
+        .transpose()
+}
+
 pub(super) fn decode(
     files: &GameFiles,
     path: &str,
     looping: bool,
-    sender: &SyncSender<Message>,
+    sender: &Sender<Message>,
 ) -> Result<(u64, f64)> {
     let mut offset = 0.0;
     let mut frames = 0;
@@ -64,12 +70,8 @@ pub(super) fn decode(
         let mut vp8_decoder = Vp8DecoderState::new();
         #[cfg(feature = "debug-formats")]
         let mut vp8_alpha_decoder = Vp8DecoderState::new();
-        let mut vp9_decoder = vp9
-            .then(|| Vp9Decoder::new(decoder_threads()))
-            .transpose()?;
-        let mut vp9_alpha_decoder = (vp9 && has_alpha)
-            .then(|| Vp9Decoder::new(decoder_threads()))
-            .transpose()?;
+        let mut vp9_decoder = new_vp9_decoder(vp9)?;
+        let mut vp9_alpha_decoder = new_vp9_decoder(vp9 && has_alpha)?;
         let mut end = reader.duration_micros().map_or(0.0, |duration| {
             oxideav_core::TimeBase::MICROS.seconds_of(duration)
         });
@@ -77,6 +79,9 @@ pub(super) fn decode(
         let mut last_interval = 0.0;
         let first_frame = frames;
         loop {
+            if sender.is_closed() {
+                return Ok((frames, offset + end));
+            }
             let packet = match reader.next_packet() {
                 Ok(packet) => packet,
                 Err(Error::Eof) => break,
@@ -131,7 +136,7 @@ pub(super) fn decode(
             }
             if let Some(image) = image {
                 if sender
-                    .send(Message::Frame(Frame {
+                    .blocking_send(Message::Frame(Frame {
                         pts: pts + offset,
                         image: Arc::new(image),
                     }))

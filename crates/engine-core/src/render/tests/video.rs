@@ -1,5 +1,6 @@
 use super::super::*;
 use deflorta_assets::video::{ColorMatrix, ColorRange, Plane, VideoFrame};
+use deflorta_common::worker::runtime;
 
 pub(super) fn invalid_frame() -> VideoFrame {
     VideoFrame {
@@ -56,7 +57,7 @@ fn assert_conversion(output: &image::RgbaImage, frame: &VideoFrame) {
 fn planar_conversion_preserves_color_alpha_strides_and_odd_sizes() {
     let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
     let mut assets = Assets::new(files);
-    let mut renderer = pollster::block_on(Renderer::offscreen(5, 3)).unwrap();
+    let mut renderer = runtime().block_on(Renderer::offscreen(5, 3)).unwrap();
     let plane = |width: u32, height: u32, base: u8| {
         let stride = width + 3;
         let data: Vec<_> = (0..height)
@@ -138,7 +139,7 @@ fn video_is_converted_for_offscreen_and_thumbnail_capture() {
     let mut ui = Ui::new(deflorta_ui::ui::text::TextSystem::new(&files));
     ui.set_config(5.0, 3.0, "Noto Sans");
     ui.set_surface_size(5.0, 3.0);
-    let mut renderer = pollster::block_on(Renderer::offscreen(5, 3)).unwrap();
+    let mut renderer = runtime().block_on(Renderer::offscreen(5, 3)).unwrap();
     let mut frame = VideoFrame::copy(
         (5, 3),
         [(&[120; 15], 5), (&[180; 15], 5), (&[60; 15], 5)],

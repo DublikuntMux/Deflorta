@@ -1,9 +1,9 @@
 use log::warn;
-use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::{Duration, Instant};
+use tokio::sync::oneshot::{self, Receiver, error::TryRecvError};
 
 use deflorta_common::speech::SpeechSnapshot;
-use deflorta_common::worker::{WakeCallback, WorkerWake};
+use deflorta_common::worker::{WakeCallback, WorkerWake, runtime};
 
 #[derive(Default)]
 pub struct SelfVoicing {
@@ -50,21 +50,26 @@ impl SelfVoicing {
     }
 
     fn initialize(&mut self, attempt: u8) {
-        let (sender, receiver) = mpsc::channel();
+        let (sender, receiver) = oneshot::channel();
         let wake = self.wake.clone();
         self.initialization = Some((receiver, attempt));
-        if let Err(err) = std::thread::Builder::new()
-            .name("self-voicing-init".into())
-            .spawn(move || {
-                let speech = tts::Tts::default()
+        runtime().spawn(async move {
+            if sender.is_closed() {
+                return;
+            }
+            let speech = tokio::task::spawn_blocking(|| {
+                tts::Tts::default()
                     .map_err(|err| warn!("Self-voicing unavailable: {err}"))
-                    .ok();
-                let _ = sender.send(speech);
-                wake.notify();
+                    .ok()
             })
-        {
-            warn!("Cannot start self-voicing initialization: {err}");
-        }
+            .await
+            .unwrap_or_else(|err| {
+                warn!("Self-voicing initialization failed: {err}");
+                None
+            });
+            let _ = sender.send(speech);
+            wake.notify();
+        });
     }
 
     #[must_use]
@@ -76,11 +81,11 @@ impl SelfVoicing {
     /// Retry after 2, 4 and 8 seconds, then stop trying.
     /// Returns true when an attempt finishes, including the final failure.
     pub fn retry_initialization(&mut self) -> bool {
-        if let Some((receiver, attempt)) = &self.initialization {
+        if let Some((receiver, attempt)) = &mut self.initialization {
             let speech = match receiver.try_recv() {
                 Err(TryRecvError::Empty) => return false,
                 Ok(speech) => speech,
-                Err(TryRecvError::Disconnected) => None,
+                Err(TryRecvError::Closed) => None,
             };
             let attempt = *attempt;
             self.initialization = None;
@@ -166,7 +171,7 @@ mod tests {
 
     #[test]
     fn pending_initialization_keeps_content_and_is_reused_after_toggle() {
-        let (_sender, receiver) = mpsc::channel();
+        let (_sender, receiver) = oneshot::channel();
         let mut voicing = SelfVoicing {
             enabled: true,
             speech: None,
@@ -200,10 +205,10 @@ mod tests {
             wake: WorkerWake::default(),
         };
         for attempt in 0..=3 {
-            let (sender, receiver) = mpsc::channel();
+            let (sender, receiver) = oneshot::channel();
             voicing.speech_retry = None;
             voicing.initialization = Some((receiver, attempt));
-            sender.send(None).unwrap();
+            assert!(sender.send(None).is_ok());
             let before = Instant::now();
             assert!(voicing.retry_initialization());
             assert_eq!(voicing.initializing(), attempt < 3);
@@ -217,7 +222,7 @@ mod tests {
 
     #[test]
     fn disabling_during_initialization_does_not_schedule_a_retry() {
-        let (sender, receiver) = mpsc::channel();
+        let (sender, receiver) = oneshot::channel();
         let mut voicing = SelfVoicing {
             enabled: true,
             speech: None,
@@ -227,10 +232,27 @@ mod tests {
             wake: WorkerWake::default(),
         };
         voicing.set_enabled(false);
-        sender.send(None).unwrap();
+        assert!(sender.send(None).is_ok());
         assert!(voicing.retry_initialization());
         assert!(!voicing.initializing());
         assert_eq!(voicing.next_retry(), None);
+    }
+
+    #[test]
+    fn interrupted_initialization_schedules_a_retry() {
+        let (sender, receiver) = oneshot::channel();
+        let mut voicing = SelfVoicing {
+            enabled: true,
+            speech: None,
+            previous: SpeechSnapshot::default(),
+            speech_retry: None,
+            initialization: Some((receiver, 0)),
+            wake: WorkerWake::default(),
+        };
+        drop(sender);
+        assert!(voicing.retry_initialization());
+        assert!(voicing.initializing());
+        assert_eq!(voicing.speech_retry.unwrap().1, 1);
     }
 
     #[test]

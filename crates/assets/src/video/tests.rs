@@ -50,18 +50,21 @@ fn fixtures() -> GameFiles {
 }
 
 fn decode_frames(files: &GameFiles, path: &str) -> (Vec<Frame>, f64) {
-    let (sender, receiver) = sync_channel(QUEUE_AHEAD);
+    let (sender, mut receiver) = channel(QUEUE_AHEAD);
     let files = files.clone();
     let path = path.to_owned();
-    let thread = std::thread::spawn(move || decode(&files, &path, false, &sender));
-    let frames: Vec<_> = receiver
-        .into_iter()
-        .map(|message| match message {
-            Message::Frame(frame) => frame,
-            Message::End(_) => unreachable!(),
-        })
-        .collect();
-    let (count, duration) = thread.join().unwrap().unwrap();
+    let decoder = runtime().spawn_blocking(move || decode(&files, &path, false, &sender));
+    let (frames, result) = runtime().block_on(async {
+        let mut frames = Vec::new();
+        while let Some(message) = receiver.recv().await {
+            let Message::Frame(frame) = message else {
+                unreachable!()
+            };
+            frames.push(frame);
+        }
+        (frames, decoder.await.unwrap().unwrap())
+    });
+    let (count, duration) = result;
     assert_eq!(usize::try_from(count).unwrap(), frames.len());
     (frames, duration)
 }
@@ -177,22 +180,49 @@ fn check_video_loop(path: &'static str) {
     } else {
         8
     };
-    let (sender, receiver) = sync_channel(QUEUE_AHEAD);
-    let thread = std::thread::spawn(move || decode(&files, path, true, &sender));
-    let frames: Vec<_> = (0..count * 2)
-        .map(|_| {
-            let Message::Frame(frame) = receiver.recv_timeout(Duration::from_secs(5)).unwrap()
-            else {
-                panic!("loop ended");
+    let (sender, mut receiver) = channel(QUEUE_AHEAD);
+    let decoder = runtime().spawn_blocking(move || decode(&files, path, true, &sender));
+    let frames = runtime().block_on(async {
+        let mut frames = Vec::new();
+        for _ in 0..count * 2 {
+            let message = tokio::time::timeout(Duration::from_secs(5), receiver.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            let Message::Frame(frame) = message else {
+                panic!("loop ended")
             };
-            frame
-        })
-        .collect();
+            frames.push(frame);
+        }
+        frames
+    });
     assert!(frames[count].pts > frames[count - 1].pts);
     assert_eq!(frames[0].image, frames[count].image);
     assert_eq!(frames[count - 1].image, frames[count * 2 - 1].image);
+    runtime().block_on(async {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while receiver.len() < QUEUE_AHEAD {
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+        })
+        .await
+        .unwrap();
+    });
+    assert!(
+        !decoder.is_finished(),
+        "a full queue must backpressure looping playback"
+    );
     drop(receiver);
-    assert!(thread.join().unwrap().is_ok());
+    assert!(
+        runtime()
+            .block_on(async {
+                tokio::time::timeout(Duration::from_secs(5), decoder)
+                    .await
+                    .unwrap()
+                    .unwrap()
+            })
+            .is_ok()
+    );
 }
 
 #[test]
@@ -269,20 +299,20 @@ fn decodes_h264_profiles_cropping_and_reordered_frames() {
 #[test]
 fn end_event_waits_for_last_frame_duration_and_fires_once() {
     let now = Instant::now();
-    let (sender, receiver) = sync_channel(QUEUE_AHEAD);
+    let (sender, receiver) = channel(QUEUE_AHEAD);
     sender
-        .send(Message::Frame(Frame {
+        .blocking_send(Message::Frame(Frame {
             pts: 0.0,
             image: Arc::new(test_frame()),
         }))
         .unwrap();
-    sender.send(Message::End(0.1)).unwrap();
+    sender.blocking_send(Message::End(0.1)).unwrap();
     let mut player = VideoPlayer {
         src: "test.webm".into(),
         looping: false,
         clock: Arc::new(PlaybackClock::new(now)),
         size: Some((1, 1)),
-        receiver,
+        receiver: RefCell::new(receiver),
         state: RefCell::new(State {
             queue: VecDeque::new(),
             current: None,

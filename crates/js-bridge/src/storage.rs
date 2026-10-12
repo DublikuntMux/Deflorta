@@ -1,13 +1,15 @@
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
-use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, bail};
 use log::{debug, warn};
 use serde::Serialize;
+use tokio::sync::mpsc;
 
 use crate::worker::WorkerWake;
 
@@ -64,90 +66,37 @@ pub struct Storage {
     persisted: HashMap<String, Entry>,
     pending: HashMap<String, u64>,
     next_revision: u64,
-    jobs: Option<Arc<Sender<Job>>>,
-    results: Receiver<Completion>,
-    thread: Option<JoinHandle<()>>,
+    jobs: Option<Arc<mpsc::UnboundedSender<Job>>>,
+    results: mpsc::UnboundedReceiver<Completion>,
+    finished: Option<Receiver<()>>,
+    worker_id: usize,
 }
 
 impl Storage {
     pub fn new(dir: PathBuf, wake: WorkerWake) -> Self {
-        let (jobs, receiver) = channel();
-        let (sender, results) = channel();
+        static NEXT_WORKER: AtomicUsize = AtomicUsize::new(1);
+        let worker_id = NEXT_WORKER.fetch_add(1, Ordering::Relaxed);
+        let (jobs, receiver) = mpsc::unbounded_channel();
+        let (sender, results) = mpsc::unbounded_channel();
         let (initialized, snapshot) = channel();
+        let (done, finished) = channel();
         let worker_dir = dir.clone();
-        let thread = std::thread::Builder::new()
-            .name("storage".into())
-            .spawn(move || {
-                if initialized.send(load_entries(&worker_dir)).is_err() {
-                    return;
-                }
-                while let Ok(job) = receiver.recv() {
-                    let completion = match job {
-                        Job::Json {
-                            name,
-                            revision,
-                            entry,
-                        } => {
-                            let path = worker_dir.join(format!("{name}.json"));
-                            let result = entry.as_ref().map_or_else(
-                                || remove(&path),
-                                |entry| {
-                                    atomic_write(&path, |tmp| {
-                                        Ok(std::fs::write(tmp, entry.text.as_bytes())?)
-                                    })
-                                },
-                            );
-                            Completion::Json {
-                                name,
-                                revision,
-                                entry,
-                                result: result
-                                    .map_err(|e| format!("storage: {}: {e:#}", path.display())),
-                            }
-                        }
-                        Job::Thumbnail { path, image } => {
-                            let result = image.map_or_else(
-                                || remove(&path),
-                                |image| {
-                                    atomic_write(&path, |tmp| {
-                                        Ok(image.save_with_format(tmp, image::ImageFormat::Png)?)
-                                    })
-                                },
-                            );
-                            Completion::Thumbnail {
-                                available: path.is_file(),
-                                result: result
-                                    .map_err(|e| format!("thumbnail: {}: {e:#}", path.display())),
-                                path,
-                            }
-                        }
-                        Job::Flush(done) => {
-                            let _ = done.send(());
-                            continue;
-                        }
-                    };
-                    // Report failures even when shutdown leaves no event loop to
-                    // receive them. Normal operation also delivers them to JS.
-                    let result = match &completion {
-                        Completion::Json { result, .. } | Completion::Thumbnail { result, .. } => {
-                            result
-                        }
-                    };
-                    if let Err(error) = result {
-                        warn!("{error}");
-                    }
-                    if sender.send(completion).is_err() {
-                        return;
-                    }
-                    wake.notify();
-                }
-            })
-            .expect("spawn storage worker");
+        let initial_dir = worker_dir.clone();
+        let initialization = deflorta_common::worker::runtime().spawn_blocking(move || {
+            let _active = BlockingStorageJob::enter(worker_id);
+            initialized.send(load_entries(&initial_dir)).is_ok()
+        });
+        deflorta_common::worker::runtime().spawn(STORAGE_WORKER.scope(worker_id, async move {
+            if initialization.await.expect("load storage snapshot") {
+                persist_jobs(worker_dir, receiver, sender, wake, worker_id).await;
+            }
+            let _ = done.send(());
+        }));
         // Configuration happens before the game boots. The initial disk scan
         // runs on the worker; subsequent reads never touch the filesystem.
         let entries = snapshot.recv().expect("storage snapshot");
         let jobs = Arc::new(jobs);
-        let flush = panic_flush_handle(&jobs, thread.thread().id());
+        let flush = panic_flush_handle(&jobs, worker_id);
         deflorta_common::crash::set_storage(dir.clone(), flush);
         Self {
             dir,
@@ -157,7 +106,8 @@ impl Storage {
             next_revision: 0,
             jobs: Some(jobs),
             results,
-            thread: Some(thread),
+            finished: Some(finished),
+            worker_id,
         }
     }
 
@@ -221,6 +171,9 @@ impl Storage {
 
     /// Only used at shutdown or by tests; interaction never waits for disk.
     pub fn flush(&self) -> Result<()> {
+        if active_storage_worker(self.worker_id) {
+            bail!("cannot flush storage from its own persistence job");
+        }
         let (done, receiver) = channel();
         self.send(Job::Flush(done))?;
         receiver
@@ -265,12 +218,12 @@ impl Storage {
 }
 
 fn panic_flush_handle(
-    jobs: &Arc<Sender<Job>>,
-    worker: std::thread::ThreadId,
+    jobs: &Arc<mpsc::UnboundedSender<Job>>,
+    worker_id: usize,
 ) -> deflorta_common::crash::StorageFlush {
     let jobs = Arc::downgrade(jobs);
     Arc::new(move |timeout: Duration| {
-        if std::thread::current().id() == worker {
+        if active_storage_worker(worker_id) {
             return false;
         }
         let Some(jobs) = jobs.upgrade() else {
@@ -286,9 +239,114 @@ impl Drop for Storage {
         // Closing the queue drains every accepted write, including quit-time
         // autosaves and thumbnails, before the process can exit.
         self.jobs.take();
-        if let Some(thread) = self.thread.take() {
-            let _ = thread.join();
+        if let Some(finished) = self.finished.take()
+            && !active_storage_worker(self.worker_id)
+        {
+            let _ = finished.recv();
         }
+    }
+}
+
+tokio::task_local! {
+    static STORAGE_WORKER: usize;
+}
+
+thread_local! {
+    static BLOCKING_STORAGE_JOB: Cell<Option<usize>> = const { Cell::new(None) };
+}
+
+fn active_storage_worker(worker_id: usize) -> bool {
+    STORAGE_WORKER
+        .try_with(|active| *active == worker_id)
+        .unwrap_or(false)
+        || BLOCKING_STORAGE_JOB.with(|active| active.get() == Some(worker_id))
+}
+
+/// Blocking-pool threads are reused: identify only the active storage job.
+struct BlockingStorageJob(Option<usize>);
+
+impl BlockingStorageJob {
+    fn enter(worker_id: usize) -> Self {
+        Self(BLOCKING_STORAGE_JOB.with(|active| active.replace(Some(worker_id))))
+    }
+}
+
+impl Drop for BlockingStorageJob {
+    fn drop(&mut self) {
+        BLOCKING_STORAGE_JOB.with(|active| active.set(self.0));
+    }
+}
+
+async fn persist_jobs(
+    dir: PathBuf,
+    mut receiver: mpsc::UnboundedReceiver<Job>,
+    sender: mpsc::UnboundedSender<Completion>,
+    wake: WorkerWake,
+    worker_id: usize,
+) {
+    while let Some(job) = receiver.recv().await {
+        if let Job::Flush(done) = job {
+            let _ = done.send(());
+            continue;
+        }
+        let dir = dir.clone();
+        // Await each blocking operation before accepting the next, preserving
+        // JSON and thumbnail ordering while sharing Tokio's blocking pool.
+        let completion = tokio::task::spawn_blocking(move || {
+            let _active = BlockingStorageJob::enter(worker_id);
+            persist_job(&dir, job)
+        })
+        .await
+        .expect("storage persistence job");
+        // Log failures even if shutdown leaves no event loop to poll results.
+        let result = match &completion {
+            Completion::Json { result, .. } | Completion::Thumbnail { result, .. } => result,
+        };
+        if let Err(error) = result {
+            warn!("{error}");
+        }
+        if sender.send(completion).is_err() {
+            return;
+        }
+        wake.notify();
+    }
+}
+
+fn persist_job(dir: &Path, job: Job) -> Completion {
+    match job {
+        Job::Json {
+            name,
+            revision,
+            entry,
+        } => {
+            let path = dir.join(format!("{name}.json"));
+            let result = entry.as_ref().map_or_else(
+                || remove(&path),
+                |entry| atomic_write(&path, |tmp| Ok(std::fs::write(tmp, entry.text.as_bytes())?)),
+            );
+            Completion::Json {
+                name,
+                revision,
+                entry,
+                result: result.map_err(|e| format!("storage: {}: {e:#}", path.display())),
+            }
+        }
+        Job::Thumbnail { path, image } => {
+            let result = image.map_or_else(
+                || remove(&path),
+                |image| {
+                    atomic_write(&path, |tmp| {
+                        Ok(image.save_with_format(tmp, image::ImageFormat::Png)?)
+                    })
+                },
+            );
+            Completion::Thumbnail {
+                available: path.is_file(),
+                result: result.map_err(|e| format!("thumbnail: {}: {e:#}", path.display())),
+                path,
+            }
+        }
+        Job::Flush(_) => unreachable!("flush acknowledgements do not access disk"),
     }
 }
 
@@ -411,10 +469,7 @@ mod tests {
     fn panic_flush_drains_queued_saves_without_keeping_the_worker_alive() {
         let dir = TestDir::new();
         let mut storage = Storage::new(dir.0.clone(), WorkerWake::default());
-        let flush = panic_flush_handle(
-            storage.jobs.as_ref().unwrap(),
-            storage.thread.as_ref().unwrap().thread().id(),
-        );
+        let flush = panic_flush_handle(storage.jobs.as_ref().unwrap(), storage.worker_id);
         storage.write("save".into(), "queued".into()).unwrap();
         assert!(flush(Duration::from_secs(2)));
         assert_eq!(
@@ -427,15 +482,20 @@ mod tests {
 
     #[test]
     fn panic_flush_skips_the_worker_and_times_out_on_a_stalled_queue() {
-        let (jobs, receiver) = channel();
+        let (jobs, mut receiver) = mpsc::unbounded_channel();
         let jobs = Arc::new(jobs);
-        let flush = panic_flush_handle(&jobs, std::thread::current().id());
-        assert!(!flush(Duration::from_secs(2)));
+        let worker_id = usize::MAX;
+        let flush = panic_flush_handle(&jobs, worker_id);
+        {
+            let _active = BlockingStorageJob::enter(worker_id);
+            assert!(!flush(Duration::from_secs(2)));
+        }
         assert!(receiver.try_recv().is_err());
-        let worker = std::thread::spawn(|| std::thread::current().id())
-            .join()
-            .unwrap();
-        let flush = panic_flush_handle(&jobs, worker);
+        deflorta_common::worker::runtime().block_on(STORAGE_WORKER.scope(worker_id, async {
+            assert!(!flush(Duration::from_secs(2)));
+        }));
+        assert!(receiver.try_recv().is_err());
+        // The same thread stops being a storage worker when its job ends.
         let started = std::time::Instant::now();
         assert!(!flush(Duration::from_millis(10)));
         assert!(started.elapsed() < Duration::from_secs(1));

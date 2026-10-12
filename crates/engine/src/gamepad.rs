@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use deflorta_common::worker::runtime;
 use gilrs::{Axis, Button, EventType, Gilrs};
 use log::{info, warn};
 use winit::event_loop::EventLoopProxy;
@@ -68,14 +69,10 @@ impl HeldKeys {
 
 pub(super) fn start(proxy: EventLoopProxy<AppEvent>) {
     // Gilrs has no Android backend. Android's keys arrive through winit instead.
-    // The worker lives for the event loop/process lifetime; no idle polling is
-    // necessary, including when no controllers are connected.
-    if let Err(error) = std::thread::Builder::new()
-        .name("deflorta-gamepad".into())
-        .spawn(move || run(&proxy))
-    {
-        warn!("Cannot start gamepad worker: {error}");
-    }
+    // Keep Gilrs creation and all blocking backend calls in one Tokio blocking
+    // task for thread affinity. The worker lives for the event loop/process
+    // lifetime, with no idle polling when no controllers are connected.
+    runtime().spawn_blocking(move || run(&proxy));
 }
 
 fn run(proxy: &EventLoopProxy<AppEvent>) {

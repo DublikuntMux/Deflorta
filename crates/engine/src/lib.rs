@@ -1,5 +1,8 @@
 mod app;
 
+#[cfg(not(target_os = "android"))]
+mod discord;
+
 #[cfg(target_os = "android")]
 mod android_ime;
 

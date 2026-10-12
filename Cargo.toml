@@ -69,8 +69,8 @@ oxideav-core = "0.1.39"
 oxideav-h264 = "0.1.8"
 oxideav-mkv = "0.0.11"
 oxideav-vp8 = { version = "0.2.7", default-features = false }
-pollster = "1.0.1"
 pretty_env_logger = "0.5.0"
+presenceforge = { version = "0.3.0", features = ["tokio-runtime"] }
 rustc-hash = "2.1.3"
 symphonia = { version = "0.6.1", default-features = false }
 symphonia-core = "0.6.1"
@@ -78,6 +78,7 @@ sysinfo = { version = "0.39.6", default-features = false }
 taffy = "0.14.0"
 tempfile = "3.27.0"
 tts = "0.26.3"
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "sync", "time", "macros"] }
 wgpu = { version = "30.0.1", features = ["spirv"] }
 winit = "0.30.13"
 

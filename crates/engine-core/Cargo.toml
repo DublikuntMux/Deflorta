@@ -21,6 +21,7 @@ sysinfo = { workspace = true, features = ["system"], optional = true }
 winit.workspace = true
 accesskit.workspace = true
 tts.workspace = true
+tokio.workspace = true
 wgpu.workspace = true
 glyphon.workspace = true
 etagere.workspace = true
@@ -44,4 +45,3 @@ naga = { workspace = true, features = ["wgsl-in", "spv-out"] }
 deflorta-script-build.workspace = true
 tempfile.workspace = true
 serde_json.workspace = true
-pollster.workspace = true

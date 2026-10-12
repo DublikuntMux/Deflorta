@@ -13,13 +13,14 @@ mod tests;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, SyncSender, TryRecvError, sync_channel};
 use std::time::Instant;
 
 use anyhow::Result;
 use log::{debug, error, info, warn};
+use tokio::sync::mpsc::{Receiver, Sender, channel, error::TryRecvError};
 
 use crate::files::GameFiles;
+use crate::worker::runtime;
 
 const QUEUE_AHEAD: usize = 4;
 
@@ -48,7 +49,7 @@ pub struct VideoPlayer {
     looping: bool,
     clock: Arc<PlaybackClock>,
     size: Option<(u32, u32)>,
-    receiver: Receiver<Message>,
+    receiver: RefCell<Receiver<Message>>,
     state: RefCell<State>,
 }
 
@@ -57,40 +58,37 @@ impl VideoPlayer {
     ///
     /// # Panics
     ///
-    /// Panics if the video decoder worker thread cannot be started.
+    /// Panics if the shared worker runtime cannot be started.
     pub fn open(src: &str, files: &GameFiles, path: &str, looping: bool, now: Instant) -> Self {
-        let (sender, receiver) = sync_channel(QUEUE_AHEAD);
+        let (sender, receiver) = channel(QUEUE_AHEAD);
         let size = probe_size(files, path)
             .map_err(|e| warn!("Cannot open video '{src}': {e:#}"))
             .ok();
         if let Some((w, h)) = size {
             info!("Playing video '{src}' ({w}x{h}, loop: {looping})");
         }
-        let thread_files = files.clone();
-        let thread_path = path.to_owned();
-        let thread_src = src.to_owned();
-        std::thread::Builder::new()
-            .name(format!("video {src}"))
-            .spawn(move || {
-                let end_pts = match decode(&thread_files, &thread_path, looping, &sender) {
-                    Ok((frames, end_pts)) => {
-                        debug!("Video '{thread_src}' decoding finished after {frames} frames");
-                        end_pts
-                    }
-                    Err(err) => {
-                        error!("Video '{thread_src}' failed: {err:#}");
-                        0.0
-                    }
-                };
-                let _ = sender.send(Message::End(end_pts));
-            })
-            .expect("spawn video thread");
+        let decode_files = files.clone();
+        let decode_path = path.to_owned();
+        let decode_src = src.to_owned();
+        runtime().spawn_blocking(move || {
+            let end_pts = match decode(&decode_files, &decode_path, looping, &sender) {
+                Ok((frames, end_pts)) => {
+                    debug!("Video '{decode_src}' decoding finished after {frames} frames");
+                    end_pts
+                }
+                Err(err) => {
+                    error!("Video '{decode_src}' failed: {err:#}");
+                    0.0
+                }
+            };
+            let _ = sender.blocking_send(Message::End(end_pts));
+        });
         Self {
             src: src.to_owned(),
             looping,
             clock: Arc::new(PlaybackClock::new(now)),
             size,
-            receiver,
+            receiver: RefCell::new(receiver),
             state: RefCell::new(State {
                 queue: VecDeque::new(),
                 current: None,
@@ -137,10 +135,11 @@ impl VideoPlayer {
     /// The frame to show at `now`, with a serial that changes whenever the frame does.
     pub fn frame(&self, now: Instant) -> Option<(u64, Arc<VideoFrame>)> {
         let mut state = self.state.borrow_mut();
+        let mut receiver = self.receiver.borrow_mut();
         let elapsed = self.clock.elapsed(now);
         loop {
             while state.queue.len() < QUEUE_AHEAD && !state.decoding_done {
-                match self.receiver.try_recv() {
+                match receiver.try_recv() {
                     Ok(Message::Frame(frame)) => state.queue.push_back(frame),
                     Ok(Message::End(end_pts)) => {
                         state.end_pts = end_pts;
@@ -177,8 +176,11 @@ fn decode(
     files: &GameFiles,
     path: &str,
     looping: bool,
-    sender: &SyncSender<Message>,
+    sender: &Sender<Message>,
 ) -> Result<(u64, f64)> {
+    if sender.is_closed() {
+        return Ok((0, 0.0));
+    }
     #[cfg(feature = "debug-formats")]
     if !crate::media::is_webm(files, path)? {
         return h264::decode(files, path, looping, sender);

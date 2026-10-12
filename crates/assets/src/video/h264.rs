@@ -1,6 +1,6 @@
 use std::io::BufReader;
 use std::sync::Arc;
-use std::sync::mpsc::SyncSender;
+use tokio::sync::mpsc::Sender;
 
 use super::{ColorMatrix, ColorRange, Frame, Message, VideoFrame};
 use crate::files::{GameFiles, GameReader};
@@ -36,11 +36,14 @@ pub(super) fn decode(
     files: &GameFiles,
     path: &str,
     looping: bool,
-    sender: &SyncSender<Message>,
+    sender: &Sender<Message>,
 ) -> Result<(u64, f64)> {
     let mut offset = 0.0;
     let mut frames = 0;
     loop {
+        if sender.is_closed() {
+            return Ok((frames, offset));
+        }
         let mut reader = open_reader(files, path)?;
         let track = video_track(&reader)?;
         let track_id = track.track_id();
@@ -66,6 +69,9 @@ pub(super) fn decode(
         let count = reader.sample_count(track_id)?;
         let previous_frames = frames;
         for id in 1..=count {
+            if sender.is_closed() {
+                return Ok((frames, offset + duration));
+            }
             let sample = reader
                 .read_sample(track_id, id)?
                 .context("missing MP4 video sample")?;
@@ -145,7 +151,7 @@ fn drain(
     decoder: &mut H264CodecDecoder,
     time_base: TimeBase,
     offset: f64,
-    sender: &SyncSender<Message>,
+    sender: &Sender<Message>,
     frames: &mut u64,
 ) -> Result<bool> {
     ensure!(
@@ -165,7 +171,7 @@ fn drain(
             .context("missing H.264 sequence parameters")?;
         let image = to_planar(&frame, sps)?;
         if sender
-            .send(Message::Frame(Frame {
+            .blocking_send(Message::Frame(Frame {
                 pts,
                 image: Arc::new(image),
             }))

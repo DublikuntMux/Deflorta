@@ -1,4 +1,26 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+
+/// Shared executor for background engine services.
+///
+/// Blocking codecs and native APIs run with `spawn_blocking`; async tasks
+/// coordinate queues, I/O and timers.
+/// The runtime lives for the process lifetime, including headless launchers.
+///
+/// # Panics
+///
+/// Panics if Tokio cannot create its worker threads.
+#[must_use]
+pub fn runtime() -> &'static tokio::runtime::Runtime {
+    static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
+    RUNTIME.get_or_init(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("deflorta-worker")
+            .enable_all()
+            .build()
+            .expect("start engine background runtime")
+    })
+}
 
 pub type WakeCallback = Arc<dyn Fn() + Send + Sync>;
 
@@ -41,9 +63,45 @@ mod tests {
         wake.set(Arc::new(move || sender.send(()).unwrap()));
         receiver.try_recv().unwrap();
         let worker = wake.clone();
-        std::thread::spawn(move || worker.notify()).join().unwrap();
+        runtime()
+            .block_on(runtime().spawn_blocking(move || worker.notify()))
+            .unwrap();
         receiver.try_recv().unwrap();
         wake.notify();
         receiver.try_recv().unwrap();
+    }
+
+    #[test]
+    fn blocking_jobs_do_not_stall_async_wakeups() {
+        assert!(std::ptr::eq(runtime(), runtime()));
+        let (entered, waiting) = channel();
+        let mut release = Vec::new();
+        let mut jobs = Vec::new();
+        for _ in 0..2 {
+            let (sender, receiver) = channel();
+            release.push(sender);
+            let entered = entered.clone();
+            jobs.push(runtime().spawn_blocking(move || {
+                entered.send(()).unwrap();
+                receiver.recv().unwrap();
+            }));
+        }
+        for _ in 0..2 {
+            waiting
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .unwrap();
+        }
+        let (completed, completion) = channel();
+        runtime().spawn(async move {
+            completed.send(()).unwrap();
+        });
+        let result = completion.recv_timeout(std::time::Duration::from_secs(2));
+        for sender in release {
+            sender.send(()).unwrap();
+        }
+        for job in jobs {
+            runtime().block_on(job).unwrap();
+        }
+        result.unwrap();
     }
 }

@@ -41,6 +41,7 @@ serde.workspace = true
 lz4.workspace = true
 fontdb.workspace = true
 symphonia-core.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

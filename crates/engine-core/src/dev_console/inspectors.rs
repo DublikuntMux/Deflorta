@@ -476,7 +476,9 @@ mod tests {
         script.enable_console().unwrap();
         let ui = crate::ui::Ui::new(crate::ui::text::TextSystem::new(&files));
         let mut engine = Engine::new(script, crate::assets::Assets::new(files), ui, None);
-        let mut renderer = pollster::block_on(Renderer::offscreen(1280, 720)).unwrap();
+        let mut renderer = deflorta_common::worker::runtime()
+            .block_on(Renderer::offscreen(1280, 720))
+            .unwrap();
         engine.resize(1280, 720);
         let now = Instant::now();
         let items = engine.frame(now);

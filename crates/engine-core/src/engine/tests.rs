@@ -1,5 +1,7 @@
 use super::*;
+use deflorta_common::worker::runtime;
 
+mod discord;
 mod frame_events;
 mod notifications;
 
@@ -23,7 +25,7 @@ fn cleanup_deadlines_stop_for_empty_and_retained_scenes_and_resume_for_preloads(
     let host = ScriptHost::new(files.clone()).unwrap();
     let ui = Ui::new(crate::ui::text::TextSystem::new(&files));
     let mut engine = Engine::new(host, Assets::new(files), ui, None);
-    let mut renderer = pollster::block_on(Renderer::offscreen(32, 32)).unwrap();
+    let mut renderer = runtime().block_on(Renderer::offscreen(32, 32)).unwrap();
     let now = Instant::now();
     assert_eq!(engine.next_resource_cleanup(), None);
     engine.collect_unused_resources(&mut renderer, now);

@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::value::{self, Handler, HandlerSink, from_js, from_js_with_handlers, to_js};
 use super::{HandlerTable, throw_error, with_state};
 use deflorta_common::desc::{AnimDesc, Color, NodeDesc};
+use deflorta_common::discord::{DiscordActivity, DiscordConfig};
 use deflorta_common::notification::{NotificationId, NotificationOptions, next_notification_id};
 
 #[derive(Serialize)]
@@ -71,6 +72,7 @@ pub enum HandlerValue {
 
 pub enum Command {
     Configure(GameConfig),
+    DiscordActivity(Option<DiscordActivity>),
     SetTimer {
         id: u64,
         ms: f64,
@@ -160,6 +162,8 @@ pub struct GameConfig {
     /// Request continuous redraws and report successful presentation intervals.
     #[serde(default)]
     pub frame_events: bool,
+    #[serde(default)]
+    pub discord: Option<DiscordConfig>,
 }
 
 #[derive(Deserialize)]
@@ -204,6 +208,13 @@ type Module = &'static [(&'static CStr, Native, u32)];
 const ROOT: Module = &[(c"log", log_message, 2), (c"connect", connect, 2)];
 
 const MODULES: &[(&CStr, Module)] = &[
+    (
+        c"discord",
+        &[
+            (c"setActivity", discord_set_activity, 1),
+            (c"clearActivity", discord_clear_activity, 0),
+        ],
+    ),
     (c"files", &[(c"readText", files_read_text, 1)]),
     (
         c"storage",
@@ -449,6 +460,16 @@ native! {
 
     fn app_configure(args) {
         queue(Command::Configure(args.get(0)?));
+        Ok(())
+    }
+
+    fn discord_set_activity(args) {
+        queue(Command::DiscordActivity(Some(args.get(0)?)));
+        Ok(())
+    }
+
+    fn discord_clear_activity(_args) {
+        queue(Command::DiscordActivity(None));
         Ok(())
     }
 
