@@ -69,29 +69,29 @@ Engine distribution layout
 profiles, and template data. Windows executable names have an ``.exe`` suffix.
 
 .. kroki::
-   :type: graphviz
+   :type: plantuml
    :caption: Engine distribution layout, shown for Linux x86_64.
    :align: center
 
-   digraph distribution {
-       graph [bgcolor="transparent", rankdir=LR];
-       node [shape=box, style="rounded,filled", fillcolor="#f1f5f9",
-             color="#475569", fontcolor="#0f172a", fontname="sans-serif"];
-       edge [color="#475569", arrowhead=none];
-       root [label="dist/"];
-       cli [label="deflorta\nDeveloper CLI"];
-       target [label="target/"];
-       platform [label="linux-x86_64/"];
-       debug [label="debug/\ndeflorta-launcher"];
-       release [label="release/\ndeflorta-launcher"];
-       template [label="template/"];
-       game [label="game/\nStarter files, fonts, license,\neditor declarations"];
-       runtime [label="runtime/\nJS sources for analysis and\ntranslation extraction"];
-       root -> { cli target template };
-       target -> platform;
-       platform -> { debug release };
-       template -> { game runtime };
+   @startsalt
+   skinparam backgroundColor transparent
+   scale 1.2
+   {
+       {T
+           + dist/ | .
+           ++ deflorta | Developer CLI
+           ++ target/ | .
+           +++ linux-x86_64/ | .
+           ++++ debug/ | .
+           +++++ deflorta-launcher | Debug launcher
+           ++++ release/ | .
+           +++++ deflorta-launcher | Release launcher
+           ++ template/ | .
+           +++ game/ | Starter files, fonts, license, editor declarations
+           +++ runtime/ | JS sources for analysis and translation extraction
+       }
    }
+   @endsalt
 
 Platform names follow ``<os>-<arch>``. The CLI resolves these directories
 beside its executable, not from the working directory. Runtime folders can

@@ -92,16 +92,20 @@ event-driven loop avoids continuous redraws while idle.
 Asset decoding and video
 ------------------------
 
-Images decode on a background pool. An incoming tree waits up to 1.5 seconds
-for image decoding before display, so transitions can begin with their images.
+Images decode through Tokio's shared blocking pool, with at most two concurrent
+image jobs. Async queue consumers publish results and wake the event loop.
+An incoming tree waits up to 1.5 seconds for image decoding before display,
+so transitions can begin with their images.
 Workers wake the window event loop after publishing a result; loading does
 not require periodic polling. Explicit deadlines preserve the image wait
-limit and thumbnail settling timeout. Connected gamepads still poll for input.
+limit and thumbnail settling timeout. Gamepads wait for native input events
+in a Tokio blocking task.
 ``preload()`` decodes early. Unused textures expire after 60 seconds;
 see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
-Video uses a background thread decoding a few frames ahead. Its playback
-clock pauses during Android suspension and follows the soundtrack position
+Video uses a Tokio blocking task with a bounded four-frame channel for
+backpressure. Dropping the player closes the channel and stops decoding.
+Its playback clock pauses during Android suspension and follows the soundtrack position
 when audio is playing, including loops. Silent videos use the pausable clock.
 Decoders retain native YUV planes and color matrix/range information. The GPU
 converts uploaded R8 planes into a reused RGBA texture for the quad pipeline;
@@ -118,8 +122,9 @@ source asset names. Format limits are in
 :doc:`../reference/assets`. Both directories and archives provide seekable
 media reads through the shared file abstraction.
 
-Sound effects decode on an audio-loading worker. Music, voice, and video
-soundtracks are opened and prepared there too, including Kira's initial
+Sound effects decode through a serialized Tokio queue that offloads each job
+to the blocking pool. Music, voice, and video soundtracks are opened and
+prepared there too, including Kira's initial
 decoder seek. Track controls stay on the event thread; audio processing
 publishes the soundtrack position to the video clock.
 Stopping or replacing a pending stream invalidates its result, and video

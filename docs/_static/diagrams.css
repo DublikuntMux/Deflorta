@@ -1,10 +1,12 @@
 @media screen {
-  body[data-theme="dark"] img.kroki-graphviz {
+  body[data-theme="dark"] img.kroki-plantuml,
+  body[data-theme="dark"] img.kroki-rackdiag {
     filter: invert(1) hue-rotate(180deg);
   }
 
   @media (prefers-color-scheme: dark) {
-    body:not([data-theme="light"]) img.kroki-graphviz {
+    body:not([data-theme="light"]) img.kroki-plantuml,
+    body:not([data-theme="light"]) img.kroki-rackdiag {
       filter: invert(1) hue-rotate(180deg);
     }
   }

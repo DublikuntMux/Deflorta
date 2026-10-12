@@ -35,6 +35,8 @@ property atoms; unknown fields are skipped without reading their values.
      - Set and clear engine timers.
    * - ``app``
      - Platform query, configuration, fullscreen, self-voicing, and quit.
+   * - ``discord``
+     - Replace or clear desktop Rich Presence activity.
    * - ``audio``
      - Music, sound, voice, and channel volumes.
    * - ``ui``
@@ -55,12 +57,33 @@ the engine. Direct arguments are plain data: own enumerable properties,
 ``undefined`` omitted, non-finite numbers treated as null, and no invocation
 of ``toJSON``. JSON remains the on-disk save and story snapshot format.
 
+Discord commands retain the latest desired activity in the engine. The desktop
+application sends it through an async task on the shared Tokio runtime using
+``presenceforge``, with deadlines on connection and response handling. Android,
+startup inspection, and headless tests never start that task.
+
 Storage loads a session snapshot on its worker during configuration, before
 boot. Reads and listings use that snapshot; writes and removals update it
 immediately and queue ordered, atomic disk operations. Failed operations
 restore the latest persisted value unless a newer operation is pending.
 Errors are logged even during shutdown, when no event loop remains to
 deliver them. External edits become visible in the next session.
+
+Background scheduling
+---------------------
+
+``deflorta-common::worker::runtime()`` lazily creates one process-wide Tokio
+runtime with two async worker threads. Image/audio queue coordination, ordered
+storage persistence, and Discord I/O share it. Codecs, filesystem operations,
+speech initialization, and blocking gamepad APIs use ``spawn_blocking`` so they
+cannot occupy the async workers. Idle queue consumers await Tokio channels.
+
+Storage awaits each disk job before starting the next, preserving save and
+thumbnail ordering. Its synchronous startup, shutdown, and panic-flush paths
+use acknowledgements; panic flushing recognizes the active task or blocking
+job rather than a permanently assigned thread. Blocking-pool threads can
+therefore be reused safely. Gamepad handling retains one blocking task for
+backend thread affinity and waits for native events until process exit.
 
 UI descriptors and callback lifetimes
 -------------------------------------

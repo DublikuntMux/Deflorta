@@ -65,8 +65,9 @@ UI and scripting in parallel and keeps changes within their owning domains.
    * - ``crates/engine-core/src/dev_console/``
      - Debug desktop console and live inspectors.
    * - ``crates/common``
-     - UI descriptions, serialized callback IDs, speech snapshots, worker
-       wakeups, diagnostic records, numeric helpers, and platform data paths.
+     - UI descriptions, serialized callback IDs, speech snapshots, the shared
+       Tokio runtime and worker wakeups, diagnostics, numeric helpers, and
+       platform data paths.
 
 Working on a domain
 -------------------
@@ -113,8 +114,9 @@ surface recreation, and private-file storage; see :doc:`../guides/android`.
 The repository does not provide an iOS launcher or export workflow.
 
 Project creation, checks, bundling, publishing, translations, editor
-declarations, the debug developer console, and accessibility/self-voicing
-are implemented. Future directions include hot reload with replay to the
-current line, automated launcher builds for more platforms and Steam/Discord integrations.
+declarations, the debug developer console, accessibility/self-voicing, and
+desktop Discord Rich Presence through a Rust IPC client are implemented.
+Future directions include hot reload with replay to the current line,
+automated launcher builds for more platforms, and Steam integration.
 
 Continue with :doc:`runtime`, :doc:`rendering`, or :doc:`distribution`.

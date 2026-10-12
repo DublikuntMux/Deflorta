@@ -228,6 +228,54 @@ configuration. Common fields are:
        source language.
    * - ``menuBackground``, ``menuVideo``
      - Main-menu background image or looping movie.
+   * - ``discord``
+     - Desktop Discord Rich Presence configuration: ``{ applicationId }``.
+       The application id is a decimal string. Null disables integration.
+
+Discord Rich Presence
+~~~~~~~~~~~~~~~~~~~~~
+
+Create an application in the `Discord Developer Portal
+<https://discord.com/developers/applications>`_, then use its application
+id as a string. Rich Presence uses the locally running, signed-in Discord desktop
+client; it requires no bot token, in-game login, or bundled Discord SDK. The implementation is
+Rust and supports Linux, Windows, and macOS. Android and headless tests do not
+publish presence. If Discord is unavailable, the game continues and the native
+worker retries the connection automatically.
+Activity updates are coalesced to at most one update every 15 seconds; clearing
+activity takes effect immediately. Unavailable connections retry every five
+seconds.
+
+.. code-block:: javascript
+
+   import { configure, discord } from "deflorta";
+
+   configure({ discord: { applicationId: "1234567890123456789" } });
+   discord.setActivity({
+     details: "Reading chapter one",
+     state: "At the station",
+     largeImage: "cover",
+     largeText: "My visual novel",
+     startTimestamp: Math.floor(Date.now() / 1000),
+   });
+
+   // Hide presence while keeping the integration configured.
+   discord.clearActivity();
+   // Disconnect and disable integration entirely.
+   configure({ discord: null });
+
+Configuring Discord initially displays the application with an empty activity.
+``setActivity(activity)`` replaces the previous activity, so omitted fields are
+removed; ``clearActivity()`` hides it until the next update. Activity updates
+are retained while Discord is disconnected and sent when it reconnects.
+Optional ``details``, ``state``, ``largeText``, and ``smallText`` contain 2–128
+UTF-8 bytes. ``largeImage`` and ``smallImage`` contain 1–256 UTF-8 bytes and name
+assets registered in the Developer Portal or image URLs. ``startTimestamp``
+is a non-negative integer Unix timestamp in seconds. Invalid configuration or
+activity fields throw before changing the current configuration or activity.
+
+Other services
+~~~~~~~~~~~~~~
 
 ``prefs`` contains player preferences. Call ``savePrefs()`` to save and apply
 changes. ``setLanguage(id)``, ``translations(language, table)``, and ``_(text)``

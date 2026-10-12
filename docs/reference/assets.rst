@@ -5,26 +5,27 @@ Project layout
 --------------
 
 .. kroki::
-   :type: graphviz
+   :type: plantuml
    :caption: Game project files and asset folders.
    :align: center
 
-   digraph project {
-       graph [bgcolor="transparent", rankdir=LR];
-       node [shape=box, style="rounded,filled", fillcolor="#f1f5f9",
-             color="#475569", fontcolor="#0f172a", fontname="sans-serif"];
-       edge [color="#475569", arrowhead=none];
-       root [label="mygame/"];
-       main [label="main.js\nEntry module"];
-       types [label="deflorta.d.ts\nEditor declarations"];
-       config [label="jsconfig.json\nEditor configuration"];
-       images [label="images/\nBackgrounds and character images"];
-       audio [label="audio/\nMusic, sound effects, voice"];
-       movies [label="movies/\nMP4 or WebM video"];
-       fonts [label="fonts/\nBundled fonts"];
-       translations [label="tl/\n<language>.json translation tables"];
-       root -> { main types config images audio movies fonts translations };
+   @startsalt
+   skinparam backgroundColor transparent
+   scale 1.2
+   {
+       {T
+           + mygame/ | .
+           ++ main.js | Entry module
+           ++ deflorta.d.ts | Editor declarations
+           ++ jsconfig.json | Editor configuration
+           ++ images/ | Backgrounds and character images
+           ++ audio/ | Music, sound effects, voice
+           ++ movies/ | MP4 or WebM video
+           ++ fonts/ | Bundled fonts
+           ++ tl/ | <language>.json translation tables
+       }
    }
+   @endsalt
 
 An undeclared image name such as ``"bg room"`` resolves to
 ``images/bg room.png``.

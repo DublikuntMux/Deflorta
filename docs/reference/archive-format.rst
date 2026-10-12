@@ -30,26 +30,27 @@ All integer fields are unsigned and **little-endian**. Sizes and offsets are
 in bytes. Fields and payloads have no alignment padding.
 
 .. kroki::
-   :type: graphviz
-   :caption: Archive sections in byte order. S is stored_index_size.
+   :type: rackdiag
+   :caption: Archive sections in byte order, not to scale. Rack numbers indicate section order, not byte offsets. S is stored_index_size.
    :align: center
 
-   digraph archive {
-       graph [bgcolor="transparent", rankdir=TB];
-       node [shape=box, style="rounded,filled", fillcolor="#f1f5f9",
-             color="#475569", fontcolor="#0f172a", fontname="sans-serif"];
-       edge [color="#475569", fontcolor="#475569", fontname="sans-serif"];
-       header [label="Header\n24 bytes"];
-       index [label="Index\nOne LZ4 frame, S bytes"];
-       block0 [label="Block 0 payload\nRaw bytes or one LZ4 frame"];
-       block1 [label="Block 1 payload\nRaw bytes or one LZ4 frame"];
-       remaining [label="Remaining block payloads"];
-       start [shape=plaintext, style="", label="Offset 0"];
-       start -> header;
-       header -> index [label="Offset 24"];
-       index -> block0 [label="Offset 24 + S"];
-       block0 -> block1 [label="After block 0's stored bytes"];
-       block1 -> remaining;
+   rackdiag {
+       node_width = 420;
+       node_height = 72;
+       default_node_color = "#f1f5f9";
+       linecolor = "#475569";
+       textcolor = "#0f172a";
+
+       rack {
+           5U;
+           ascending = true;
+
+           1: "Header\nOffset 0; 24 bytes";
+           2: "Index\nOffset 24; one LZ4 frame, S bytes";
+           3: "Block 0 payload\nOffset 24 + S\nRaw bytes or one LZ4 frame";
+           4: "Block 1 payload\nAfter block 0's stored bytes\nRaw bytes or one LZ4 frame";
+           5: "Remaining block payloads\nIn index order";
+       }
    }
 
 The index describes every block's stored size and each file's location.

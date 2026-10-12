@@ -16,17 +16,12 @@ Use Python 3.11 or newer. From the repository root:
    python3 -m venv docs/.venv
    docs/.venv/bin/python -m pip install -r docs/requirements.txt
 
-On Windows, replace ``docs/.venv/bin/python`` with
-``docs\.venv\Scripts\python.exe``. If you use uv, the equivalent setup is:
+If you use uv, the equivalent setup is:
 
 .. code-block:: sh
 
    uv venv docs/.venv --python 3.12
    uv pip install --python docs/.venv/bin/python -r docs/requirements.txt
-
-The requirements constrain ``setuptools`` below version 82 because
-``sphinxcontrib-kroki`` 1.3.0 imports ``pkg_resources``, which
-`Setuptools removed in version 82 <https://setuptools.pypa.io/en/stable/deprecated/pkg_resources.html>`_.
 
 Build and browse
 ----------------
@@ -52,34 +47,6 @@ Link checking requires network access. See the official
 `Sphinx build reference <https://www.sphinx-doc.org/en/master/man/sphinx-build.html>`_
 for other output formats and options, and the
 `Furo quickstart <https://pradyunsg.me/furo/quickstart/>`_ for theme setup.
-
-Diagrams
---------
-
-Use the ``kroki`` directive for diagrams. The extension renders them as SVG
-through ``https://kroki.io`` and caches the results in the build directory.
-Rendering new or changed diagrams requires network access; the generated
-HTML includes the images and can be viewed offline.
-
-Use transparent backgrounds and neutral colors for Graphviz diagrams. The
-documentation stylesheet adapts them to the theme toggle and system color
-preference. Check readability in both light and dark modes.
-
-.. code-block:: rst
-
-   .. kroki::
-      :type: graphviz
-      :caption: Game delivery.
-      :align: center
-
-      digraph delivery {
-          graph [bgcolor="transparent", rankdir=LR];
-          project -> archive -> launcher;
-      }
-
-To use your own Kroki server, set ``kroki_url`` in ``docs/conf.py``. See the
-`sphinxcontrib-kroki reference <https://github.com/sphinx-contrib/kroki>`_
-for supported diagram types and options.
 
 Add or update a page
 --------------------
