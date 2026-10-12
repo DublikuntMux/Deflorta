@@ -114,3 +114,24 @@ Translate
 translations and adds new text; without languages it updates existing tables.
 ``--prune`` removes obsolete entries. ``status`` reports progress and
 ``missing`` lists untranslated text. See :doc:`../guides/localization`.
+
+Shell completion
+----------------
+
+.. code-block:: text
+
+   deflorta completions bash|zsh|fish|elvish|powershell
+
+``completions`` prints a completion script for subcommands, options, option
+values, and paths. Load it from your shell's startup file, for example:
+
+.. code-block:: text
+
+   # bash (~/.bashrc)
+   source <(deflorta completions bash)
+   # zsh (~/.zshrc, after compinit)
+   source <(deflorta completions zsh)
+   # fish
+   deflorta completions fish > ~/.config/fish/completions/deflorta.fish
+   # PowerShell ($PROFILE)
+   deflorta completions powershell | Out-String | Invoke-Expression

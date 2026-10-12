@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueHint};
 use deflorta_assets::GameFiles;
 use oxc::allocator::Allocator;
 
@@ -36,6 +36,7 @@ enum Command {
     /// Create a new game project.
     Create {
         /// Directory to create.
+        #[arg(value_hint = ValueHint::DirPath)]
         path: PathBuf,
         /// Game title (defaults to the directory name).
         #[arg(long)]
@@ -49,7 +50,7 @@ enum Command {
         #[arg(default_value = ".")]
         path: PathBuf,
         /// Play a test script headlessly instead of opening a window.
-        #[arg(long, value_name = "SCRIPT.json")]
+        #[arg(long, value_name = "SCRIPT.json", value_hint = ValueHint::FilePath)]
         test: Option<PathBuf>,
         /// More log output (-v debug, -vv trace). `RUST_LOG` overrides this.
         #[arg(short, long, action = clap::ArgAction::Count)]
@@ -57,7 +58,7 @@ enum Command {
     },
     /// Check a game for errors and likely mistakes.
     Check {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
         path: PathBuf,
         /// Only analyze the code; do not run the game's scripts.
         #[arg(long)]
@@ -65,10 +66,10 @@ enum Command {
     },
     /// Bundle scripts, convert media with `FFmpeg`, and pack a game.dm archive.
     Bundle {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
         path: PathBuf,
         /// Archive to write (default: <project>/build/game.dm).
-        #[arg(short, long)]
+        #[arg(short, long, value_hint = ValueHint::FilePath)]
         output: Option<PathBuf>,
         /// Compression level: 1 fast, 2–12 LZ4HC.
         #[arg(long, default_value_t = pack::DEFAULT_LEVEL, value_parser = clap::value_parser!(u8).range(1..=12))]
@@ -77,15 +78,15 @@ enum Command {
         #[arg(long)]
         no_minify: bool,
         /// Also write the bundled JavaScript to this file.
-        #[arg(long, value_name = "FILE")]
+        #[arg(long, value_name = "FILE", value_hint = ValueHint::FilePath)]
         emit_js: Option<PathBuf>,
     },
     /// Convert media and create a folder with the target runtime and game.dm.
     Publish {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
         path: PathBuf,
         /// Output folder (default: <project>/dist/<os>-<arch>).
-        #[arg(short, long)]
+        #[arg(short, long, value_hint = ValueHint::DirPath)]
         output: Option<PathBuf>,
         /// Target platform folder (default: the host's <os>-<arch>).
         #[arg(long)]
@@ -115,12 +116,17 @@ enum Command {
         command: TranslateCommand,
     },
     /// List the contents of a game.dm archive.
-    Info { archive: PathBuf },
+    Info {
+        #[arg(value_hint = ValueHint::FilePath)]
+        archive: PathBuf,
+    },
     /// Write deflorta.d.ts (and jsconfig.json if missing) for editor support.
     Types {
-        #[arg(default_value = ".")]
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
         path: PathBuf,
     },
+    /// Print a shell completion script to stdout.
+    Completions { shell: clap_complete::Shell },
 }
 
 #[derive(Subcommand)]
@@ -132,18 +138,18 @@ enum TranslateCommand {
         /// Remove entries for text that is no longer in the game.
         #[arg(long)]
         prune: bool,
-        #[arg(short, long, default_value = ".")]
+        #[arg(short, long, default_value = ".", value_hint = ValueHint::DirPath)]
         project: PathBuf,
     },
     /// Show translation progress per language.
     Status {
-        #[arg(short, long, default_value = ".")]
+        #[arg(short, long, default_value = ".", value_hint = ValueHint::DirPath)]
         project: PathBuf,
     },
     /// List text that is not translated yet.
     Missing {
         language: String,
-        #[arg(short, long, default_value = ".")]
+        #[arg(short, long, default_value = ".", value_hint = ValueHint::DirPath)]
         project: PathBuf,
     },
 }
@@ -235,6 +241,11 @@ fn run(command: Command) -> Result<ExitCode> {
             Project::open(&path)?;
             create::write_types(&path)?;
             println!("Wrote {}", path.join("deflorta.d.ts").display());
+        }
+        Command::Completions { shell } => {
+            let mut script = Vec::new();
+            clap_complete::generate(shell, &mut Cli::command(), "deflorta", &mut script);
+            print_listing(&String::from_utf8(script)?)?;
         }
     }
     Ok(ExitCode::SUCCESS)
