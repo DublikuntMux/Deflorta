@@ -565,26 +565,47 @@ function normalizeChoice(choice) {
   return { value: choice.text, ...choice };
 }
 
-export async function menu(prompt, choices) {
+export async function menu(prompt, choices, options = {}) {
   if (Array.isArray(prompt)) {
+    options = choices ?? {};
     choices = prompt;
     prompt = null;
   }
+  const nvl = options.nvl ?? scene.nvl.length > 0;
   const items = choices
     .map(normalizeChoice)
     .filter((c) => c.if === undefined || c.if);
-  if (prompt)
+  if (prompt) {
     history.push({
       who: null,
       what: String(prompt),
       root: run.root?.id,
       index: run.count,
     });
+    if (nvl) scene.nvl = [...scene.nvl, { who: null, what: String(prompt) }];
+  }
   const index = await checkpoint(
     "menu",
     (pending) => {
-      if (scene.nvl.length) showScreen("nvl", { lines: scene.nvl, cps: 0 });
-      else if (prompt)
+      skipToggled = false;
+      const choiceItems = items.map((c, i) => ({
+        text: c.text,
+        select: () => pending.resolve(i),
+      }));
+      if (nvl) {
+        hideScreen("say");
+        // Without a prompt, keep the last line's reveal so it does not replay.
+        showScreen("nvl", {
+          ...(prompt
+            ? { cps: textSpeed(), revealKey: ++revealSeq }
+            : screenProps("nvl")),
+          lines: scene.nvl,
+          items: choiceItems,
+        });
+        return;
+      }
+      hideScreen("nvl");
+      if (prompt)
         showScreen("say", {
           who: null,
           what: String(prompt),
@@ -592,17 +613,13 @@ export async function menu(prompt, choices) {
           revealKey: ++revealSeq,
         });
       else hideScreen("say");
-      skipToggled = false;
-      showScreen("choice", {
-        items: items.map((c, i) => ({
-          text: c.text,
-          select: () => pending.resolve(i),
-        })),
-      });
+      showScreen("choice", { items: choiceItems });
     },
     { record: true },
   );
-  hideScreen("choice");
+  if (!nvl) hideScreen("choice");
+  else if (isShown("nvl"))
+    showScreen("nvl", { ...screenProps("nvl"), items: undefined });
   if (!(index in items))
     throw new ReplayMismatch(
       `saved choice ${index} no longer exists in this menu`,

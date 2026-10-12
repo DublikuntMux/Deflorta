@@ -271,7 +271,7 @@ impl App {
         }
         let clear = self.engine.clear_color();
         let size = renderer.size();
-        let rendered = renderer.render(
+        let rendered_frame = renderer.render(
             items,
             &mut self.engine.ui,
             &mut self.engine.assets,
@@ -279,7 +279,7 @@ impl App {
             #[cfg(feature = "dev-console")]
             self.console.as_mut(),
         );
-        match rendered {
+        match rendered_frame {
             Ok(true) => self.engine.presented_frame(Instant::now()),
             Ok(false) => {}
             Err(err) => error!("Render failed: {err:#}"),

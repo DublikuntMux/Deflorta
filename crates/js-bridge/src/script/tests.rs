@@ -218,6 +218,28 @@ fn check_active_translations(host: &mut ScriptHost) {
     drop(ScriptHost::take_commands());
     assert_eq!(runtime_state(host)["choice"], "left");
 
+    runtime_key(host, "nvlChoices");
+    runtime_key(host, "advance-test");
+    runtime_key(host, "save");
+    runtime_key(host, "end");
+    let commands = runtime_key(host, "load");
+    let tree = committed_tree(&commands);
+    let text = tree_text(tree);
+    assert!(text.contains("Page") && text.contains("Ліворуч"));
+    assert_eq!(text.matches("Питання").count(), 1);
+    assert!(keyed_node(tree, "choice-0").is_none());
+    let choice = keyed_node(tree, "nvl-choice-1").unwrap().on_click.unwrap();
+    host.dispatch(&Event::Click {
+        handler: Some(choice),
+        button: "left",
+        revealing: false,
+    })
+    .unwrap();
+    drop(ScriptHost::take_commands());
+    let state = runtime_state(host);
+    assert_eq!(state["choice"], "right");
+    assert_eq!(state["line"], "first");
+
     let commands = runtime_key(host, "input");
     let input = keyed_node(committed_tree(&commands), "answer")
         .unwrap()

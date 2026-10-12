@@ -103,6 +103,9 @@ Use ``{{`` for a literal opening brace. See :ref:`text-tags` for the full list.
 
 For a full-screen page of accumulating dialogue, use ``nvlNarrator`` or a
 character declared with ``{ nvl: true }``. Clear the page with ``nvlClear()``.
+A ``menu`` shown while the page has lines adds its prompt to the page and lists
+the choices below it. Pass ``{ nvl: true }`` as the last ``menu`` argument to
+do this on an empty page, or ``{ nvl: false }`` for the regular choice screen.
 
 Check as you write
 ------------------

@@ -22,6 +22,8 @@ declare module "deflorta" {
     skipDelay: number;
     clearColor: Color;
     autosave?: boolean;
+    /** Continuous window redraws with `frame` events. Disabled by default. */
+    frameEvents?: boolean;
     languages?: Language[];
     menuBackground?: string;
     /** Main menu background video (loops). */
@@ -105,6 +107,10 @@ declare module "deflorta" {
     boot: { type: "boot" };
     quit: { type: "quit" };
     revealed: { type: "revealed" };
+    /** Interval between successful window presentations, from a monotonic clock.
+     * Headless simulation does not emit this event. Requires `frameEvents: true`.
+     */
+    frame: { type: "frame"; frameMs: number };
     key: KeyEvent;
     click: ClickEvent;
     wheel: WheelEvent;
@@ -165,10 +171,19 @@ declare module "deflorta" {
       volume(channel: "music" | "sound" | "voice", value: number): void;
     };
     ui: {
+      /**
+       * Shows a native tree and returns its generation. Nodes `{ key, unchanged: true }`
+       * reuse the node with that identity from the commit with generation `base`; when
+       * another commit followed it, nothing is committed and the result is null.
+       */
       commit(
         tree: NativeElement,
-        options?: { instant?: boolean; exits?: Record<string, Animation | null | undefined> },
-      ): void;
+        options?: {
+          instant?: boolean;
+          exits?: Record<string, Animation | null | undefined>;
+          base?: number;
+        },
+      ): number | null;
       /** Shows typewriter text up to the next click-wait. */
       revealSkip(): void;
       preload(images: string[]): void;
@@ -370,13 +385,20 @@ declare module "deflorta" {
     maxLength?: number;
   }
 
+  /** The node with this identity in the commit that `native.ui.commit` names as its base. */
+  export interface UnchangedElement {
+    key: string;
+    unchanged: true;
+  }
+
   export type NativeElement =
     | BoxElement
     | TextElement
     | ImageElement
     | VideoElement
     | SliderElement
-    | InputElement;
+    | InputElement
+    | UnchangedElement;
 
   export interface ComponentElement {
     readonly $$typeof: symbol;
@@ -480,6 +502,11 @@ declare module "deflorta" {
   /** Runs after native commits; cleanup runs before changed dependencies and on unmount. */
   export function useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
   export function useRef<T>(initial: T): { current: T };
+  /**
+   * Recomputes the value when dependencies change. A memoized element keeps its
+   * rendered output until its dependencies or the state inside it change, even
+   * across `invalidate()`.
+   */
   export function useMemo<T>(factory: () => T, deps?: readonly unknown[]): T;
   export function useCallback<T extends (...args: any[]) => any>(callback: T, deps?: readonly unknown[]): T;
 
@@ -497,6 +524,7 @@ declare module "deflorta" {
    * `input.question`); translate them with `_()` when rendering a custom screen.
    * `say` and `nvl` receive `revealKey`, a unique checkpoint ID to use in the
    * typewriter text element's key, so repeated lines reveal independently.
+   * During an NVL menu, `nvl` also receives `items` (as `choice` does).
    * Defines or replaces a screen. Replacing `say`, `nvl`, `choice`, `input`,
    * `history`, `quick_menu`, `main_menu` or `game_menu` restyles the game.
    */
@@ -768,8 +796,20 @@ declare module "deflorta" {
     | [text: string, value?: T]
     | { text: string; value?: T; if?: unknown };
 
-  export function menu<T = string>(choices: Choice<T>[]): Promise<T>;
-  export function menu<T = string>(prompt: string | null, choices: Choice<T>[]): Promise<T>;
+  export interface MenuOptions {
+    /**
+     * Shows the prompt and choices on the NVL page. Defaults to true while the
+     * NVL page has lines.
+     */
+    nvl?: boolean;
+  }
+
+  export function menu<T = string>(choices: Choice<T>[], options?: MenuOptions): Promise<T>;
+  export function menu<T = string>(
+    prompt: string | null,
+    choices: Choice<T>[],
+    options?: MenuOptions,
+  ): Promise<T>;
 
   /** Asks the player to type text; resolves with the trimmed answer. */
   export function prompt(

@@ -124,7 +124,7 @@ screen(
 
 screen(
   "nvl",
-  ({ lines, cps, revealKey }) => (
+  ({ lines, cps, revealKey, items }) => (
     <View
       key="nvl-window"
       enter={{ dur: 0.25, opacity: 0 }}
@@ -155,6 +155,30 @@ screen(
           </DialogueText>
         </View>
       ))}
+      {items?.length > 0 && (
+        <View
+          key="nvl-choices"
+          enter={{ dur: 0.2, opacity: 0 }}
+          style={{ flexDirection: "column", gap: 4, margin: [6, -16, 0, -16] }}
+        >
+          {items.map((item, i) => (
+            <Button
+              key={`nvl-choice-${i}`}
+              onPress={item.select}
+              style={{
+                padding: [6, 16],
+                justifyContent: "flex-start",
+                background: "#00000000",
+                color: theme.accent,
+              }}
+              hover={{ background: theme.button }}
+              textStyle={{ fontSize: theme.dialogueSize }}
+            >
+              {_(item.text)}
+            </Button>
+          ))}
+        </View>
+      )}
     </View>
   ),
   { z: 10 },

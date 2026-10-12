@@ -524,6 +524,7 @@ declare module "deflorta" {
    * `input.question`); translate them with `_()` when rendering a custom screen.
    * `say` and `nvl` receive `revealKey`, a unique checkpoint ID to use in the
    * typewriter text element's key, so repeated lines reveal independently.
+   * During an NVL menu, `nvl` also receives `items` (as `choice` does).
    * Defines or replaces a screen. Replacing `say`, `nvl`, `choice`, `input`,
    * `history`, `quick_menu`, `main_menu` or `game_menu` restyles the game.
    */
@@ -795,8 +796,20 @@ declare module "deflorta" {
     | [text: string, value?: T]
     | { text: string; value?: T; if?: unknown };
 
-  export function menu<T = string>(choices: Choice<T>[]): Promise<T>;
-  export function menu<T = string>(prompt: string | null, choices: Choice<T>[]): Promise<T>;
+  export interface MenuOptions {
+    /**
+     * Shows the prompt and choices on the NVL page. Defaults to true while the
+     * NVL page has lines.
+     */
+    nvl?: boolean;
+  }
+
+  export function menu<T = string>(choices: Choice<T>[], options?: MenuOptions): Promise<T>;
+  export function menu<T = string>(
+    prompt: string | null,
+    choices: Choice<T>[],
+    options?: MenuOptions,
+  ): Promise<T>;
 
   /** Asks the player to type text; resolves with the trimmed answer. */
   export function prompt(

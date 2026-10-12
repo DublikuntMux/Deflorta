@@ -1,6 +1,6 @@
 import {
   _, advance, configure, endGame, inGame, label, loadGame, menu, newGame,
-  on, persistent, prefs, prompt, saveGame, saveInfo, savePrefs,
+  nvlClear, nvlNarrator, on, persistent, prefs, prompt, saveGame, saveInfo, savePrefs,
   rollback, say, setLanguage, store, toggleSkip, translations,
 } from "deflorta";
 import { native, reportError, storage } from "deflorta/core";
@@ -34,6 +34,12 @@ label("choices", async () => {
   store.choice = await menu("Question", [["Left", "left"], ["Right", "right"]]);
   await say("first");
 });
+label("nvlChoices", async () => {
+  await nvlNarrator("Page");
+  store.choice = await menu("Question", [["Left", "left"], ["Right", "right"]]);
+  nvlClear();
+  await say("first");
+});
 label("input", async () => {
   store.answer = await prompt("Question", { default: "Alice" });
   await say("first");
@@ -65,7 +71,7 @@ on("quit", () => {
 
 function action(key) {
   switch (key) {
-    case "start": case "translated": case "choices": case "input": case "noWait": case "repeated": case "translatedNoWait":
+    case "start": case "translated": case "choices": case "nvlChoices": case "input": case "noWait": case "repeated": case "translatedNoWait":
       newGame(key);
       break;
     case "auto": prefs.autoForward = true; savePrefs(); break;
@@ -105,7 +111,7 @@ function action(key) {
 
 // Keep test controls above modal screens and outside game-state replacement.
 // This exercises the normal native key-routing path without bypassing modals.
-const keys = ["start", "translated", "choices", "input", "noWait", "repeated", "translatedNoWait",
+const keys = ["start", "translated", "choices", "nvlChoices", "input", "noWait", "repeated", "translatedNoWait",
   "auto", "stop-auto", "skip", "stop-skip", "advance-test", "rollback-test",
   "save", "load", "end", "error-test", "uk", "source", "game_menu", "history",
   "confirm", "close-game_menu", "close-history", "close-confirm", "prepare-quit", "quit-test", "state"];

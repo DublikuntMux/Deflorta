@@ -30,9 +30,10 @@ Story flow and state
    * - ``nvlNarrator``, ``nvlClear()``
      - Narrate in full-screen accumulating NVL mode, or clear its page.
        A character can use ``{ nvl: true }`` too.
-   * - ``await menu(prompt?, choices)``
+   * - ``await menu(prompt?, choices, { nvl })``
      - Return a selected choice's value. Entries are strings,
-       ``[text, value]``, or ``{ text, value, if }``.
+       ``[text, value]``, or ``{ text, value, if }``. While the NVL page has
+       lines, the prompt and choices appear on it; ``nvl`` overrides this.
    * - ``await prompt(question, { default, maxLength, allowEmpty })``
      - Ask for text input and return the trimmed answer.
    * - ``await pause(seconds?)``
