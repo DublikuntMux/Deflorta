@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::Instant;
 
 use kira::sound::static_sound::StaticSoundData;
@@ -10,9 +10,10 @@ use kira::sound::{FromFileError, Sound, SoundData};
 use log::warn;
 
 use crate::files::GameFiles;
+use crate::video::PlaybackClock;
 use crate::worker::{WakeCallback, WorkerWake};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(super) enum LoadKind {
     Music {
         looped: bool,
@@ -25,7 +26,7 @@ pub(super) enum LoadKind {
     },
     Video {
         looped: bool,
-        started: Instant,
+        clock: Arc<PlaybackClock>,
     },
 }
 
@@ -40,27 +41,62 @@ pub(super) struct PreparedStream {
     sound: ManagedStream,
 }
 
+impl PreparedStream {
+    pub fn activate_clock(&self) {
+        if let Some((clock, duration, looping)) = &self.sound.clock {
+            let elapsed = clock.elapsed(Instant::now());
+            let position = if *looping && *duration > 0.0 {
+                elapsed % duration
+            } else {
+                elapsed.min(*duration)
+            };
+            self.sound.handle.handle.lock().unwrap().seek_to(position);
+        }
+    }
+}
+
 #[derive(Clone)]
-pub(super) struct StreamHandle(Arc<Mutex<StreamingSoundHandle<FromFileError>>>);
+pub(super) struct StreamHandle {
+    handle: Arc<Mutex<StreamingSoundHandle<FromFileError>>>,
+    video_clocks: Option<Arc<Mutex<Vec<ClockFollower>>>>,
+}
+
+struct ClockFollower {
+    clock: Weak<PlaybackClock>,
+    started: bool,
+}
 
 impl StreamHandle {
     pub fn state(&self) -> kira::sound::PlaybackState {
-        self.0.lock().unwrap().state()
+        self.handle.lock().unwrap().state()
     }
 
     pub fn stop(&self, tween: kira::Tween) {
-        self.0.lock().unwrap().stop(tween);
+        self.handle.lock().unwrap().stop(tween);
     }
 
-    #[cfg(test)]
     fn position(&self) -> f64 {
-        self.0.lock().unwrap().position()
+        self.handle.lock().unwrap().position()
+    }
+
+    pub fn add_video_clock(&self, clock: &Arc<PlaybackClock>) {
+        if let Some(clocks) = &self.video_clocks {
+            let mut clocks = clocks.lock().unwrap();
+            let weak = Arc::downgrade(clock);
+            if !clocks.iter().any(|follower| follower.clock.ptr_eq(&weak)) {
+                clocks.push(ClockFollower {
+                    clock: weak,
+                    started: false,
+                });
+            }
+        }
     }
 }
 
 struct ManagedStream {
     inner: Box<dyn Sound>,
     handle: StreamHandle,
+    clock: Option<(Arc<PlaybackClock>, f64, bool)>,
 }
 
 impl Sound for ManagedStream {
@@ -70,6 +106,23 @@ impl Sound for ManagedStream {
 
     fn process(&mut self, out: &mut [kira::Frame], dt: f64, info: &kira::info::Info) {
         self.inner.process(out, dt, info);
+        if let Some((_, duration, looping)) = &self.clock
+            && let Some(clocks) = &self.handle.video_clocks
+        {
+            let position = self.handle.position();
+            let stopped = self.inner.finished();
+            clocks.lock().unwrap().retain_mut(|follower| {
+                let Some(clock) = follower.clock.upgrade() else {
+                    return false;
+                };
+                if !follower.started {
+                    clock.attach_audio(position, *duration, *looping);
+                    follower.started = true;
+                }
+                clock.update_audio(position, stopped);
+                true
+            });
+        }
     }
 
     fn finished(&self) -> bool {
@@ -106,6 +159,7 @@ fn prepare_stream(
     mut data: StreamingSoundData<FromFileError>,
     kind: LoadKind,
 ) -> Result<PreparedStream, String> {
+    let mut playback_clock = None;
     match kind {
         LoadKind::Music {
             looped,
@@ -120,8 +174,8 @@ fn prepare_stream(
                 data = data.fade_in_tween(super::tween(fade_in));
             }
         }
-        LoadKind::Video { looped, started } => {
-            let elapsed = started.elapsed().as_secs_f64();
+        LoadKind::Video { looped, clock } => {
+            let elapsed = clock.elapsed(Instant::now());
             let duration = data.duration().as_secs_f64();
             let position = if looped && duration > 0.0 {
                 elapsed % duration
@@ -132,15 +186,26 @@ fn prepare_stream(
             if looped {
                 data = data.loop_region(..);
             }
+            playback_clock = Some((clock, duration, looped));
         }
         LoadKind::Voice => {}
         LoadKind::Sound { .. } => unreachable!("sound effects use static data"),
     }
     let (sound, handle) = data.into_sound().map_err(|e| e.to_string())?;
+    let video_clocks = playback_clock.as_ref().map(|(clock, _, _)| {
+        Arc::new(Mutex::new(vec![ClockFollower {
+            clock: Arc::downgrade(clock),
+            started: false,
+        }]))
+    });
     Ok(PreparedStream {
         sound: ManagedStream {
             inner: sound,
-            handle: StreamHandle(Arc::new(Mutex::new(handle))),
+            handle: StreamHandle {
+                handle: Arc::new(Mutex::new(handle)),
+                video_clocks,
+            },
+            clock: playback_clock,
         },
     })
 }
@@ -240,7 +305,7 @@ impl AudioLoader {
             id,
             files,
             path,
-            kind,
+            kind: kind.clone(),
             cancelled: cancelled.clone(),
         };
         if self.jobs.send(job).is_err() {
@@ -415,11 +480,65 @@ mod tests {
             data,
             LoadKind::Video {
                 looped: false,
-                started,
+                clock: Arc::new(PlaybackClock::new(started)),
             },
         )
         .unwrap();
         assert!(prepared.sound.handle.position() >= 0.25);
+    }
+
+    #[test]
+    fn video_stream_preparation_excludes_time_suspended() {
+        let files = GameFiles::directory(&crate::workspace_dir().join("tests/fixtures")).unwrap();
+        let data = super::super::open_stream(&files, "vp9-vorbis.webm").unwrap();
+        let now = Instant::now();
+        let clock = Arc::new(PlaybackClock::new(
+            now.checked_sub(Duration::from_secs(10)).unwrap(),
+        ));
+        clock.set_suspended(true, now.checked_sub(Duration::from_millis(9750)).unwrap());
+        let prepared = prepare_stream(
+            data,
+            LoadKind::Video {
+                looped: false,
+                clock,
+            },
+        )
+        .unwrap();
+        assert!((prepared.sound.handle.position() - 0.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn a_shared_soundtrack_drives_each_video_clock_and_releases_removed_players() {
+        let files = GameFiles::directory(&crate::workspace_dir().join("tests/fixtures")).unwrap();
+        let now = Instant::now();
+        let primary = Arc::new(PlaybackClock::new(
+            now.checked_sub(Duration::from_millis(250)).unwrap(),
+        ));
+        let mut prepared = prepare_stream(
+            super::super::open_stream(&files, "vp9-vorbis.webm").unwrap(),
+            LoadKind::Video {
+                looped: false,
+                clock: primary.clone(),
+            },
+        )
+        .unwrap();
+        let follower = Arc::new(PlaybackClock::new(now));
+        prepared.sound.handle.add_video_clock(&follower);
+        prepared.sound.handle.add_video_clock(&follower);
+        let clocks = prepared.sound.handle.video_clocks.as_ref().unwrap().clone();
+        assert_eq!(clocks.lock().unwrap().len(), 2);
+        prepared.sound.on_start_processing();
+        prepared
+            .sound
+            .process(&mut [], 0.0, &kira::info::MockInfoBuilder::new().build());
+        let position = prepared.sound.handle.position();
+        assert!((primary.elapsed(now + Duration::from_secs(10)) - position).abs() < 1e-9);
+        assert!((follower.elapsed(now + Duration::from_secs(10)) - position).abs() < 1e-9);
+        drop(follower);
+        prepared
+            .sound
+            .process(&mut [], 0.0, &kira::info::MockInfoBuilder::new().build());
+        assert_eq!(clocks.lock().unwrap().len(), 1);
     }
 
     #[test]

@@ -1,21 +1,16 @@
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
 
-use anyhow::{Context, Result, bail, ensure};
+use super::{ColorMatrix, ColorRange, Frame, Message, Plane, VideoFrame};
+use crate::files::GameFiles;
+use anyhow::{Context, Result, ensure};
 use deflorta_vpx::{ColorSpace, Decoder as Vp9Decoder};
 use log::trace;
 use oxideav_core::{Demuxer, Error, NullCodecResolver, StreamInfo};
 use oxideav_mkv::demux::{AlphaMode, MkvDemuxer, open_typed};
-use yuv::{YuvPlanarImage, YuvRange, YuvStandardMatrix};
-
-use super::{Frame, Message};
-use crate::files::GameFiles;
 
 #[cfg(feature = "debug-formats")]
 use oxideav_vp8::state::Vp8DecoderState;
-
-/// One 8-bit picture plane and its row stride in bytes.
-type Plane<'a> = (&'a [u8], u32);
 
 fn open(files: &GameFiles, path: &str) -> Result<MkvDemuxer> {
     // Symphonia discards BlockAdditional, which carries WebM's alpha bitstream.
@@ -160,27 +155,25 @@ pub(super) fn decode(
     }
 }
 
-fn vp9_image(decoder: &mut Vp9Decoder, data: &[u8]) -> Result<Option<image::RgbaImage>> {
+fn vp9_image(decoder: &mut Vp9Decoder, data: &[u8]) -> Result<Option<VideoFrame>> {
     // libvpx splits superframes and returns only the shown picture.
     let Some(frame) = decoder.decode(data)? else {
         return Ok(None);
     };
     let range = if frame.full_range() {
-        YuvRange::Full
+        ColorRange::Full
     } else {
-        YuvRange::Limited
+        ColorRange::Limited
     };
     let matrix = match frame.color_space() {
-        ColorSpace::Srgb => None,
-        ColorSpace::Bt709 => Some(YuvStandardMatrix::Bt709),
-        ColorSpace::Bt2020 => Some(YuvStandardMatrix::Bt2020),
-        ColorSpace::Smpte240 => Some(YuvStandardMatrix::Smpte240),
-        ColorSpace::Unknown | ColorSpace::Bt601 | ColorSpace::Smpte170 => {
-            Some(YuvStandardMatrix::Bt601)
-        }
+        ColorSpace::Srgb => ColorMatrix::Identity,
+        ColorSpace::Bt709 => ColorMatrix::Bt709,
+        ColorSpace::Bt2020 => ColorMatrix::Bt2020,
+        ColorSpace::Smpte240 => ColorMatrix::Smpte240,
+        ColorSpace::Unknown | ColorSpace::Bt601 | ColorSpace::Smpte170 => ColorMatrix::Bt601,
     };
     let plane = |index| (frame.plane(index), frame.stride(index));
-    to_rgba(
+    VideoFrame::copy(
         (frame.width(), frame.height()),
         [plane(0), plane(1), plane(2)],
         frame.subsampling(),
@@ -193,7 +186,7 @@ fn vp9_image(decoder: &mut Vp9Decoder, data: &[u8]) -> Result<Option<image::Rgba
 fn vp9_alpha(
     decoder: &mut Vp9Decoder,
     data: &[u8],
-    image: Option<&mut image::RgbaImage>,
+    image: Option<&mut VideoFrame>,
 ) -> Result<bool> {
     let Some(frame) = decoder.decode(data)? else {
         return Ok(false);
@@ -209,13 +202,13 @@ fn vp9_alpha(
 }
 
 #[cfg(feature = "debug-formats")]
-fn vp8_image(decoder: &mut Vp8DecoderState, data: &[u8]) -> Result<Option<image::RgbaImage>> {
+fn vp8_image(decoder: &mut Vp8DecoderState, data: &[u8]) -> Result<Option<VideoFrame>> {
     let frame = decoder.decode_frame(data)?;
     if decoder.last_frame_shown() != Some(true) {
         return Ok(None);
     }
     let chroma_stride = frame.width.div_ceil(2);
-    to_rgba(
+    VideoFrame::copy(
         (frame.width, frame.height),
         [
             (&frame.y, frame.width),
@@ -223,8 +216,8 @@ fn vp8_image(decoder: &mut Vp8DecoderState, data: &[u8]) -> Result<Option<image:
             (&frame.v, chroma_stride),
         ],
         (true, true),
-        YuvRange::Limited,
-        Some(YuvStandardMatrix::Bt601),
+        ColorRange::Limited,
+        ColorMatrix::Bt601,
     )
     .map(Some)
 }
@@ -233,7 +226,7 @@ fn vp8_image(decoder: &mut Vp8DecoderState, data: &[u8]) -> Result<Option<image:
 fn vp8_alpha(
     decoder: &mut Vp8DecoderState,
     data: &[u8],
-    image: Option<&mut image::RgbaImage>,
+    image: Option<&mut VideoFrame>,
 ) -> Result<bool> {
     let frame = decoder.decode_frame(data)?;
     if decoder.last_frame_shown() != Some(true) {
@@ -246,83 +239,16 @@ fn vp8_alpha(
 }
 
 fn apply_alpha(
-    image: &mut image::RgbaImage,
+    image: &mut VideoFrame,
     size: (u32, u32),
-    (alpha, stride): Plane<'_>,
+    (alpha, stride): (&[u8], u32),
 ) -> Result<()> {
     ensure!(
         image.dimensions() == size,
         "WebM color and alpha dimensions differ"
     );
-    // Alpha is the raw luma plane, not limited-range YUV color. Keep RGB straight;
-    // the renderer premultiplies it when blending the texture.
-    let width = size.0 as usize;
-    for (pixels, alpha) in image
-        .as_mut()
-        .chunks_exact_mut(width * 4)
-        .zip(alpha.chunks(stride as usize))
-    {
-        for (pixel, alpha) in pixels
-            .as_chunks_mut::<4>()
-            .0
-            .iter_mut()
-            .zip(&alpha[..width])
-        {
-            pixel[3] = *alpha;
-        }
-    }
+    image.alpha = Some(Plane::copy(alpha, stride, size.0, size.1)?);
     Ok(())
-}
-
-fn to_rgba(
-    (width, height): (u32, u32),
-    [luma, cb, cr]: [Plane<'_>; 3],
-    subsampling: (bool, bool),
-    range: YuvRange,
-    // `None` selects VP9's RGB mode, which stores G, B, R in the Y, U, V planes.
-    matrix: Option<YuvStandardMatrix>,
-) -> Result<image::RgbaImage> {
-    let mut image = image::RgbaImage::new(width, height);
-    let Some(matrix) = matrix else {
-        fn row((plane, stride): Plane<'_>, row: usize) -> &[u8] {
-            &plane[row * stride as usize..]
-        }
-        for (index, pixels) in image
-            .as_mut()
-            .chunks_exact_mut(width as usize * 4)
-            .enumerate()
-        {
-            let (green, blue, red) = (row(luma, index), row(cb, index), row(cr, index));
-            for (column, pixel) in pixels.as_chunks_mut::<4>().0.iter_mut().enumerate() {
-                *pixel = [red[column], green[column], blue[column], 255];
-            }
-        }
-        return Ok(image);
-    };
-    let planar = YuvPlanarImage {
-        y_plane: luma.0,
-        y_stride: luma.1,
-        u_plane: cb.0,
-        u_stride: cb.1,
-        v_plane: cr.0,
-        v_stride: cr.1,
-        width,
-        height,
-    };
-    let convert = match subsampling {
-        (true, true) => yuv::yuv420_to_rgba,
-        (true, false) => yuv::yuv422_to_rgba,
-        (false, false) => yuv::yuv444_to_rgba,
-        (false, true) => bail!("VP9 4:4:0 chroma subsampling is unsupported"),
-    };
-    convert(
-        &planar,
-        image.as_mut(),
-        width.checked_mul(4).context("video stride overflow")?,
-        range,
-        matrix,
-    )?;
-    Ok(image)
 }
 
 #[cfg(test)]
@@ -331,12 +257,22 @@ mod tests {
 
     #[test]
     fn alpha_is_full_range_and_preserves_straight_rgb() {
-        let mut image = image::RgbaImage::from_pixel(5, 2, image::Rgba([60, 120, 180, 255]));
+        let mut image = VideoFrame::copy(
+            (5, 2),
+            [(&[120; 10], 5), (&[180; 10], 5), (&[60; 10], 5)],
+            (false, false),
+            ColorRange::Full,
+            ColorMatrix::Identity,
+        )
+        .unwrap();
         // A padded stride must skip the bytes past each visible row.
         let alpha = [0, 16, 128, 235, 255, 99, 99, 1, 2, 3, 4, 5];
         apply_alpha(&mut image, (5, 2), (&alpha, 7)).unwrap();
         let expected = [0, 16, 128, 235, 255, 1, 2, 3, 4, 5];
-        for (pixel, sample) in image.pixels().zip(expected) {
+        for (pixel, sample) in super::super::tests::reference_rgba(&image)
+            .pixels()
+            .zip(expected)
+        {
             assert_eq!(pixel.0, [60, 120, 180, sample]);
         }
         assert!(apply_alpha(&mut image, (4, 2), (&alpha, 7)).is_err());

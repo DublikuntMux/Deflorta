@@ -210,8 +210,12 @@ label("diary", async () => {
   await nvlNarrator(
     `Today I spent time with Eileen. Friendship: {b}${store.friendship}{/b}.`,
   );
+  const goToEnding = await menu([
+    ["Go to Ending", "ending"],
+    ["Restart", "start"],
+  ]);
   nvlClear();
-  jump("ending");
+  jump(goToEnding);
 });
 
 label("ending", async () => {

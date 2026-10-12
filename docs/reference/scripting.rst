@@ -222,6 +222,13 @@ configuration. Common fields are:
 ``prefs`` contains player preferences. Call ``savePrefs()`` to save and apply
 changes. ``setLanguage(id)``, ``translations(language, table)``, and ``_(text)``
 provide localization. ``keymap`` and ``actions`` customize input behavior.
+Gamepad buttons use independent stable names such as ``GamepadSouth`` and
+``GamepadDPadUp`` in these bindings and in screen-specific ``keys``. The
+``confirm`` and ``focusUp``/``focusDown``/``focusLeft``/``focusRight`` actions
+feed native focus handling; ``skipHeld`` handles both press and release.
+``native.ui.key(name, down = true, repeat = false)`` feeds a key through the
+same native and script path. See :doc:`controls` for all names and touch
+gesture rules.
 
 ``on(event, fn)`` subscribes to an engine event and returns an unsubscribe
 function. ``setTimer(ms, fn)`` and ``clearTimer(id)`` manage timers; global

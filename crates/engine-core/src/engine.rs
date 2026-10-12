@@ -21,9 +21,6 @@ const MAX_TIMERS_PER_TICK: usize = 64;
 
 const IMAGE_WAIT_LIMIT: Duration = Duration::from_millis(1500);
 
-/// Maintenance also runs when the event-driven renderer is asleep.
-const RESOURCE_CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
-
 const THUMBNAIL_WIDTH: u32 = 384;
 
 #[derive(Default)]
@@ -89,13 +86,17 @@ pub struct Engine {
     /// Thumbnails to write once the pending capture arrives.
     thumbnail_names: Vec<String>,
     text_input: bool,
-    next_resource_cleanup: Instant,
+    next_resource_cleanup: Option<Instant>,
     last_presented_frame: Option<Instant>,
 }
 
 impl Engine {
     #[cfg(target_os = "android")]
     pub fn set_suspended(&mut self, suspended: bool) {
+        let now = Instant::now();
+        for (_, _, clock) in self.ui.video_sources() {
+            clock.set_suspended(suspended, now);
+        }
         if let Some(audio) = &mut self.audio {
             audio.set_suspended(suspended);
         }
@@ -126,7 +127,7 @@ impl Engine {
             thumbnail: None,
             thumbnail_names: Vec::new(),
             text_input: false,
-            next_resource_cleanup: Instant::now() + RESOURCE_CLEANUP_INTERVAL,
+            next_resource_cleanup: None,
             last_presented_frame: None,
         };
         engine.flush();
@@ -135,6 +136,10 @@ impl Engine {
 
     pub const fn config(&self) -> &GameConfig {
         &self.config
+    }
+
+    pub fn accessibility_update(&mut self) -> accesskit::TreeUpdate {
+        self.ui.accessibility_update(&self.config.title)
     }
 
     pub fn set_waker(&self, callback: WakeCallback) {
@@ -331,6 +336,7 @@ impl Engine {
                     self.ui.reveal_skip(now);
                     self.requests.redraw = true;
                 }
+                Command::UiKey { key, down, repeat } => self.ui_key(&key, down, repeat),
                 Command::Preload { images } => {
                     debug!("Preloading {} images", images.len());
                     for src in &images {
@@ -529,11 +535,14 @@ impl Engine {
     }
 
     fn set_config(&mut self, config: GameConfig) {
+        let revision = self.ui.accessibility_revision();
         if config.frame_events != self.config.frame_events {
             self.last_presented_frame = None;
         }
         self.ui
             .set_config(config.width, config.height, &config.font);
+        self.requests.redraw |=
+            self.config.title != config.title || self.ui.accessibility_revision() != revision;
         let id: String = config
             .id
             .chars()
@@ -546,6 +555,11 @@ impl Engine {
             })
             .collect();
         self.data_dir = crate::data_dir().join("deflorta").join(id);
+        deflorta_common::crash::set_game(
+            self.data_dir.clone(),
+            config.title.clone(),
+            config.id.clone(),
+        );
         ScriptHost::set_data_dir(self.data_dir.clone());
         self.assets.set_user_dir(self.data_dir.clone());
         self.requests.title = Some(config.title.clone());
@@ -700,6 +714,7 @@ impl Engine {
     pub fn mouse_down(&mut self, button: &str) {
         // Only the primary button drags sliders and focuses fields; others just
         // report the element clicked (e.g. right click opens the game menu).
+        let native_control = button == "left" && self.ui.pointer_interaction().0;
         let events = if button == "left" {
             self.ui.mouse_down()
         } else {
@@ -709,7 +724,7 @@ impl Engine {
                 .into_iter()
                 .collect()
         };
-        if events.is_empty() {
+        if events.is_empty() && !native_control {
             let revealing = self.revealing();
             self.dispatch(&Event::Click {
                 handler: None,
@@ -737,9 +752,11 @@ impl Engine {
     }
 
     pub fn text_input(&mut self, text: &str) {
+        let revision = self.ui.accessibility_revision();
         if let Some(event) = self.ui.type_text(text) {
             self.handle_ui_events(vec![event], "left");
         }
+        self.requests.redraw |= self.ui.accessibility_revision() != revision;
     }
 
     #[cfg(target_os = "android")]
@@ -756,9 +773,13 @@ impl Engine {
         self.requests.redraw = true;
     }
 
+    fn ui_key(&mut self, key: &str, down: bool, repeat: bool) {
+        self.key(key, down, repeat, &KeyModifiers::default());
+    }
+
     pub fn key(&mut self, key: &str, down: bool, repeat: bool, modifiers: &KeyModifiers) {
         if down {
-            if self.ui.focused_input().is_some() && key != "F6" {
+            if self.ui.focused_input().is_some() && key != "F6" && !key.starts_with("Gamepad") {
                 let event = match key {
                     "Backspace" => self.ui.backspace(),
                     "Enter" => self.ui.activate(),
@@ -828,22 +849,18 @@ impl Engine {
         self.timers.iter().map(|(due, _)| *due).min()
     }
 
-    pub const fn next_resource_cleanup(&self) -> Instant {
+    pub const fn next_resource_cleanup(&self) -> Option<Instant> {
         self.next_resource_cleanup
     }
 
     pub fn collect_unused_resources(&mut self, renderer: &mut Renderer, now: Instant) {
-        if now < self.next_resource_cleanup {
-            return;
-        }
-        self.next_resource_cleanup = now + RESOURCE_CLEANUP_INTERVAL;
         let mut retained = self.ui.retained_assets(now);
         if let Some(pending) = &self.pending {
             let mut images = Vec::new();
             Ui::collect_images(&pending.tree, &mut images);
             retained.extend(images);
         }
-        renderer.collect_unused(&mut self.assets, &retained, now);
+        self.next_resource_cleanup = renderer.collect_unused(&mut self.assets, &retained, now);
         if let Some(audio) = &mut self.audio {
             audio.collect_finished();
         }

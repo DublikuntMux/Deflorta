@@ -39,6 +39,7 @@ impl Ui {
         now: Instant,
     ) {
         self.dismiss_notification(id);
+        self.accessibility_changed();
         self.notifications.push(Notification {
             id,
             message,
@@ -71,9 +72,11 @@ impl Ui {
         notification.message = message;
         notification.state = options.state;
         notification.expires = options.deadline(now).ok().flatten();
+        self.accessibility_changed();
     }
 
     pub fn dismiss_notification(&mut self, id: NotificationId) {
+        let count = self.notifications.len();
         self.notifications.retain(|notification| {
             if notification.id == id {
                 self.text.remove(&notification.text_id);
@@ -82,6 +85,9 @@ impl Ui {
                 true
             }
         });
+        if count != self.notifications.len() {
+            self.accessibility_changed();
+        }
     }
 
     pub fn expire_notifications(&mut self, now: Instant) -> bool {
@@ -94,7 +100,11 @@ impl Ui {
                 true
             }
         });
-        count != self.notifications.len()
+        let changed = count != self.notifications.len();
+        if changed {
+            self.accessibility_changed();
+        }
+        changed
     }
 
     #[must_use]
@@ -104,13 +114,16 @@ impl Ui {
 
     pub(super) fn draw_notifications(&mut self, now: Instant, items: &mut Vec<DrawItem>) {
         self.expire_notifications(now);
-        for notification in &mut self.notifications {
-            notification.bounds = None;
-        }
         let clip = self.surface_bounds;
         // Native overlays stay readable when a large game canvas is scaled down.
         let scale = self.scale.clamp(0.75, 2.0);
         let rows = self.layout_notifications(scale);
+        let mut bounds_changed = false;
+        for (index, notification) in self.notifications.iter_mut().enumerate() {
+            if !rows.iter().any(|row| row.index == index) {
+                bounds_changed |= notification.bounds.take().is_some();
+            }
+        }
         let width = rows.iter().map(|row| row.width).fold(0.0, f32::max);
         let count = rows.len();
         let x = clip.x + (clip.w - width) / 2.0;
@@ -123,6 +136,7 @@ impl Ui {
                 w: width,
                 h: row.height,
             };
+            bounds_changed |= notification.bounds != Some(rect);
             notification.bounds = Some(rect);
             let top = if position == 0 { row.height / 2.0 } else { 0.0 };
             let bottom = if position + 1 == count {
@@ -161,6 +175,9 @@ impl Ui {
                 .intersect(&clip),
             }));
             y += row.height;
+        }
+        if bounds_changed {
+            self.accessibility_changed();
         }
     }
 

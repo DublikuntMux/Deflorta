@@ -1,4 +1,8 @@
+mod clock;
 mod webm;
+pub use clock::PlaybackClock;
+mod planar;
+pub use planar::{ColorMatrix, ColorRange, Plane, VideoFrame};
 
 #[cfg(feature = "debug-formats")]
 mod h264;
@@ -22,7 +26,7 @@ const QUEUE_AHEAD: usize = 4;
 struct Frame {
     /// Presentation time in seconds since playback started.
     pts: f64,
-    image: Arc<image::RgbaImage>,
+    image: Arc<VideoFrame>,
 }
 
 enum Message {
@@ -32,7 +36,7 @@ enum Message {
 
 struct State {
     queue: VecDeque<Frame>,
-    current: Option<(u64, Arc<image::RgbaImage>)>,
+    current: Option<(u64, Arc<VideoFrame>)>,
     decoding_done: bool,
     end_pts: f64,
     ended: bool,
@@ -42,7 +46,7 @@ struct State {
 pub struct VideoPlayer {
     src: String,
     looping: bool,
-    start: Instant,
+    clock: Arc<PlaybackClock>,
     size: Option<(u32, u32)>,
     receiver: Receiver<Message>,
     state: RefCell<State>,
@@ -84,7 +88,7 @@ impl VideoPlayer {
         Self {
             src: src.to_owned(),
             looping,
-            start: now,
+            clock: Arc::new(PlaybackClock::new(now)),
             size,
             receiver,
             state: RefCell::new(State {
@@ -106,8 +110,9 @@ impl VideoPlayer {
         self.looping
     }
 
-    pub const fn started(&self) -> Instant {
-        self.start
+    #[must_use]
+    pub fn clock(&self) -> Arc<PlaybackClock> {
+        self.clock.clone()
     }
 
     pub const fn size(&self) -> Option<(u32, u32)> {
@@ -130,9 +135,9 @@ impl VideoPlayer {
     }
 
     /// The frame to show at `now`, with a serial that changes whenever the frame does.
-    pub fn frame(&self, now: Instant) -> Option<(u64, Arc<image::RgbaImage>)> {
+    pub fn frame(&self, now: Instant) -> Option<(u64, Arc<VideoFrame>)> {
         let mut state = self.state.borrow_mut();
-        let elapsed = now.saturating_duration_since(self.start).as_secs_f64();
+        let elapsed = self.clock.elapsed(now);
         loop {
             while state.queue.len() < QUEUE_AHEAD && !state.decoding_done {
                 match self.receiver.try_recv() {

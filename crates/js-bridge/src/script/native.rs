@@ -92,6 +92,12 @@ pub enum Command {
     },
     /// Shows all text up to the next click-wait (or the end).
     RevealSkip,
+    /// Feeds a key through native focus handling and the script key path.
+    UiKey {
+        key: String,
+        down: bool,
+        repeat: bool,
+    },
     Preload {
         images: Vec<String>,
     },
@@ -244,6 +250,7 @@ const MODULES: &[(&CStr, Module)] = &[
         &[
             (c"commit", ui_commit, 2),
             (c"revealSkip", ui_reveal_skip, 0),
+            (c"key", ui_key, 3),
             (c"preload", ui_preload, 1),
             (c"captureThumbnail", ui_capture_thumbnail, 1),
             (c"saveThumbnail", ui_save_thumbnail, 1),
@@ -506,6 +513,17 @@ native! {
 
     fn ui_reveal_skip(_args) {
         queue(Command::RevealSkip);
+        Ok(())
+    }
+
+    fn ui_key(args) {
+        let down: Option<bool> = args.get(1)?;
+        let repeat: Option<bool> = args.get(2)?;
+        queue(Command::UiKey {
+            key: args.get(0)?,
+            down: down.unwrap_or(true),
+            repeat: repeat.unwrap_or(false),
+        });
         Ok(())
     }
 

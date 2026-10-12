@@ -6,7 +6,7 @@ use accesskit::{
 use num_traits::{AsPrimitive, ToPrimitive};
 
 use super::desc::NodeKind;
-use super::{InputEvent, Ui};
+use super::{InputEvent, Rect, Ui};
 use crate::self_voicing::SpeechSnapshot;
 use crate::util::math::snap;
 
@@ -14,6 +14,9 @@ const ROOT: NodeId = NodeId(0);
 
 #[derive(Default)]
 pub(super) struct Accessibility {
+    revision: u64,
+    /// Geometry is compared as drawing emits it, without rebuilding an AccessKit tree.
+    bounds: Vec<(usize, Rect)>,
     ids: HashMap<String, NodeId>,
     text_runs: HashMap<String, NodeId>,
     next_id: u64,
@@ -22,6 +25,43 @@ pub(super) struct Accessibility {
 }
 
 impl Ui {
+    #[must_use]
+    pub const fn accessibility_revision(&self) -> u64 {
+        self.accessibility.revision
+    }
+
+    pub(super) const fn accessibility_changed(&mut self) {
+        self.accessibility.revision = self.accessibility.revision.wrapping_add(1);
+    }
+
+    pub(super) fn accessible_bounds(&mut self, i: usize, rect: Rect) {
+        let position = self.hit_order.len();
+        let bounds = (i, rect);
+        if self.accessibility.bounds.get(position) != Some(&bounds) {
+            self.accessibility_changed();
+            if let Some(previous) = self.accessibility.bounds.get_mut(position) {
+                *previous = bounds;
+            } else {
+                self.accessibility.bounds.push(bounds);
+            }
+        }
+        self.hit_order.push(bounds);
+    }
+
+    pub(super) fn finish_accessible_bounds(&mut self) {
+        if self.accessibility.bounds.len() != self.hit_order.len() {
+            self.accessibility.bounds.truncate(self.hit_order.len());
+            self.accessibility_changed();
+        }
+    }
+
+    pub(super) fn set_focus(&mut self, focus: Option<String>) {
+        if self.focused != focus {
+            self.focused = focus;
+            self.accessibility_changed();
+        }
+    }
+
     fn modal_start(&self) -> usize {
         self.hit_order
             .iter()
@@ -314,7 +354,7 @@ impl Ui {
         let desc = &self.nodes[i].desc;
         match request.action {
             Action::Focus if desc.is_focusable() => {
-                self.focused = Some(self.nodes[i].id.clone());
+                self.set_focus(Some(self.nodes[i].id.clone()));
                 self.scroll_into_view(i);
                 self.update_tooltip().into_iter().collect()
             }

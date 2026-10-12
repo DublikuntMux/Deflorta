@@ -3,6 +3,113 @@ use super::*;
 mod frame_events;
 mod notifications;
 
+#[test]
+#[ignore = "Requires a native GPU adapter"]
+fn cleanup_deadlines_stop_for_empty_and_retained_scenes_and_resume_for_preloads() {
+    const CHILD: &str = "DEFLORTA_CLEANUP_TEST_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let directory =
+            std::env::temp_dir().join(format!("deflorta-cleanup-test-{}", std::process::id()));
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "engine::tests::cleanup_deadlines_stop_for_empty_and_retained_scenes_and_resume_for_preloads", "--ignored"])
+            .env(CHILD, "1")
+            .env("XDG_DATA_HOME", &directory)
+            .status().unwrap();
+        let _ = std::fs::remove_dir_all(directory);
+        assert!(status.success());
+        return;
+    }
+    let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+    let host = ScriptHost::new(files.clone()).unwrap();
+    let ui = Ui::new(crate::ui::text::TextSystem::new(&files));
+    let mut engine = Engine::new(host, Assets::new(files), ui, None);
+    let mut renderer = pollster::block_on(Renderer::offscreen(32, 32)).unwrap();
+    let now = Instant::now();
+    assert_eq!(engine.next_resource_cleanup(), None);
+    engine.collect_unused_resources(&mut renderer, now);
+    assert_eq!(engine.next_resource_cleanup(), None);
+    engine.assets.request("missing.png");
+    engine.ui.commit(
+        NodeDesc {
+            t: Some(crate::ui::desc::NodeKind::Image),
+            src: Some("missing.png".into()),
+            ..Default::default()
+        },
+        true,
+        &HashMap::new(),
+        &engine.assets,
+        now,
+    );
+    engine.collect_unused_resources(&mut renderer, now);
+    assert_eq!(engine.next_resource_cleanup(), None);
+    engine.ui.commit(
+        NodeDesc::default(),
+        true,
+        &HashMap::new(),
+        &engine.assets,
+        now,
+    );
+    engine.collect_unused_resources(&mut renderer, now);
+    assert_eq!(
+        engine.next_resource_cleanup(),
+        Some(now + crate::assets::ASSET_IDLE_LIMIT)
+    );
+    engine.collect_unused_resources(&mut renderer, now + crate::assets::ASSET_IDLE_LIMIT);
+    assert_eq!(engine.next_resource_cleanup(), None);
+
+    // Upload a real texture, then remove its CPU cache so only the renderer's
+    // deadline can wake the idle scene.
+    let source = "images/masks/clouds.png";
+    engine.assets.request(source);
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !engine.assets.is_settled(source) {
+        assert!(Instant::now() < deadline, "image decoding timed out");
+        engine.assets.poll();
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let now = Instant::now();
+    engine.ui.commit(
+        NodeDesc {
+            t: Some(crate::ui::desc::NodeKind::Image),
+            src: Some(source.into()),
+            ..Default::default()
+        },
+        true,
+        &HashMap::new(),
+        &engine.assets,
+        now,
+    );
+    let items = engine.ui.draw(&mut engine.assets, now);
+    renderer
+        .render(
+            items,
+            &mut engine.ui,
+            &mut engine.assets,
+            Color::WHITE,
+            #[cfg(feature = "dev-console")]
+            None,
+        )
+        .unwrap();
+    let now = Instant::now();
+    engine.collect_unused_resources(&mut renderer, now);
+    assert_eq!(engine.next_resource_cleanup(), None);
+    engine.assets.forget(source);
+    engine.ui.commit(
+        NodeDesc::default(),
+        true,
+        &HashMap::new(),
+        &engine.assets,
+        now,
+    );
+    engine.collect_unused_resources(&mut renderer, now);
+    assert_eq!(
+        engine.next_resource_cleanup(),
+        Some(now + crate::assets::ASSET_IDLE_LIMIT)
+    );
+    engine.collect_unused_resources(&mut renderer, now + crate::assets::ASSET_IDLE_LIMIT);
+    assert_eq!(engine.next_resource_cleanup(), None);
+}
+
 fn key(engine: &mut Engine, name: &str) {
     engine.key(name, true, false, &KeyModifiers::default());
 }

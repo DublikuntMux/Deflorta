@@ -100,13 +100,18 @@ limit and thumbnail settling timeout. Connected gamepads still poll for input.
 ``preload()`` decodes early. Unused textures expire after 60 seconds;
 see :doc:`../guides/debugging` for cleanup and forced-unload behavior.
 
-Video uses a background thread decoding a few frames ahead, paced by the
-wall clock, and uploads frames into a reused texture. WebM video demuxing uses
+Video uses a background thread decoding a few frames ahead. Its playback
+clock pauses during Android suspension and follows the soundtrack position
+when audio is playing, including loops. Silent videos use the pausable clock.
+Decoders retain native YUV planes and color matrix/range information. The GPU
+converts uploaded R8 planes into a reused RGBA texture for the quad pipeline;
+offscreen renders and thumbnails use the same conversion. WebM demuxing uses
 oxideav-mkv to retain ``BlockAdditional`` alpha data. VP9 decodes through a
 vendored libvpx build (``crates/vpx``) with SIMD kernels selected at runtime and
 row-based multithreading; debug builds decode VP8 with oxideav-vp8. A separate
-decoder reads the alpha stream's luma plane, combining it with straight RGB
-before the renderer blends the frame. Normalized WebM Vorbis
+decoder reads the alpha stream's full-range luma plane. GPU conversion retains
+straight RGB independently of alpha before the renderer blends the frame.
+Normalized WebM Vorbis
 soundtracks play through kira; debug builds also decode source MP4 AAC.
 Container detection reads the file signature because archive entries preserve
 source asset names. Format limits are in
@@ -115,9 +120,10 @@ media reads through the shared file abstraction.
 
 Sound effects decode on an audio-loading worker. Music, voice, and video
 soundtracks are opened and prepared there too, including Kira's initial
-decoder seek. Playback handles and track controls stay on the event thread.
+decoder seek. Track controls stay on the event thread; audio processing
+publishes the soundtrack position to the video clock.
 Stopping or replacing a pending stream invalidates its result, and video
-soundtracks start at the video's elapsed position after loading.
+soundtracks start at the video's suspension-aware elapsed position after loading.
 
 Save thumbnails and headless rendering
 --------------------------------------

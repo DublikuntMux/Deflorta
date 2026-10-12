@@ -79,7 +79,6 @@ tempfile = "3.27.0"
 tts = "0.26.3"
 wgpu = { version = "30.0.1", features = ["spirv"] }
 winit = "0.30.13"
-yuv = "0.8.19"
 
 [profile.release]
 opt-level = 3

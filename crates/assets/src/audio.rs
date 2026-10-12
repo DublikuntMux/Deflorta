@@ -2,7 +2,8 @@ mod loader;
 mod webm;
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use kira::sound::FromFileError;
 use kira::sound::streaming::StreamingSoundData;
@@ -13,6 +14,7 @@ use log::{debug, info, warn};
 
 use crate::assets::Assets;
 use crate::files::GameFiles;
+use crate::video::PlaybackClock;
 use crate::worker::WakeCallback;
 use loader::{AudioLoader, LoadKind, LoadedSound, StreamHandle};
 
@@ -197,11 +199,17 @@ impl Audio {
     pub fn sync_videos<'a>(
         &mut self,
         assets: &Assets,
-        playing: impl Iterator<Item = (&'a str, bool, Instant)>,
+        playing: impl Iterator<Item = (&'a str, bool, Arc<PlaybackClock>)>,
     ) {
-        let playing: HashMap<&str, (bool, Instant)> = playing
-            .map(|(source, looped, started)| (source, (looped, started)))
-            .collect();
+        let mut by_source: HashMap<&str, (bool, Vec<Arc<PlaybackClock>>)> = HashMap::new();
+        for (source, looped, clock) in playing {
+            by_source
+                .entry(source)
+                .or_insert_with(|| (looped, Vec::new()))
+                .1
+                .push(clock);
+        }
+        let playing = by_source;
         self.video_requests.retain(|src, id| {
             if playing.contains_key(src.as_str()) {
                 true
@@ -218,8 +226,14 @@ impl Audio {
             }
             keep
         });
-        for (src, (looped, started)) in playing {
-            if self.videos.contains_key(src) || self.video_requests.contains_key(src) {
+        for (src, (looped, clocks)) in playing {
+            if let Some(handle) = self.videos.get(src) {
+                for clock in &clocks {
+                    handle.add_video_clock(clock);
+                }
+                continue;
+            }
+            if self.video_requests.contains_key(src) {
                 continue;
             }
             let Some(path) = assets.game_path(src) else {
@@ -229,7 +243,10 @@ impl Audio {
                 assets.files().clone(),
                 path,
                 src,
-                LoadKind::Video { looped, started },
+                LoadKind::Video {
+                    looped,
+                    clock: clocks[0].clone(),
+                },
             ) {
                 self.video_requests.insert(src.to_owned(), id);
             }
@@ -258,7 +275,7 @@ impl Audio {
                     continue;
                 }
             };
-            match (request.kind, data) {
+            match (request.kind.clone(), data) {
                 (
                     LoadKind::Music {
                         looped, fade_in, ..
@@ -295,6 +312,7 @@ impl Audio {
                     }
                 }
                 (LoadKind::Video { .. }, LoadedSound::Stream(data)) => {
+                    data.activate_clock();
                     if let Ok(handle) = self.music_track.play(data) {
                         debug!("Playing soundtrack of video '{source}'");
                         self.videos.insert(source.clone(), handle);

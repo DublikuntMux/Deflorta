@@ -62,10 +62,24 @@ declare module "deflorta" {
   /** Reads a text file from the game, or null if it does not exist. */
   export function readText(path: string): string | null;
 
+  /** Stable desktop controller names; left-stick directions use a dead zone. */
+  export type GamepadKey =
+    | "GamepadSouth" | "GamepadEast" | "GamepadNorth" | "GamepadWest"
+    | "GamepadC" | "GamepadZ"
+    | "GamepadLeftTrigger" | "GamepadLeftTrigger2"
+    | "GamepadRightTrigger" | "GamepadRightTrigger2"
+    | "GamepadSelect" | "GamepadStart" | "GamepadMode"
+    | "GamepadLeftThumb" | "GamepadRightThumb"
+    | "GamepadDPadUp" | "GamepadDPadDown" | "GamepadDPadLeft" | "GamepadDPadRight"
+    | "GamepadLeftStickUp" | "GamepadLeftStickDown"
+    | "GamepadLeftStickLeft" | "GamepadLeftStickRight";
+
   export interface KeyEvent {
     type: "key";
+    /** Character text, stable named key (Space is " "), or a GamepadKey. */
     key: string;
     down: boolean;
+    /** Keyboard repeat or held gamepad direction (400 ms delay, 100 ms interval). */
     repeat: boolean;
     ctrl: boolean;
     shift: boolean;
@@ -186,6 +200,8 @@ declare module "deflorta" {
       ): number | null;
       /** Shows typewriter text up to the next click-wait. */
       revealSkip(): void;
+      /** Feeds a key through native focus handling, then screen/story bindings. */
+      key(key: string, down?: boolean, repeat?: boolean): void;
       preload(images: string[]): void;
       /** Captures a save thumbnail now, or with `after`, once the next tree is shown. */
       captureThumbnail(after?: boolean): void;
@@ -874,6 +890,12 @@ declare module "deflorta" {
   export function autosave(options?: { now?: boolean }): boolean;
 
   export type ActionName =
+    | "confirm"
+    | "focusUp"
+    | "focusDown"
+    | "focusLeft"
+    | "focusRight"
+    | "skipHeld"
     | "advance"
     | "rollback"
     | "menu"
@@ -886,6 +908,7 @@ declare module "deflorta" {
     | "fullscreen"
     | "selfVoicing";
 
+  /** Keyboard and gamepad bindings; screen-specific keys take precedence. */
   export const keymap: Record<string, ActionName | string>;
   export const actions: Record<ActionName, (event?: KeyEvent | ClickEvent | WheelEvent) => void> &
     Record<string, (event?: unknown) => void>;

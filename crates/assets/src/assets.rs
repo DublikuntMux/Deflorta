@@ -356,6 +356,16 @@ impl Assets {
         });
         expired
     }
+
+    /// Earliest expiry outside the current and incoming scenes.
+    #[must_use]
+    pub fn next_unused_cleanup(&self, retained: &HashSet<String>) -> Option<Instant> {
+        self.last_used
+            .iter()
+            .filter(|(src, _)| !retained.contains(*src))
+            .map(|(_, used)| *used + ASSET_IDLE_LIMIT)
+            .min()
+    }
 }
 
 #[cfg(test)]
@@ -370,6 +380,35 @@ mod tests {
         assets.jobs = jobs;
         assets.results = decoded;
         (assets, requests, results)
+    }
+
+    #[test]
+    fn cleanup_deadline_exists_only_for_unretained_cache_entries() {
+        let (mut assets, _, _) = controlled_assets();
+        let now = Instant::now();
+        let retained = HashSet::from(["visible.png".into()]);
+        assert_eq!(assets.next_unused_cleanup(&retained), None);
+        assets.last_used.insert("visible.png".into(), now);
+        assert_eq!(assets.next_unused_cleanup(&retained), None);
+        assets
+            .last_used
+            .insert("preload.png".into(), now + Duration::from_secs(2));
+        assets.last_used.insert("failed.png".into(), now);
+        assert_eq!(
+            assets.next_unused_cleanup(&retained),
+            Some(now + ASSET_IDLE_LIMIT)
+        );
+        assets.collect_unused(&retained, now + ASSET_IDLE_LIMIT);
+        assert_eq!(
+            assets.next_unused_cleanup(&retained),
+            Some(now + ASSET_IDLE_LIMIT + Duration::from_secs(2))
+        );
+        assets.collect_unused(&retained, now + ASSET_IDLE_LIMIT + Duration::from_secs(2));
+        assert_eq!(assets.next_unused_cleanup(&retained), None);
+        assert_eq!(
+            assets.next_unused_cleanup(&HashSet::new()),
+            Some(now + ASSET_IDLE_LIMIT * 2 + Duration::from_secs(2))
+        );
     }
 
     #[test]

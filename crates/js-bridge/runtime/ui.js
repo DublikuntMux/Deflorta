@@ -475,7 +475,16 @@ on("tooltip", (event) => {
   if (tooltipObserved) invalidate();
 });
 
+// Installed by story.js after this module initializes, avoiding an import
+// cycle while letting screen-specific gamepad keys take precedence.
+let gamepadInput = () => false;
+export function setGamepadInput(handler) {
+  gamepadInput = handler;
+}
+
 on("key", (event) => {
+  const gamepad = event.key.startsWith("Gamepad");
+  if (gamepad && !event.down) return gamepadInput(event);
   if (!event.down) return;
   if (event.key === "F6") return;
   if (hidden) {
@@ -490,6 +499,7 @@ on("key", (event) => {
       handler(event);
       return true;
     }
-    if (def.modal) return true;
+    if (def.modal) return gamepad ? gamepadInput(event, true) : true;
   }
+  if (gamepad) return gamepadInput(event);
 });

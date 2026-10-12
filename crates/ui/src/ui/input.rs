@@ -54,11 +54,13 @@ impl Ui {
     /// Pointer moved (physical pixels); `None` when it left the window.
     /// Returns whether a redraw is needed and any events for scripts.
     pub fn pointer_moved(&mut self, position: Option<(f32, f32)>) -> (bool, Vec<InputEvent>) {
+        let revision = self.accessibility_revision();
         if position != self.cursor && position.is_some() && self.focused_input().is_none() {
-            self.focused = None;
+            self.clear_focus();
         }
         self.cursor = position;
-        self.refresh_hover()
+        let (redraw, events) = self.refresh_hover();
+        (redraw || self.accessibility_revision() != revision, events)
     }
 
     /// Recomputes hover, slider dragging and tooltips for the current pointer
@@ -101,6 +103,7 @@ impl Ui {
             return None;
         }
         self.tooltip.clone_from(&tooltip);
+        self.accessibility_changed();
         self.sync_tooltip_text();
         Some(InputEvent::Tooltip(tooltip))
     }
@@ -130,7 +133,7 @@ impl Ui {
             .iter()
             .any(|&n| self.nodes[n].desc.kind() == NodeKind::Input)
         {
-            self.focused = None;
+            self.clear_focus();
         }
         for n in chain {
             let desc = &self.nodes[n].desc;
@@ -141,7 +144,7 @@ impl Ui {
                     return events;
                 }
                 NodeKind::Input => {
-                    self.focused = Some(self.nodes[n].id.clone());
+                    self.set_focus(Some(self.nodes[n].id.clone()));
                     return events;
                 }
                 _ => {}
@@ -159,6 +162,26 @@ impl Ui {
         let target = self.topmost_at(x, y)?;
         self.ancestors(target)
             .find_map(|n| self.nodes[n].desc.on_click)
+    }
+
+    /// Whether the pointer is over a slider/text field and a scroll container,
+    /// respectively. Includes ancestors, so touching a scroll container's
+    /// child still reserves that gesture for native scrolling.
+    pub fn pointer_interaction(&self) -> (bool, bool) {
+        let Some((x, y)) = self.cursor else {
+            return (false, false);
+        };
+        let Some(target) = self.topmost_at(x, y) else {
+            return (false, false);
+        };
+        let mut control = false;
+        let mut scroll = false;
+        for n in self.ancestors(target) {
+            let desc = &self.nodes[n].desc;
+            control |= matches!(desc.kind(), NodeKind::Slider | NodeKind::Input);
+            scroll |= desc.style.overflow == Some(Overflow::Scroll);
+        }
+        (control, scroll)
     }
 
     pub fn mouse_up(&mut self) {
@@ -185,6 +208,7 @@ impl Ui {
             let next = dy.mul_add(WHEEL_STEP, entry.1).clamp(0.0, max);
             if (next - entry.1).abs() > 0.01 {
                 entry.1 = next;
+                self.accessibility_changed();
                 return true;
             }
         }
@@ -269,7 +293,7 @@ impl Ui {
         let Some(next) = next else {
             return (current.is_some(), Vec::new());
         };
-        self.focused = Some(self.nodes[next].id.clone());
+        self.set_focus(Some(self.nodes[next].id.clone()));
         self.scroll_into_view(next);
         (true, self.update_tooltip().into_iter().collect())
     }
@@ -289,10 +313,14 @@ impl Ui {
                 .entry(self.nodes[c].id.clone())
                 .or_insert((0.0, 0.0));
             let top = rect.y - container.y;
+            let previous = entry.1;
             if top < entry.1 {
                 entry.1 = top.max(0.0);
             } else if top + rect.h > entry.1 + container.h {
                 entry.1 = (top + rect.h - container.h).min(max);
+            }
+            if entry.1.partial_cmp(&previous) != Some(std::cmp::Ordering::Equal) {
+                self.accessibility_changed();
             }
         }
     }
@@ -302,7 +330,7 @@ impl Ui {
     }
 
     pub fn clear_focus(&mut self) {
-        self.focused = None;
+        self.set_focus(None);
     }
 
     pub fn activate(&self) -> Option<InputEvent> {
@@ -373,6 +401,7 @@ impl Ui {
             return None;
         }
         Arc::make_mut(desc).value = Some(serde_json::Value::String(value.clone()));
+        self.accessibility_changed();
         self.layout_dirty = true;
         if let Some(id) = self.nodes[i].layout_id {
             self.layout_tree
@@ -383,5 +412,39 @@ impl Ui {
             .desc
             .on_input
             .map(|h| InputEvent::Input { h, value })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assets::Assets;
+    use crate::ui::desc::NodeDesc;
+    use crate::ui::text::TextSystem;
+
+    #[test]
+    fn pointer_interaction_reserves_native_controls_and_scroll_ancestors() {
+        let files = crate::GameFiles::open(&crate::workspace_dir().join("game")).unwrap();
+        let mut assets = Assets::new(files.clone());
+        let mut ui = Ui::new(TextSystem::new(&files));
+        for kind in ["box", "slider", "input"] {
+            let tree: NodeDesc = serde_json::from_value(serde_json::json!({
+                "style": { "width": 100, "height": 100, "overflow": "scroll" },
+                "children": [{
+                    "t": kind,
+                    "style": { "width": 100, "height": 200 }
+                }]
+            }))
+            .unwrap();
+            let now = std::time::Instant::now();
+            ui.commit(tree, true, &std::collections::HashMap::new(), &assets, now);
+            ui.draw(&mut assets, now);
+            ui.pointer_moved(Some((10.0, 10.0)));
+            assert_eq!(ui.pointer_interaction(), (kind != "box", true));
+            ui.pointer_moved(Some((2000.0, 2000.0)));
+            assert_eq!(ui.pointer_interaction(), (false, false));
+            ui.pointer_moved(None);
+            assert_eq!(ui.pointer_interaction(), (false, false));
+        }
     }
 }

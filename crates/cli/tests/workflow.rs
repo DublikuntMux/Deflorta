@@ -331,12 +331,23 @@ fn verify_transparent_movie(files: &GameFiles, path: &str, reference: &image::Rg
             );
             std::thread::sleep(std::time::Duration::from_millis(5));
         };
+        let alpha = frame
+            .alpha
+            .as_ref()
+            .expect("transparent movie has an alpha plane");
+        assert_eq!((alpha.width, alpha.height), (64, 48));
+        let sample = |x: u32, y: u32| alpha.data[(y * alpha.stride + x) as usize];
         let mut error = 0u64;
         let mut max_error = 0u8;
-        for (x, y, pixel) in frame.enumerate_pixels() {
-            let difference = pixel[3].abs_diff(reference.get_pixel(x + index * 64, y)[3]);
-            error += u64::from(difference);
-            max_error = max_error.max(difference);
+        let mut partial = false;
+        for y in 0..alpha.height {
+            for x in 0..alpha.width {
+                let value = sample(x, y);
+                let difference = value.abs_diff(reference.get_pixel(x + index * 64, y)[3]);
+                error += u64::from(difference);
+                max_error = max_error.max(difference);
+                partial |= (32..224).contains(&value);
+            }
         }
         assert!(
             error < 64 * 48 * 4,
@@ -346,9 +357,9 @@ fn verify_transparent_movie(files: &GameFiles, path: &str, reference: &image::Rg
             max_error <= 16,
             "{path} frame {index}: max alpha error {max_error}"
         );
-        assert!(frame.get_pixel(0, 0)[3] <= 4);
-        assert!(frame.get_pixel(63, 0)[3] >= 251);
-        assert!(frame.pixels().any(|pixel| (32..224).contains(&pixel[3])));
+        assert!(sample(0, 0) <= 4);
+        assert!(sample(63, 0) >= 251);
+        assert!(partial);
     }
 }
 

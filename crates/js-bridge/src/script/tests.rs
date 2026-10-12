@@ -35,6 +35,118 @@ fn runtime_state(host: &mut ScriptHost) -> serde_json::Value {
         .unwrap()
 }
 
+#[test]
+fn gamepad_bindings_preserve_native_navigation_and_release_held_skip_in_modals() {
+    const CHILD: &str = "DEFLORTA_GAMEPAD_TEST_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "script::tests::gamepad_bindings_preserve_native_navigation_and_release_held_skip_in_modals"])
+            .env(CHILD, "1")
+            .status()
+            .unwrap();
+        assert!(status.success());
+        return;
+    }
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::write(directory.path().join("main.js"), r#"
+        import { configure, label, say, newGame, on, keymap, isSkipping, screen,
+                 showScreen, hideScreen, View } from "deflorta";
+        import { native } from "deflorta/core";
+        configure({ id: "gamepad-test", textSpeed: 0, autosave: false });
+        label("start", async () => { await say("first"); await say("second"); await say("third"); });
+        screen("probe", () => View(), { modal: true, keys: {
+            Escape: () => hideScreen("probe"),
+            GamepadWest: () => native.audio.voice("screen-specific"),
+        } });
+        on("key", event => {
+            if (!event.down) return;
+            if (event.key === "start") newGame("start");
+            if (event.key === "modal") showScreen("probe");
+            if (event.key === "rebind") keymap.GamepadSouth = "focusRight";
+            if (event.key === "state") native.audio.voice(JSON.stringify({ skipping: isSkipping() }));
+        });
+    "#).unwrap();
+    let files = GameFiles::open(directory.path()).unwrap();
+    let mut host = ScriptHost::new(files).unwrap();
+    ScriptHost::set_data_dir(directory.path().join("data"));
+    host.run_main().unwrap();
+    host.dispatch(&Event::Boot).unwrap();
+    drop(ScriptHost::take_commands());
+
+    check_gamepad_navigation(&mut host);
+    check_gamepad_skip_release(&mut host);
+}
+
+fn check_gamepad_navigation(host: &mut ScriptHost) {
+    for (gamepad, expected) in [
+        ("GamepadSouth", "Enter"),
+        ("GamepadEast", "Escape"),
+        ("GamepadStart", "Escape"),
+        ("GamepadDPadUp", "ArrowUp"),
+        ("GamepadLeftStickDown", "ArrowDown"),
+    ] {
+        let commands = runtime_key(host, gamepad);
+        assert!(commands.iter().any(|command| matches!(command,
+            Command::UiKey { key, down: true, repeat: false } if key == expected)));
+    }
+    drop(runtime_key(host, "rebind"));
+    assert!(
+        runtime_key(host, "GamepadSouth")
+            .iter()
+            .any(|command| matches!(command,
+        Command::UiKey { key, down: true, .. } if key == "ArrowRight"))
+    );
+}
+
+fn check_gamepad_skip_release(host: &mut ScriptHost) {
+    drop(runtime_key(host, "start"));
+    drop(runtime_key(host, "GamepadRightTrigger2"));
+    assert_eq!(runtime_state(host)["skipping"], true);
+    drop(runtime_key(host, "modal"));
+    assert!(
+        runtime_key(host, "GamepadWest")
+            .iter()
+            .any(|command| matches!(command,
+        Command::Voice { file: Some(file) } if file == "screen-specific"))
+    );
+    host.dispatch(&Event::Key {
+        key: "GamepadRightTrigger2",
+        down: false,
+        repeat: false,
+        ctrl: false,
+        shift: false,
+        alt: false,
+        revealing: false,
+    })
+    .unwrap();
+    drop(ScriptHost::take_commands());
+    // Close the modal through the queued Escape path, then inspect skip state.
+    assert!(
+        runtime_key(host, "GamepadEast")
+            .iter()
+            .any(|command| matches!(command,
+        Command::UiKey { key, .. } if key == "Escape"))
+    );
+    drop(runtime_key(host, "Escape"));
+    assert_eq!(runtime_state(host)["skipping"], false);
+    host.dispatch(&Event::Key {
+        key: "GamepadDPadDown",
+        down: true,
+        repeat: true,
+        ctrl: false,
+        shift: false,
+        alt: false,
+        revealing: false,
+    })
+    .unwrap();
+    assert!(
+        ScriptHost::take_commands()
+            .iter()
+            .any(|command| matches!(command,
+        Command::UiKey { key, down: true, repeat: true } if key == "ArrowDown"))
+    );
+}
+
 fn scheduled_timer(commands: &[Command]) -> u64 {
     commands
         .iter()

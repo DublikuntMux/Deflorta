@@ -101,6 +101,10 @@ Use a ``Video`` component over other UI elements to show them through the
 transparent parts of the movie; no extra property is required. Partial alpha
 and the component's ``opacity`` combine when blending.
 
+Video planes convert on the GPU using the source color matrix and range;
+alpha remains full-range and RGB remains straight. Playback pauses during
+Android suspension and follows the soundtrack position when audio is available.
+
 WebM files without audio play silently. Opus audio and AV1 video are not
 supported by the debug runtime. FFmpeg can convert supported source codecs
 such as Opus and AV1 for release while preserving video transparency.

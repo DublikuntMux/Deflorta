@@ -117,8 +117,8 @@ pub struct ImageRef {
     pub src: String,
     /// u0, v0, u1, v1
     pub uv: [f32; 4],
-    /// Decoded video frame: (frame serial, pixels).
-    pub frame: Option<(u64, Arc<image::RgbaImage>)>,
+    /// Decoded video frame: (frame serial, native color and alpha planes).
+    pub frame: Option<(u64, Arc<crate::video::VideoFrame>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -197,6 +197,7 @@ pub struct Ui {
 
 impl Ui {
     pub fn assets_changed(&mut self) {
+        self.accessibility_changed();
         self.invalidate_measurements();
         self.layout_dirty = true;
     }
@@ -240,6 +241,7 @@ impl Ui {
         let new_size = (width.max(1.0), height.max(1.0));
 
         if self.virtual_size != new_size || self.default_font != font {
+            self.accessibility_changed();
             self.virtual_size = new_size;
 
             if self.default_font != font {
@@ -299,6 +301,9 @@ impl Ui {
     /// Updates the letterboxed mapping from virtual units to the physical surface.
     // Any change to the mapping must invalidate layout, even below an epsilon.
     pub fn set_surface_size(&mut self, width: f32, height: f32) {
+        if (self.surface_bounds.w, self.surface_bounds.h) != (width, height) {
+            self.accessibility_changed();
+        }
         self.surface_bounds = Rect {
             w: width,
             h: height,
@@ -407,6 +412,7 @@ impl Ui {
         now: Instant,
     ) {
         let old_nodes = std::mem::take(&mut self.nodes);
+        self.accessibility_changed();
         let old_index = std::mem::take(&mut self.index);
         self.index.reserve(old_index.len());
         let root_style = TextStyle {
@@ -847,10 +853,12 @@ impl Ui {
     }
 
     /// Sources of the videos currently on screen (their audio is played by the engine).
-    pub fn video_sources(&self) -> impl Iterator<Item = (&str, bool, Instant)> {
+    pub fn video_sources(
+        &self,
+    ) -> impl Iterator<Item = (&str, bool, Arc<deflorta_assets::video::PlaybackClock>)> {
         self.videos
             .values()
-            .map(|v| (v.src(), v.looping(), v.started()))
+            .map(|v| (v.src(), v.looping(), v.clock()))
     }
 
     pub fn prune(&mut self, now: Instant) {

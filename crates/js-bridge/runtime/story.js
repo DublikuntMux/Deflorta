@@ -15,6 +15,7 @@ import {
   replaceScreens,
   screenProps,
   setUiHidden,
+  setGamepadInput,
   showScreen,
   shownScreens,
 } from "deflorta/ui";
@@ -368,6 +369,7 @@ function cancelCheckpoint() {
 }
 
 let skipHeld = false;
+const heldSkipKeys = new Set();
 let skipToggled = false;
 let currentLine = "";
 let nextVoice = null;
@@ -901,6 +903,21 @@ export const keymap = {
   F6: "selfVoicing",
   F9: "quickLoad",
   F11: "fullscreen",
+  Control: "skipHeld",
+  GamepadSouth: "confirm",
+  GamepadEast: "menu",
+  GamepadStart: "menu",
+  GamepadNorth: "hideUi",
+  GamepadLeftTrigger: "rollback",
+  GamepadRightTrigger2: "skipHeld",
+  GamepadDPadUp: "focusUp",
+  GamepadDPadDown: "focusDown",
+  GamepadDPadLeft: "focusLeft",
+  GamepadDPadRight: "focusRight",
+  GamepadLeftStickUp: "focusUp",
+  GamepadLeftStickDown: "focusDown",
+  GamepadLeftStickLeft: "focusLeft",
+  GamepadLeftStickRight: "focusRight",
 };
 
 let gameMenuNotice = () => {};
@@ -910,6 +927,30 @@ export function setQuickNotice(fn) {
 }
 
 export const actions = {
+  confirm(event) {
+    native.ui.key("Enter", event?.down ?? true, event?.repeat ?? false);
+  },
+  focusUp(event) {
+    native.ui.key("ArrowUp", event?.down ?? true, event?.repeat ?? false);
+  },
+  focusDown(event) {
+    native.ui.key("ArrowDown", event?.down ?? true, event?.repeat ?? false);
+  },
+  focusLeft(event) {
+    native.ui.key("ArrowLeft", event?.down ?? true, event?.repeat ?? false);
+  },
+  focusRight(event) {
+    native.ui.key("ArrowRight", event?.down ?? true, event?.repeat ?? false);
+  },
+  skipHeld(event) {
+    if (!event) return;
+    if (event.down) heldSkipKeys.add(event.key);
+    else heldSkipKeys.delete(event.key);
+    skipHeld = heldSkipKeys.size > 0;
+    if (skipHeld && event.down && !event.repeat && inGame() && !storyBlocked()) advance();
+    syncAutomaticAdvance();
+    invalidate();
+  },
   selfVoicing(event) {
     if (event?.repeat) return;
     prefs.selfVoicing = !prefs.selfVoicing;
@@ -922,7 +963,11 @@ export const actions = {
   rollback() {
     rollback();
   },
-  menu() {
+  menu(event) {
+    if (event?.key?.startsWith("Gamepad")) {
+      native.ui.key("Escape", event.down, event.repeat);
+      return;
+    }
     if (!inGame()) return;
     if (isShown("game_menu")) {
       hideScreen("game_menu");
@@ -961,6 +1006,23 @@ export const actions = {
 };
 
 const GLOBAL_ACTIONS = new Set(["fullscreen", "selfVoicing"]);
+const FOCUS_ACTIONS = new Set(["confirm", "focusUp", "focusDown", "focusLeft", "focusRight"]);
+
+setGamepadInput((event, modal = false) => {
+  const action = keymap[event.key];
+  // Releases must clear held skipping even when a modal screen opened, or
+  // when a game changed the binding while the trigger was held.
+  if (!event.down) {
+    if (heldSkipKeys.has(event.key) || action === "skipHeld") actions.skipHeld(event);
+    return modal;
+  }
+  if (!action) return modal;
+  if (modal && !FOCUS_ACTIONS.has(action) && action !== "menu" && !GLOBAL_ACTIONS.has(action))
+    return true;
+  if (FOCUS_ACTIONS.has(action) || action === "menu" || GLOBAL_ACTIONS.has(action) || inGame())
+    actions[action]?.(event);
+  return modal;
+});
 
 on("backgroundClick", (event) => {
   if (event.button === "right") actions.menu(event);
@@ -969,15 +1031,13 @@ on("backgroundClick", (event) => {
 });
 
 on("key", (event) => {
-  if (event.key === "Control") {
-    skipHeld = event.down;
-    if (skipHeld && inGame() && !storyBlocked()) advance();
-    syncAutomaticAdvance();
-    invalidate();
+  if (event.key.startsWith("Gamepad")) return;
+  const action = keymap[event.key];
+  if (action === "skipHeld" || (!event.down && heldSkipKeys.has(event.key))) {
+    actions.skipHeld(event);
     return;
   }
   if (!event.down) return;
-  const action = keymap[event.key];
   if (action && (GLOBAL_ACTIONS.has(action) || inGame()))
     actions[action]?.(event);
 });

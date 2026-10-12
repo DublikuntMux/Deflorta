@@ -1,3 +1,4 @@
+pub mod crash;
 pub mod desc;
 pub mod diagnostics;
 pub mod handler;

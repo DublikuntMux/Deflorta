@@ -2,6 +2,49 @@ use std::time::Duration;
 
 use super::*;
 
+/// Test-only reference for the GPU's affine transform and nearest chroma loads.
+pub(super) fn reference_rgba(frame: &VideoFrame) -> image::RgbaImage {
+    let rows = frame.rgb_transform();
+    image::RgbaImage::from_fn(frame.width(), frame.height(), |x, y| {
+        let sample = |plane: &Plane, x: u32, y: u32| {
+            plane.data
+                [usize::try_from(u64::from(y) * u64::from(plane.stride) + u64::from(x)).unwrap()]
+        };
+        let uv_x = x >> u32::from(frame.subsampling.0);
+        let uv_y = y >> u32::from(frame.subsampling.1);
+        let samples = [
+            f32::from(sample(&frame.planes[0], x, y)) / 255.0,
+            f32::from(sample(&frame.planes[1], uv_x, uv_y)) / 255.0,
+            f32::from(sample(&frame.planes[2], uv_x, uv_y)) / 255.0,
+            1.0,
+        ];
+        let rgb = rows.map(|row| {
+            let value: f32 = row.into_iter().zip(samples).map(|(a, b)| a * b).sum();
+            num_traits::ToPrimitive::to_u8(&(value.clamp(0.0, 1.0) * 255.0).round()).unwrap()
+        });
+        image::Rgba([
+            rgb[0],
+            rgb[1],
+            rgb[2],
+            frame
+                .alpha
+                .as_ref()
+                .map_or(255, |alpha| sample(alpha, x, y)),
+        ])
+    })
+}
+
+fn test_frame() -> VideoFrame {
+    VideoFrame::copy(
+        (1, 1),
+        [(&[16], 1), (&[128], 1), (&[128], 1)],
+        (true, true),
+        ColorRange::Limited,
+        ColorMatrix::Bt601,
+    )
+    .unwrap()
+}
+
 fn fixtures() -> GameFiles {
     GameFiles::directory(&crate::workspace_dir().join("tests/fixtures")).unwrap()
 }
@@ -41,13 +84,14 @@ fn decodes_webm_key_and_inter_frames() {
                 .unwrap()
                 .into_rgba8();
         for (index, frame) in frames.iter().enumerate() {
+            let pixels = reference_rgba(&frame.image);
             assert_eq!(frame.image.dimensions(), (64, 48));
             if index > 0 {
                 assert!((frame.pts - frames[index - 1].pts - 0.1).abs() < 0.001);
             }
             let mut error = 0u64;
             let mut max_error = 0u8;
-            for (x, y, pixel) in frame.image.enumerate_pixels() {
+            for (x, y, pixel) in pixels.enumerate_pixels() {
                 let expected = reference.get_pixel(x + u32::try_from(index).unwrap() * 64, y);
                 for channel in 0..3 {
                     let difference = pixel[channel].abs_diff(expected[channel]);
@@ -91,31 +135,27 @@ fn decodes_webm_alpha_key_and_inter_frames() {
                 .unwrap()
                 .into_rgba8();
         for (index, frame) in frames.iter().enumerate() {
+            let pixels = reference_rgba(&frame.image);
             assert!(
                 f64::from(u32::try_from(index).unwrap())
                     .mul_add(-0.1, frame.pts)
                     .abs()
                     < 0.001
             );
-            for (x, y, pixel) in frame.image.enumerate_pixels() {
+            for (x, y, pixel) in pixels.enumerate_pixels() {
                 let expected = reference.get_pixel(x + u32::try_from(index).unwrap() * 64, y);
                 assert_eq!(pixel[3], expected[3], "{codec} frame {index} at {x},{y}");
                 for channel in 0..3 {
                     assert!(pixel[channel].abs_diff(expected[channel]) <= 8);
                 }
             }
-            assert_eq!(frame.image.get_pixel(0, 0)[3], 0);
-            assert_eq!(frame.image.get_pixel(63, 0)[3], 255);
-            assert!(
-                frame
-                    .image
-                    .pixels()
-                    .any(|pixel| (1..255).contains(&pixel[3]))
-            );
+            assert_eq!(pixels.get_pixel(0, 0)[3], 0);
+            assert_eq!(pixels.get_pixel(63, 0)[3], 255);
+            assert!(pixels.pixels().any(|pixel| (1..255).contains(&pixel[3])));
         }
         assert_ne!(
-            frames[0].image.get_pixel(24, 0)[3],
-            frames[5].image.get_pixel(24, 0)[3]
+            reference_rgba(&frames[0].image).get_pixel(24, 0)[3],
+            reference_rgba(&frames[5].image).get_pixel(24, 0)[3]
         );
     }
 }
@@ -194,13 +234,14 @@ fn decodes_h264_profiles_cropping_and_reordered_frames() {
         .unwrap()
         .into_rgba8();
         for (index, frame) in frames.iter().enumerate() {
+            let pixels = reference_rgba(&frame.image);
             assert_eq!(frame.image.dimensions(), (66, 50));
             if index > 0 {
                 assert!((frame.pts - frames[index - 1].pts - 0.1).abs() < 0.001);
             }
             let mut error = 0u64;
             let mut max_error = 0u8;
-            for (x, y, pixel) in frame.image.enumerate_pixels() {
+            for (x, y, pixel) in pixels.enumerate_pixels() {
                 let expected = reference.get_pixel(x + u32::try_from(index).unwrap() * 66, y);
                 for channel in 0..3 {
                     let difference = pixel[channel].abs_diff(expected[channel]);
@@ -232,14 +273,14 @@ fn end_event_waits_for_last_frame_duration_and_fires_once() {
     sender
         .send(Message::Frame(Frame {
             pts: 0.0,
-            image: Arc::new(image::RgbaImage::new(1, 1)),
+            image: Arc::new(test_frame()),
         }))
         .unwrap();
     sender.send(Message::End(0.1)).unwrap();
     let mut player = VideoPlayer {
         src: "test.webm".into(),
         looping: false,
-        start: now,
+        clock: Arc::new(PlaybackClock::new(now)),
         size: Some((1, 1)),
         receiver,
         state: RefCell::new(State {
@@ -254,7 +295,18 @@ fn end_event_waits_for_last_frame_duration_and_fires_once() {
     assert!(player.frame(now).is_some());
     assert!(!player.ended());
     assert!(!player.take_ended());
-    player.frame(now + Duration::from_millis(100));
+    player
+        .clock
+        .set_suspended(true, now + Duration::from_millis(25));
+    player.frame(now + Duration::from_secs(10));
+    assert!(
+        !player.ended(),
+        "suspension must not consume the last frame's duration"
+    );
+    player
+        .clock
+        .set_suspended(false, now + Duration::from_secs(10));
+    player.frame(now + Duration::from_millis(10_075));
     assert!(player.ended());
     assert!(player.take_ended());
     assert!(!player.take_ended());

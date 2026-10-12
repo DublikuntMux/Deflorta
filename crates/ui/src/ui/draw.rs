@@ -55,6 +55,7 @@ impl Ui {
         self.hit_order.clear();
         let mut items = Vec::new();
         if self.nodes.is_empty() {
+            self.finish_accessible_bounds();
             self.draw_notifications(now, &mut items);
             return items;
         }
@@ -78,8 +79,9 @@ impl Ui {
                     || self.hit_order.iter().any(|(n, _)| *n == i) && !self.accessibility_exposed(i)
             })
         {
-            self.focused = None;
+            self.clear_focus();
         }
+        self.finish_accessible_bounds();
         self.draw_notifications(now, &mut items);
         items
     }
@@ -134,11 +136,10 @@ impl Ui {
         let xf = parent.xf.then(&local);
         let bounds = xf.bounds(rect);
         let visible = bounds.intersect(&parent.clip);
-        if !node.in_ghost {
-            self.hit_order.push((i, visible));
-        }
-
         let color = pick_color(|s| s.color).unwrap_or(parent.color);
+        if !node.in_ghost {
+            self.accessible_bounds(i, visible);
+        }
         let ctx = Ctx {
             xf,
             opacity,

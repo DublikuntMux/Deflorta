@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, bail};
 use log::{debug, warn};
@@ -64,7 +64,7 @@ pub struct Storage {
     persisted: HashMap<String, Entry>,
     pending: HashMap<String, u64>,
     next_revision: u64,
-    jobs: Option<Sender<Job>>,
+    jobs: Option<Arc<Sender<Job>>>,
     results: Receiver<Completion>,
     thread: Option<JoinHandle<()>>,
 }
@@ -146,6 +146,9 @@ impl Storage {
         // Configuration happens before the game boots. The initial disk scan
         // runs on the worker; subsequent reads never touch the filesystem.
         let entries = snapshot.recv().expect("storage snapshot");
+        let jobs = Arc::new(jobs);
+        let flush = panic_flush_handle(&jobs, thread.thread().id());
+        deflorta_common::crash::set_storage(dir.clone(), flush);
         Self {
             dir,
             persisted: entries.clone(),
@@ -259,6 +262,23 @@ impl Storage {
         }
         updates
     }
+}
+
+fn panic_flush_handle(
+    jobs: &Arc<Sender<Job>>,
+    worker: std::thread::ThreadId,
+) -> deflorta_common::crash::StorageFlush {
+    let jobs = Arc::downgrade(jobs);
+    Arc::new(move |timeout: Duration| {
+        if std::thread::current().id() == worker {
+            return false;
+        }
+        let Some(jobs) = jobs.upgrade() else {
+            return false;
+        };
+        let (done, receiver) = channel();
+        jobs.send(Job::Flush(done)).is_ok() && receiver.recv_timeout(timeout).is_ok()
+    })
 }
 
 impl Drop for Storage {
@@ -385,6 +405,41 @@ mod tests {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn panic_flush_drains_queued_saves_without_keeping_the_worker_alive() {
+        let dir = TestDir::new();
+        let mut storage = Storage::new(dir.0.clone(), WorkerWake::default());
+        let flush = panic_flush_handle(
+            storage.jobs.as_ref().unwrap(),
+            storage.thread.as_ref().unwrap().thread().id(),
+        );
+        storage.write("save".into(), "queued".into()).unwrap();
+        assert!(flush(Duration::from_secs(2)));
+        assert_eq!(
+            std::fs::read_to_string(dir.0.join("save.json")).unwrap(),
+            "queued"
+        );
+        drop(storage);
+        assert!(!flush(Duration::from_millis(1)));
+    }
+
+    #[test]
+    fn panic_flush_skips_the_worker_and_times_out_on_a_stalled_queue() {
+        let (jobs, receiver) = channel();
+        let jobs = Arc::new(jobs);
+        let flush = panic_flush_handle(&jobs, std::thread::current().id());
+        assert!(!flush(Duration::from_secs(2)));
+        assert!(receiver.try_recv().is_err());
+        let worker = std::thread::spawn(|| std::thread::current().id())
+            .join()
+            .unwrap();
+        let flush = panic_flush_handle(&jobs, worker);
+        let started = std::time::Instant::now();
+        assert!(!flush(Duration::from_millis(10)));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(matches!(receiver.try_recv().unwrap(), Job::Flush(_)));
     }
 
     #[test]

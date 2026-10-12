@@ -21,6 +21,7 @@ use crate::ui::{DrawItem, ImageRef, Quad, Rect, TextDraw, Ui};
 use crate::util::math::{clamp_to_u32, saturating_i32};
 
 mod atlas;
+mod video;
 use atlas::Atlas;
 
 #[repr(C)]
@@ -48,6 +49,7 @@ struct Texture {
     raw: wgpu::Texture,
     bind_group: wgpu::BindGroup,
     serial: u64,
+    video: Option<Box<video::Planes>>,
 }
 
 /// Small still images share atlas pages; video frames and large images keep a texture.
@@ -106,6 +108,7 @@ pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     pipeline: wgpu::RenderPipeline,
+    video_converter: video::Converter,
     globals_buffer: wgpu::Buffer,
     globals_bind_group: wgpu::BindGroup,
     texture_layout: wgpu::BindGroupLayout,
@@ -328,6 +331,7 @@ impl Renderer {
 
         let pipeline =
             Self::create_quad_pipeline(&device, format, &globals_layout, &texture_layout);
+        let video_converter = video::Converter::new(&device);
 
         let image_atlas = Atlas::new(&device, &queue, &texture_layout, &sampler);
         let instance_capacity = 256;
@@ -345,6 +349,7 @@ impl Renderer {
             device,
             queue,
             pipeline,
+            video_converter,
             globals_buffer,
             globals_bind_group,
             texture_layout,
@@ -508,6 +513,7 @@ impl Renderer {
             raw,
             bind_group,
             serial,
+            video: None,
         })
     }
 
@@ -563,12 +569,49 @@ impl Renderer {
             .and_then(|c| c.texture.as_ref())
         {
             Some(Resident::Own(texture)) => {
-                texture.raw.width() == frame.width() && texture.raw.height() == frame.height()
+                texture.raw.width() == frame.width()
+                    && texture.raw.height() == frame.height()
+                    && texture
+                        .video
+                        .as_ref()
+                        .is_some_and(|planes| planes.matches(frame))
             }
             _ => false,
         };
         if !reusable {
-            let texture = self.texture_from_pixels(frame, *serial).map(Resident::Own);
+            let texture = if frame.width() == 0 || frame.height() == 0 {
+                None
+            } else {
+                let raw = self.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("video RGB"),
+                    size: wgpu::Extent3d {
+                        width: frame.width(),
+                        height: frame.height(),
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING
+                        | wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::COPY_SRC,
+                    view_formats: &[],
+                });
+                let bind_group = Self::texture_bind_group(
+                    &self.device,
+                    &self.texture_layout,
+                    &self.sampler,
+                    &raw,
+                );
+                let planes = self.video_converter.allocate(&self.device, frame);
+                Some(Resident::Own(Texture {
+                    raw,
+                    bind_group,
+                    serial: 0,
+                    video: Some(Box::new(planes)),
+                }))
+            };
             self.store(image.src.clone(), texture, now);
         }
         let cached = self.textures.get_mut(&image.src)?;
@@ -578,15 +621,12 @@ impl Renderer {
         };
         if texture.serial != *serial {
             texture.serial = *serial;
-            self.queue.write_texture(
-                texture.raw.as_image_copy(),
-                frame.as_raw(),
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(frame.width() * 4),
-                    rows_per_image: None,
-                },
-                texture.raw.size(),
+            self.video_converter.convert(
+                &self.device,
+                &self.queue,
+                &texture.raw,
+                texture.video.as_ref().expect("video planes allocated"),
+                frame,
             );
         }
         Some(binding(&self.image_atlas, cached.texture.as_ref()?))
@@ -888,14 +928,22 @@ impl Renderer {
         assets: &mut Assets,
         retained: &HashSet<String>,
         now: Instant,
-    ) {
+    ) -> Option<Instant> {
         for src in assets.collect_unused(retained, now) {
             self.unload_texture(&src);
         }
         let atlas = &mut self.image_atlas;
+        let mut next = None;
         self.textures.retain(|src, t| {
-            let keep = retained.contains(src)
-                || now.saturating_duration_since(t.last_used) < ASSET_IDLE_LIMIT;
+            if retained.contains(src) {
+                t.last_used = now;
+                return true;
+            }
+            let due = t.last_used + ASSET_IDLE_LIMIT;
+            let keep = now < due;
+            if keep {
+                next = Some(next.map_or(due, |previous: Instant| previous.min(due)));
+            }
             if !keep {
                 assets.forget(src);
                 if let Some(Resident::Packed(region)) = &t.texture {
@@ -904,6 +952,9 @@ impl Renderer {
             }
             keep
         });
+        next.into_iter()
+            .chain(assets.next_unused_cleanup(retained))
+            .min()
     }
 
     ///
@@ -1214,6 +1265,7 @@ mod tests {
     use super::{Rect, scissor};
 
     mod notifications;
+    mod video;
 
     #[test]
     #[ignore = "Requires a native GPU adapter"]
@@ -1267,7 +1319,7 @@ mod tests {
         let invalid = ImageRef {
             src: "video:/invalid".into(),
             uv: [0.0; 4],
-            frame: Some((1, Arc::new(image::RgbaImage::new(0, 0)))),
+            frame: Some((1, Arc::new(self::video::invalid_frame()))),
         };
         assert!(
             renderer

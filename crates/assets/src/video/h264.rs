@@ -2,15 +2,13 @@ use std::io::BufReader;
 use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
 
+use super::{ColorMatrix, ColorRange, Frame, Message, VideoFrame};
+use crate::files::{GameFiles, GameReader};
 use anyhow::{Context, Result, bail, ensure};
 use mp4::WriteBox;
-use oxideav_core::{CodecId, Decoder, Error, Packet, TimeBase, VideoFrame};
+use oxideav_core::{CodecId, Decoder, Error, Packet, TimeBase};
 use oxideav_h264::h264_decoder::H264CodecDecoder;
 use oxideav_h264::sps::Sps;
-use yuv::{YuvPlanarImage, YuvRange, YuvStandardMatrix};
-
-use super::{Frame, Message};
-use crate::files::{GameFiles, GameReader};
 
 type Mp4Reader = mp4::Mp4Reader<BufReader<GameReader>>;
 
@@ -165,7 +163,7 @@ fn drain(
         let sps = decoder
             .active_sps()
             .context("missing H.264 sequence parameters")?;
-        let image = to_rgba(&frame, sps)?;
+        let image = to_planar(&frame, sps)?;
         if sender
             .send(Message::Frame(Frame {
                 pts,
@@ -179,7 +177,7 @@ fn drain(
     }
 }
 
-fn to_rgba(frame: &VideoFrame, sps: &Sps) -> Result<image::RgbaImage> {
+fn to_planar(frame: &oxideav_core::VideoFrame, sps: &Sps) -> Result<VideoFrame> {
     ensure!(
         sps.chroma_array_type() == 1
             && sps.bit_depth_luma_minus8 == 0
@@ -197,43 +195,25 @@ fn to_rgba(frame: &VideoFrame, sps: &Sps) -> Result<image::RgbaImage> {
         .frame_height_in_mbs()
         .checked_mul(16)
         .context("H.264 height overflow")?;
-    let planar = YuvPlanarImage {
-        y_plane: &y.data,
-        y_stride: u32::try_from(y.stride)?,
-        u_plane: &u.data,
-        u_stride: u32::try_from(u.stride)?,
-        v_plane: &v.data,
-        v_stride: u32::try_from(v.stride)?,
-        width,
-        height,
-    };
     let signal = sps
         .vui
         .as_ref()
         .and_then(|vui| vui.video_signal_type.as_ref());
     let range = if signal.is_some_and(|signal| signal.video_full_range_flag) {
-        YuvRange::Full
+        ColorRange::Full
     } else {
-        YuvRange::Limited
+        ColorRange::Limited
     };
     let matrix = match signal
         .and_then(|signal| signal.colour_description.as_ref())
         .map(|color| color.matrix_coefficients)
     {
-        Some(1) => YuvStandardMatrix::Bt709,
-        Some(7) => YuvStandardMatrix::Smpte240,
-        Some(9) => YuvStandardMatrix::Bt2020,
-        _ => YuvStandardMatrix::Bt601,
+        Some(1) => ColorMatrix::Bt709,
+        Some(7) => ColorMatrix::Smpte240,
+        Some(9) => ColorMatrix::Bt2020,
+        _ => ColorMatrix::Bt601,
     };
-    let mut image = image::RgbaImage::new(width, height);
-    yuv::yuv420_to_rgba(
-        &planar,
-        image.as_mut(),
-        width.checked_mul(4).context("video stride overflow")?,
-        range,
-        matrix,
-    )?;
-    if let Some(crop) = &sps.frame_cropping {
+    let (left, top, visible_width, visible_height) = if let Some(crop) = &sps.frame_cropping {
         let crop_y = if sps.frame_mbs_only_flag { 2 } else { 4 };
         let left = crop.left.checked_mul(2).context("H.264 crop overflow")?;
         let right = crop.right.checked_mul(2).context("H.264 crop overflow")?;
@@ -255,8 +235,28 @@ fn to_rgba(frame: &VideoFrame, sps: &Sps) -> Result<image::RgbaImage> {
             .and_then(|h| h.checked_sub(bottom))
             .filter(|h| *h > 0)
             .context("invalid H.264 vertical crop")?;
-        image =
-            image::imageops::crop_imm(&image, left, top, visible_width, visible_height).to_image();
-    }
-    Ok(image)
+        (left, top, visible_width, visible_height)
+    } else {
+        (0, 0, width, height)
+    };
+    VideoFrame::copy(
+        (visible_width, visible_height),
+        [
+            cropped(y, left, top)?,
+            cropped(u, left / 2, top / 2)?,
+            cropped(v, left / 2, top / 2)?,
+        ],
+        (true, true),
+        range,
+        matrix,
+    )
+}
+
+fn cropped(plane: &oxideav_core::VideoPlane, left: u32, top: u32) -> Result<(&[u8], u32)> {
+    let stride = u32::try_from(plane.stride)?;
+    let offset = usize::try_from(u64::from(top) * u64::from(stride) + u64::from(left))?;
+    Ok((
+        plane.data.get(offset..).context("truncated H.264 crop")?,
+        stride,
+    ))
 }

@@ -24,6 +24,23 @@ The default shows engine info, warnings, and errors. ``-v`` enables debug
 details; ``-vv`` enables trace. ``RUST_LOG`` overrides verbosity. Include a
 ``RUST_LOG=deflorta=debug`` log when reporting a problem.
 
+Rust panic reports
+------------------
+
+Rust panics log their message, location, and a captured backtrace, and write
+``crash-<timestamp>-<process-id>.txt`` in the game's ``crashes`` directory:
+``<platform data directory>/deflorta/<game id>/crashes``. On Android this is
+inside the activity's private files directory. If the game is not configured
+yet or that directory cannot be written, reports go to
+``<system temporary directory>/deflorta-crashes``. Reports include engine
+version, game identity, thread name, timestamp, and backtrace.
+
+Before aborting, the panic hook tries to drain already queued save and
+thumbnail writes for at most two seconds. It skips unavailable or poisoned
+context and never waits for the storage worker from that worker itself.
+This is best effort: a stalled disk, unqueued changes, or an external process
+termination can still lose data. Default panic output remains on stderr.
+
 Use the developer console
 -------------------------
 
@@ -90,8 +107,8 @@ Understand asset and performance diagnostics
 --------------------------------------------
 
 Unreferenced images, preloads, failed loads, cached dimensions, and textures
-expire after 60 seconds. Cleanup checks run every 5 seconds, including while
-idle. Current and incoming scenes, hover images, and active transition masks
+expire after 60 seconds. Idle cleanup wakes only when an unretained cached
+resource can expire. Current and incoming scenes, hover images, and active transition masks
 stay loaded. Finished audio handles are cleaned up too.
 
 Forced unload releases CPU and GPU allocations together and discards late

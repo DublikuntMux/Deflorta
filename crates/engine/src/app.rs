@@ -1,11 +1,10 @@
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use deflorta_common::notification::{
     NotificationId, NotificationOptions, NotificationState, next_notification_id,
 };
-use gilrs::{Axis, Button, EventType, Gilrs};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use num_traits::AsPrimitive;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
@@ -13,21 +12,37 @@ use winit::event::{
     ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent,
 };
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
-use winit::keyboard::{Key, ModifiersState, NamedKey};
+use winit::keyboard::ModifiersState;
+#[cfg(feature = "dev-console")]
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Fullscreen, Window, WindowId};
 
 use crate::engine::{Engine, KeyModifiers};
 use crate::render::Renderer;
 
-/// Polling interval while gamepads are connected.
-const POLL_INTERVAL: Duration = Duration::from_millis(16);
+#[cfg(not(target_os = "android"))]
+#[path = "gamepad.rs"]
+mod gamepad;
 
-/// Stick deflection that counts as a direction press.
-const STICK_THRESHOLD: f32 = 0.6;
+#[path = "keyboard.rs"]
+mod keyboard;
+
+use keyboard::key_name;
+
+#[path = "touch.rs"]
+mod touch;
+
+use touch::{TouchAction, TouchState};
 
 pub enum AppEvent {
     Accessibility(accesskit_winit::Event),
     WorkerReady,
+    #[cfg(not(target_os = "android"))]
+    Gamepad {
+        key: &'static str,
+        down: bool,
+        repeat: bool,
+    },
 }
 
 impl From<accesskit_winit::Event> for AppEvent {
@@ -40,10 +55,7 @@ pub struct App {
     engine: Engine,
     renderer: Option<Renderer>,
     window: Option<Arc<Window>>,
-    gamepads: Option<Gilrs>,
-    /// Last stick direction per axis, to turn deflection into key presses.
-    stick: [i8; 2],
-    touch: Option<u64>,
+    touch: Option<TouchState>,
     #[cfg(target_os = "android")]
     android_ime: crate::android_ime::AndroidIme,
     modifiers: ModifiersState,
@@ -52,7 +64,7 @@ pub struct App {
     error: Option<anyhow::Error>,
     accessibility: Option<accesskit_winit::Adapter>,
     accessibility_active: bool,
-    accessibility_tree: Option<accesskit::TreeUpdate>,
+    accessibility_tree: Option<(u64, String)>,
     proxy: EventLoopProxy<AppEvent>,
     self_voicing: crate::self_voicing::SelfVoicing,
     self_voicing_notification: Option<NotificationId>,
@@ -73,26 +85,12 @@ impl App {
         self_voicing.set_waker(Arc::new(move || {
             let _ = speech_proxy.send_event(AppEvent::WorkerReady);
         }));
-        let gamepads = Gilrs::new()
-            .map_err(|e| warn!("Gamepads unavailable: {e}"))
-            .ok();
-        if let Some(gamepads) = &gamepads {
-            let connected: Vec<_> = gamepads
-                .gamepads()
-                .map(|(_, g)| g.name().to_owned())
-                .collect();
-            info!(
-                "Gamepad support ready, {} connected {:?}",
-                connected.len(),
-                connected
-            );
-        }
+        #[cfg(not(target_os = "android"))]
+        gamepad::start(proxy.clone());
         Self {
             engine,
             renderer: None,
             window: None,
-            gamepads,
-            stick: [0; 2],
             touch: None,
             #[cfg(target_os = "android")]
             android_ime: crate::android_ime::AndroidIme::default(),
@@ -291,12 +289,16 @@ impl App {
         if self.accessibility_active
             && let Some(adapter) = &mut self.accessibility
         {
-            let update = self
-                .engine
-                .ui
-                .accessibility_update(&self.engine.config().title.clone());
-            if self.accessibility_tree.as_ref() != Some(&update) {
-                self.accessibility_tree = Some(update.clone());
+            let revision = self.engine.ui.accessibility_revision();
+            if self
+                .accessibility_tree
+                .as_ref()
+                .is_none_or(|(previous, title)| {
+                    *previous != revision || title != &self.engine.config().title
+                })
+            {
+                let update = self.engine.accessibility_update();
+                self.accessibility_tree = Some((revision, self.engine.config().title.clone()));
                 adapter.update_if_active(|| update);
             }
         }
@@ -316,21 +318,54 @@ impl App {
         }
     }
 
-    fn press(&mut self, key: &str, down: bool) {
-        self.engine.key(key, down, false, &KeyModifiers::default());
-    }
-
     fn touch_event(&mut self, touch: Touch) {
         // Track one finger, so a second touch cannot release a drag.
         if touch.phase == TouchPhase::Started && self.touch.is_none() {
-            self.touch = Some(touch.id);
             self.engine
                 .pointer_moved(Some((touch.location.x.as_(), touch.location.y.as_())));
-            self.engine.mouse_down("left");
-        } else if self.touch == Some(touch.id) {
+            let (native, scroll) = self.engine.ui.pointer_interaction();
+            self.touch = Some(TouchState::new(
+                touch.id,
+                (touch.location.x, touch.location.y),
+                native,
+                scroll,
+                Instant::now(),
+            ));
+            // Sliders and fields need the press immediately. Other taps wait
+            // until release, so a menu gesture cannot also advance the story.
+            if native {
+                self.engine.mouse_down("left");
+            }
+        } else if let Some(state) = &mut self.touch
+            && state.id == touch.id
+        {
+            let scale = self
+                .window
+                .as_ref()
+                .map_or(1.0, |window| window.scale_factor());
+            let scroll_delta = state.move_to((touch.location.x, touch.location.y), scale);
             self.engine
                 .pointer_moved(Some((touch.location.x.as_(), touch.location.y.as_())));
+            if state.scroll && !state.native && state.consumed {
+                // Scroll directly: at a container boundary, never fall through
+                // to the story's wheel/rollback handler.
+                if self.engine.ui.scroll_at(scroll_delta.as_())
+                    && let Some(window) = &self.window
+                {
+                    window.request_redraw();
+                }
+            }
             if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Cancelled) {
+                match state.finish(touch.phase == TouchPhase::Cancelled) {
+                    TouchAction::Rollback => {
+                        self.engine
+                            .key("PageUp", true, false, &KeyModifiers::default());
+                        self.engine
+                            .key("PageUp", false, false, &KeyModifiers::default());
+                    }
+                    TouchAction::Tap => self.engine.mouse_down("left"),
+                    TouchAction::None => {}
+                }
                 self.engine.mouse_up();
                 self.engine.pointer_moved(None);
                 self.touch = None;
@@ -338,74 +373,13 @@ impl App {
         }
     }
 
-    /// Maps gamepad input to the keyboard bindings.
-    fn poll_gamepads(&mut self) {
-        let Some(gamepads) = &mut self.gamepads else {
-            return;
-        };
-        let mut presses: Vec<(&'static str, bool)> = Vec::new();
-        while let Some(event) = gamepads.next_event() {
-            let (button, down) = match event.event {
-                EventType::Connected => {
-                    info!("Gamepad connected: {}", gamepads.gamepad(event.id).name());
-                    continue;
-                }
-                EventType::Disconnected => {
-                    info!(
-                        "Gamepad disconnected: {}",
-                        gamepads.gamepad(event.id).name()
-                    );
-                    continue;
-                }
-                EventType::ButtonPressed(b, _) => (b, true),
-                EventType::ButtonReleased(b, _) => (b, false),
-                EventType::AxisChanged(axis, value, _) => {
-                    let (slot, negative, positive) = match axis {
-                        Axis::LeftStickX => (0, "ArrowLeft", "ArrowRight"),
-                        // Stick up is positive.
-                        Axis::LeftStickY => (1, "ArrowDown", "ArrowUp"),
-                        _ => continue,
-                    };
-                    let direction = if value > STICK_THRESHOLD {
-                        1
-                    } else if value < -STICK_THRESHOLD {
-                        -1
-                    } else {
-                        0
-                    };
-                    if direction != self.stick[slot] && direction != 0 {
-                        let key = if direction > 0 { positive } else { negative };
-                        presses.push((key, true));
-                        presses.push((key, false));
-                    }
-                    self.stick[slot] = direction;
-                    continue;
-                }
-                _ => continue,
-            };
-            let key = match button {
-                Button::DPadUp => "ArrowUp",
-                Button::DPadDown => "ArrowDown",
-                Button::DPadLeft => "ArrowLeft",
-                Button::DPadRight => "ArrowRight",
-                Button::South => "Enter",
-                Button::East | Button::Start => "Escape",
-                Button::North => "h",
-                Button::LeftTrigger => "PageUp",
-                Button::RightTrigger2 => "Control",
-                _ => continue,
-            };
-            presses.push((key, down));
+    fn fire_long_press(&mut self, now: Instant) {
+        if let Some(state) = &mut self.touch
+            && state.take_long_press(now)
+        {
+            self.engine.mouse_down("right");
+            self.engine.mouse_up();
         }
-        for (key, down) in presses {
-            self.press(key, down);
-        }
-    }
-
-    fn has_gamepads(&self) -> bool {
-        self.gamepads
-            .as_ref()
-            .is_some_and(|g| g.gamepads().next().is_some())
     }
 
     #[cfg(feature = "dev-console")]
@@ -448,23 +422,21 @@ impl App {
     }
 }
 
-fn key_name(key: &Key) -> Option<String> {
-    match key {
-        #[cfg(target_os = "android")]
-        Key::Named(NamedKey::BrowserBack) => Some("Escape".into()),
-        Key::Named(NamedKey::Space) => Some(" ".into()),
-        Key::Named(named) => Some(format!("{named:?}")),
-        Key::Character(text) => Some(text.to_string()),
-        _ => None,
-    }
-}
-
 impl ApplicationHandler<AppEvent> for App {
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: AppEvent) {
-        let AppEvent::Accessibility(event) = event else {
-            self.engine.poll();
-            self.handle_requests(event_loop);
-            return;
+        let event = match event {
+            AppEvent::Accessibility(event) => event,
+            AppEvent::WorkerReady => {
+                self.engine.poll();
+                self.handle_requests(event_loop);
+                return;
+            }
+            #[cfg(not(target_os = "android"))]
+            AppEvent::Gamepad { key, down, repeat } => {
+                self.engine.key(key, down, repeat, &KeyModifiers::default());
+                self.handle_requests(event_loop);
+                return;
+            }
         };
         if self
             .window
@@ -531,6 +503,10 @@ impl ApplicationHandler<AppEvent> for App {
             }
             WindowEvent::Focused(focused) => {
                 debug!("Window {}", if focused { "focused" } else { "unfocused" });
+                if !focused && self.touch.take().is_some() {
+                    self.engine.mouse_up();
+                    self.engine.pointer_moved(None);
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 info!("Scale factor changed to {scale_factor:.2}");
@@ -648,7 +624,7 @@ impl ApplicationHandler<AppEvent> for App {
                 window.request_redraw();
             }
         }
-        self.poll_gamepads();
+        self.fire_long_press(Instant::now());
         self.engine.fire_timers();
         self.engine.poll();
         if let Some(renderer) = &mut self.renderer {
@@ -657,7 +633,6 @@ impl ApplicationHandler<AppEvent> for App {
         }
         self.handle_requests(event_loop);
         self.engine.idle();
-        let polling = self.has_gamepads().then(|| Instant::now() + POLL_INTERVAL);
         #[cfg(feature = "dev-console")]
         let console_refresh =
             if let (Some(console), Some(window)) = (&mut self.console, &self.window) {
@@ -669,8 +644,8 @@ impl ApplicationHandler<AppEvent> for App {
             self.engine.next_timer(),
             self.engine.next_loading_deadline(),
             self.engine.ui.next_notification_deadline(),
-            Some(self.engine.next_resource_cleanup()),
-            polling,
+            self.engine.next_resource_cleanup(),
+            self.touch.as_ref().and_then(|touch| touch.long_press),
             self.self_voicing.next_retry(),
             #[cfg(feature = "dev-console")]
             console_refresh,
