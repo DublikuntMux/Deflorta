@@ -681,6 +681,65 @@ fn check_and_bundle_reject_broken_imports_and_dynamic_imports() {
 }
 
 #[test]
+fn check_reports_unserializable_store_values_and_unsaved_module_state() {
+    let project = Project::new();
+    project.write("state.js", "export const party = []; export class Hero {}");
+    project.write(
+        "main.js",
+        r"
+import { configure, defaults, label, persistent, say, store, setTimer } from 'deflorta';
+import * as api from 'deflorta';
+import { party, Hero } from './state.js';
+configure({ id: 'state-lint' });
+function greet() {}
+const onWin = () => {};
+let visits = 0;
+const lookup = { a: 1 };
+const alias = store;
+defaults({ items: new Map(), nested: { when: new Date() }, fine: [1, 'two', null] });
+label('start', async () => {
+  store.callback = greet;
+  store.list.push(onWin);
+  api.store.hero = new Hero();
+  persistent.big = 10n;
+  Object.assign(store, { tags: new Set() });
+  store.ok = { count: 1, names: ['a'] };
+  visits++;
+  lookup.a = 2;
+  party.push('Eileen');
+  alias.score = 1;
+  const local = [];
+  local.push(1);
+  setTimer(100, () => {});
+  setTimeout(() => {}, 100);
+  await say(`${lookup.a} ${local.length}`);
+});
+",
+    );
+    let output = cli(["check", project.path(), "--no-boot"]);
+    assert!(!output.status.success());
+    let report = String::from_utf8_lossy(&output.stdout);
+    for expected in [
+        "a Map is saved as {}",
+        "a Date is saved as a string",
+        "a Set is saved as {}",
+        "functions are not saved",
+        "a class instance is saved as a plain object",
+        "a BigInt makes saving fail",
+        "module variable 'visits'",
+        "module variable 'lookup'",
+        "module variable 'party'",
+        "timers in a label",
+        "7 errors",
+    ] {
+        assert!(report.contains(expected), "{expected}: {report}");
+    }
+    for unexpected in ["module variable 'alias'", "module variable 'local'"] {
+        assert!(!report.contains(unexpected), "{unexpected}: {report}");
+    }
+}
+
+#[test]
 fn local_namespace_facades_check_publish_and_extract_translations() {
     let project = Project::new();
     project.write("api.js", "export * from 'deflorta';");

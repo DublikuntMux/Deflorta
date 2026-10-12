@@ -2,9 +2,11 @@ Find errors and inspect a running game
 ======================================
 
 Start with ``deflorta check mygame``. It catches syntax and import errors,
-missing exports, labels, assets, and invalid translation tables. It warns
-about duplicate or unused labels, missing fonts, and nondeterministic story
-code. The default startup check also catches exceptions before a window opens.
+missing exports, labels, assets, invalid translation tables, and values in
+``store`` or ``persistent`` that cannot be saved. It warns about duplicate or
+unused labels, missing fonts, and label code that replays differently after
+loading: nondeterminism, timers, and changes to module variables. The default
+startup check also catches exceptions before a window opens.
 
 Capture logs
 ------------

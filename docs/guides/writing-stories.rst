@@ -113,7 +113,10 @@ Check as you write
 ------------------
 
 Run ``deflorta check mygame`` to find syntax errors, broken imports, missing
-labels or assets, invalid translations, and likely nondeterministic code.
+labels or assets, invalid translations, and breaks of the rules above:
+functions, ``Map``/``Set``, class instances, and other values that cannot be
+saved in ``store`` or ``persistent``; module variables changed inside labels;
+timers; and likely nondeterministic code.
 It also runs the scripts without a window to catch startup errors.
 ``--no-boot`` limits checking to static analysis; computed paths and values
 cannot always be checked. Use :doc:`testing` to exercise the story itself.

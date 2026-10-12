@@ -108,9 +108,14 @@ fn check_api(graph: &Graph, files: &GameFiles, report: &mut Report) {
         }
     }
 
-    for (message, loc) in &facts.nondeterministic {
+    for (message, loc) in &facts.unserializable {
         let (module, span) = at(loc);
-        report.warn_at(&module, span, *message);
+        report.error_at(&module, span, message);
+    }
+
+    for (message, loc) in &facts.replay {
+        let (module, span) = at(loc);
+        report.warn_at(&module, span, message);
     }
 }
 

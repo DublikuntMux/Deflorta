@@ -115,8 +115,6 @@ The repository does not provide an iOS launcher or export workflow.
 Project creation, checks, bundling, publishing, translations, editor
 declarations, the debug developer console, and accessibility/self-voicing
 are implemented. Future directions include hot reload with replay to the
-current line, automated launcher builds for more platforms, linting for
-unserializable state, additional codecs such as AV1/Opus, hardware video
-decoding, and Steam/Discord integrations.
+current line, automated launcher builds for more platforms and Steam/Discord integrations.
 
 Continue with :doc:`runtime`, :doc:`rendering`, or :doc:`distribution`.
