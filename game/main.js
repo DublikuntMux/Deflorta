@@ -99,7 +99,7 @@ screen(
         position: "absolute",
         top: 20,
         left: 20,
-        padding: [8, 16],
+        padding: { top: 8, right: 16, bottom: 8, left: 16 },
         radius: 20,
         background: "#00000088",
         flexDirection: "row",
@@ -147,8 +147,8 @@ label("start", async () => {
   );
 
   const answer = await menu("What do you say?", [
-    ["Not at all, come in!", "welcome"],
-    ["Well... I was busy.", "busy"],
+    { label: "Not at all, come in!", action: "welcome" },
+    { label: "Well... I was busy.", action: "busy" },
   ]);
 
   if (answer === "welcome") {
@@ -166,8 +166,8 @@ label("start", async () => {
   show("eileen", { at: left, with: move(0.8) });
   await eileen("I was going to the park. Want to come along?");
   const goPark = await menu([
-    ["Sure, let's go.", true],
-    ["Maybe another time.", false],
+    { label: "Sure, let's go.", action: true },
+    { label: "Maybe another time.", action: false },
   ]);
   if (goPark) jump("park");
   jump("home");
@@ -211,8 +211,8 @@ label("diary", async () => {
     `Today I spent time with Eileen. Friendship: {b}${store.friendship}{/b}.`,
   );
   const goToEnding = await menu([
-    ["Go to Ending", "ending"],
-    ["Restart", "start"],
+    { label: "Go to Ending", action: "ending" },
+    { label: "Restart", action: "start" },
   ]);
   nvlClear();
   jump(goToEnding);

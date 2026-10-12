@@ -124,12 +124,15 @@ impl Ui {
         let rect = node.rect;
         let k = anim.scale * program.scale * pick(|s| s.scale).unwrap_or(1.0);
         let degrees = anim.rotate + program.rotate + node.desc.style.rotate.unwrap_or(0.0);
-        let [ax, ay] = node.desc.anchor.unwrap_or([0.5, 0.5]);
+        let anchor = node
+            .desc
+            .anchor
+            .unwrap_or(super::desc::Anchor { x: 0.5, y: 0.5 });
         let local = Similarity::local(
             k,
             degrees.to_radians(),
-            f32::mul_add(ax, rect.w, rect.x),
-            f32::mul_add(ay, rect.h, rect.y),
+            f32::mul_add(anchor.x, rect.w, rect.x),
+            f32::mul_add(anchor.y, rect.h, rect.y),
             anim.x + program.x,
             anim.y + program.y,
         );

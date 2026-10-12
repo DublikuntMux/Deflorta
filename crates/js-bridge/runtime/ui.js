@@ -34,13 +34,13 @@ export const theme = {
   radius: 12,
 };
 
-export const FILL = {
+export const FILL = Object.freeze({
   position: "absolute",
   left: 0,
   top: 0,
   right: 0,
   bottom: 0,
-};
+});
 
 export function View({ children, style, hover, onPress, ...props } = {}) {
   return {
@@ -141,7 +141,7 @@ export function TextInput({ value, onChangeText, style, hover, ...props }) {
     value: String(value ?? ""),
     onInput: onChangeText,
     style: {
-      padding: [8, 12],
+      padding: { top: 8, right: 12, bottom: 8, left: 12 },
       radius: 8,
       background: "#00000066",
       borderWidth: 1,
@@ -162,7 +162,7 @@ export function Pressable({
 }) {
   return View({
     style: {
-      padding: [10, 24],
+      padding: { top: 10, right: 24, bottom: 10, left: 24 },
       radius: 8,
       background: theme.button,
       justifyContent: "center",

@@ -59,7 +59,7 @@ globalThis.setTimeout = (fn, ms = 0, ...args) =>
   setTimer(ms, () => fn(...args));
 globalThis.clearTimeout = clearTimer;
 
-export const storage = {
+export const storage = Object.freeze({
   read(name) {
     const text = native.storage.read(name);
     if (text == null) return null;
@@ -79,7 +79,7 @@ export const storage = {
   list() {
     return native.storage.list();
   },
-};
+});
 
 export function readText(path) {
   return native.files.readText(path);

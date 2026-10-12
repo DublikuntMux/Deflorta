@@ -91,8 +91,8 @@ you can run it immediately with the starter project's fonts.
    label("start", async () => {
      await guide("Welcome to your first story.");
      const answer = await menu("What do you say?", [
-       ["Hello!", "hi"],
-       ["Stay quiet", "silent"],
+       { label: "Hello!", action: "hi" },
+       { label: "Stay quiet", action: "silent" },
      ]);
      if (answer === "hi") store.trust += 1;
      await say("Your story starts here.");

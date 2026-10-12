@@ -273,7 +273,13 @@ pub unsafe fn install(cx: *mut RawJSContext, global: *mut JSObject) -> Result<()
                 bail!("failed to create __native.{}", name.to_string_lossy());
             }
             define_functions(cx, module.handle(), functions)?;
+            if !jsapi::JS_FreezeObject(cx, module.handle().into()) {
+                bail!("failed to freeze __native.{}", name.to_string_lossy());
+            }
             define_object(cx, native.handle(), name, module.get())?;
+        }
+        if !jsapi::JS_FreezeObject(cx, native.handle().into()) {
+            bail!("failed to freeze __native");
         }
         define_object(cx, global.handle(), c"__native", native.get())
     }

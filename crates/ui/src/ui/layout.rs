@@ -218,9 +218,9 @@ impl Ui {
             w: layout.size.width,
             h: layout.size.height,
         };
-        if let Some([ax, ay]) = nodes[i].desc.anchor {
-            rect.x = f32::mul_add(ax, -rect.w, rect.x);
-            rect.y = f32::mul_add(ay, -rect.h, rect.y);
+        if let Some(anchor) = nodes[i].desc.anchor {
+            rect.x = f32::mul_add(anchor.x, -rect.w, rect.x);
+            rect.y = f32::mul_add(anchor.y, -rect.h, rect.y);
         }
         nodes[i].rect = rect;
         // Content extent such that `content - size` is the maximum scroll offset.

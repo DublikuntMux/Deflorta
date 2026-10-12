@@ -49,7 +49,7 @@ declare module "deflorta" {
   }
 
   /** Per-game JSON storage in the user data directory. Names: letters, digits, `-`, `_`. */
-  export const storage: {
+  export const storage: Readonly<{
     /** Reads the session snapshot, including queued writes. */
     read<T = unknown>(name: string): T | null;
     /** Queues atomic disk persistence; failures report through the error event. */
@@ -57,7 +57,7 @@ declare module "deflorta" {
     /** Removes a snapshot entry and queues deletion; returns whether it existed. */
     remove(name: string): boolean;
     list(): StorageEntry[];
-  };
+  }>;
 
   /** Reads a text file from the game, or null if it does not exist. */
   export function readText(path: string): string | null;
@@ -150,8 +150,8 @@ declare module "deflorta" {
   export interface NativeModules {
     log(level: "error" | "warn" | "info" | "debug" | "trace", message: string): void;
     connect(dispatch: (event: EngineEvent) => void, flush: () => void): void;
-    files: { readText(path: string): string | null };
-    storage: {
+    readonly files: Readonly<{ readText(path: string): string | null }>;
+    readonly storage: Readonly<{
       /** Reads the session snapshot, including queued writes. */
       read(name: string): string | null;
       /** Queues atomic disk persistence; failures report through the error event. */
@@ -159,22 +159,22 @@ declare module "deflorta" {
       /** Removes a snapshot entry and queues deletion; returns whether it existed. */
       remove(name: string): boolean;
       list(): StorageEntry[];
-    };
-    timers: { set(id: number, ms: number): void; clear(id: number): void };
-    notifications: {
+    }>;
+    readonly timers: Readonly<{ set(id: number, ms: number): void; clear(id: number): void }>;
+    readonly notifications: Readonly<{
       create(message: string, options: NotificationOptions): number;
       update(id: number, message: string, options: NotificationOptions): void;
       dismiss(id: number): void;
-    };
-    app: {
+    }>;
+    readonly app: Readonly<{
       /** Operating system of the running engine (e.g. "android", "linux", "windows", "macos"). */
       platform(): string;
       configure(config: Config): void;
       fullscreen(on: boolean): void;
       selfVoicing(on: boolean): void;
       quit(): void;
-    };
-    audio: {
+    }>;
+    readonly audio: Readonly<{
       music(
         music: { file: string; loop?: boolean; volume?: number } | null,
         fade?: { fadeIn?: number; fadeOut?: number },
@@ -183,8 +183,8 @@ declare module "deflorta" {
       /** Plays a voice line (stopping the previous one); null stops voice. */
       voice(file: string | null): void;
       volume(channel: "music" | "sound" | "voice", value: number): void;
-    };
-    ui: {
+    }>;
+    readonly ui: Readonly<{
       /**
        * Shows a native tree and returns its generation. Nodes `{ key, unchanged: true }`
        * reuse the node with that identity from the commit with generation `base`; when
@@ -207,10 +207,10 @@ declare module "deflorta" {
       captureThumbnail(after?: boolean): void;
       saveThumbnail(name: string): void;
       deleteThumbnail(name: string): void;
-    };
+    }>;
   }
 
-  export const native: NativeModules;
+  export const native: Readonly<NativeModules>;
 
   export interface Span {
     text: string;
@@ -245,8 +245,27 @@ declare module "deflorta" {
   export type Color = string;
   /** Virtual pixels, `"50%"`, `"12px"` or `"auto"`. */
   export type Dimension = number | `${number}%` | `${number}px` | "auto";
-  /** All sides, [vertical, horizontal] or [top, right, bottom, left]. */
-  export type Edges = number | [number, number] | [number, number, number, number];
+  /** Named box edges in virtual pixels; omitted sides default to zero. */
+  export interface EdgeInsets {
+    top?: number;
+    right?: number;
+    bottom?: number;
+    left?: number;
+  }
+  /** A number applies to all sides; an object sets individual sides. */
+  export type Edges = number | EdgeInsets;
+  /** Fraction of the image's size placed at its layout position. */
+  export interface Anchor {
+    x: number;
+    y: number;
+  }
+  /** Fractional crop rectangle within an image. */
+  export interface Crop {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
   export type Alignment =
     | "flex-start"
     | "flex-end"
@@ -371,8 +390,8 @@ declare module "deflorta" {
     alt?: string;
     hoverSrc?: string;
     fit?: Fit;
-    /** Point of the image placed at its position, as fractions: [0.5, 1] is bottom center. */
-    anchor?: [number, number];
+    /** Point placed at the image's position: { x: 0.5, y: 1 } is bottom center. */
+    anchor?: Anchor;
   }
 
   export interface VideoElement extends ElementProps {
@@ -449,7 +468,7 @@ declare module "deflorta" {
     alt?: string;
     hoverSrc?: string;
     fit?: Fit;
-    anchor?: [number, number];
+    anchor?: Anchor;
   }
   export interface VideoProps extends UIProps {
     src: string;
@@ -491,7 +510,7 @@ declare module "deflorta" {
   /** Colors and sizes used by the default screens. */
   export const theme: Theme;
   /** Absolute positioning that fills the parent. */
-  export const FILL: Style;
+  export const FILL: Readonly<Style>;
 
   export function View(props: ViewProps): BoxElement;
   /** A grid with `columns` equal columns. */
@@ -597,12 +616,12 @@ declare module "deflorta" {
     rotate?: number;
   }
 
-  export const left: Position;
-  export const center: Position;
-  export const right: Position;
-  export const truecenter: Position;
-  export const offscreenleft: Position;
-  export const offscreenright: Position;
+  export const left: Readonly<Position>;
+  export const center: Readonly<Position>;
+  export const right: Readonly<Position>;
+  export const truecenter: Readonly<Position>;
+  export const offscreenleft: Readonly<Position>;
+  export const offscreenright: Readonly<Position>;
   export function at(xalign: number, yalign?: number, extra?: { zoom?: number; rotate?: number }): Position;
 
   type AnimationValues = Omit<Animation, "dur" | "ease">;
@@ -640,8 +659,8 @@ declare module "deflorta" {
     opacity?: number;
     scale?: number;
     rotate?: number;
-    /** Fractional crop rectangle [x, y, w, h]. */
-    crop?: [number, number, number, number];
+    /** Fractional crop rectangle. */
+    crop?: Crop;
   }
 
   export type TransformStep =
@@ -708,18 +727,18 @@ declare module "deflorta" {
   export function preload(...names: string[]): void;
 
   /** Background music; saved with the scene. */
-  export const music: {
+  export const music: Readonly<{
     play(
       file: string,
       options?: { loop?: boolean; fadeIn?: number; fadeOut?: number; volume?: number },
     ): void;
     stop(options?: { fadeOut?: number }): void;
-  };
+  }>;
 
   /** One-shot sound effects; skipped while fast-forwarding a load or rollback. */
-  export const sound: {
+  export const sound: Readonly<{
     play(file: string, options?: { volume?: number }): void;
-  };
+  }>;
 
   /** Game variables; augment to type them. Must stay JSON-serializable. */
   export interface Store {
@@ -807,10 +826,12 @@ declare module "deflorta" {
   /** Waits for `seconds`, or for a click when omitted. */
   export function pause(seconds?: number): Promise<void>;
 
-  export type Choice<T> =
-    | string
-    | [text: string, value?: T]
-    | { text: string; value?: T; if?: unknown };
+  export interface Choice<T = string> {
+    label: string;
+    action: T;
+    /** Hides the choice when supplied and falsy. */
+    if?: unknown;
+  }
 
   export interface MenuOptions {
     /**
@@ -820,6 +841,7 @@ declare module "deflorta" {
     nvl?: boolean;
   }
 
+  /** Shows choice labels and resolves with the selected action. */
   export function menu<T = string>(choices: Choice<T>[], options?: MenuOptions): Promise<T>;
   export function menu<T = string>(
     prompt: string | null,

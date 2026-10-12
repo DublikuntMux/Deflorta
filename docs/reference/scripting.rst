@@ -7,6 +7,13 @@ with :doc:`../guides/writing-stories` for examples. The
 contain complete types and additional exports. ``deflorta types`` refreshes
 the declarations in a game project.
 
+API objects ``native`` (including its modules), ``storage``, ``music``, and
+``sound`` are frozen: call their methods rather than replacing them. Built-in
+position constants and ``FILL`` are frozen too; use ``at(...)`` or a copied
+object for a custom position or style. Game state and customization objects
+(``store``, ``persistent``, ``prefs``, ``theme``, ``keymap``, and ``actions``)
+remain mutable. Use ``configure(...)`` to apply configuration changes.
+
 Story flow and state
 --------------------
 
@@ -31,9 +38,10 @@ Story flow and state
      - Narrate in full-screen accumulating NVL mode, or clear its page.
        A character can use ``{ nvl: true }`` too.
    * - ``await menu(prompt?, choices, { nvl })``
-     - Return a selected choice's value. Entries are strings,
-       ``[text, value]``, or ``{ text, value, if }``. While the NVL page has
-       lines, the prompt and choices appear on it; ``nvl`` overrides this.
+     - Choices must be objects with ``label`` and ``action`` fields. The
+       selected choice's ``action`` is returned. An optional ``if`` field
+       controls whether a choice is visible. While the NVL page has lines,
+       the prompt and choices appear on it; ``nvl`` overrides this.
    * - ``await prompt(question, { default, maxLength, allowEmpty })``
      - Ask for text input and return the trimmed answer.
    * - ``await pause(seconds?)``
@@ -141,7 +149,9 @@ ATL-style transforms build a program interpreted by the native engine:
    atl().linear(1, { x: 50 }).ease(1, { y: -10 }).pause(0.5).repeat()
 
 Transform properties include ``x``, ``y``, ``opacity``, ``scale``, ``rotate``,
-and ``crop``. Easing names include ``linear``, ``ease``, ``easeIn``,
+and ``crop``. Crops use fractional bounds, for example
+``crop: { x: 0.1, y: 0.2, width: 0.6, height: 0.7 }``.
+Easing names include ``linear``, ``ease``, ``easeIn``,
 ``easeOut``, and ``bounce``. Use ``parallel(a, b)`` to combine programs,
 or the ``shake()`` and ``bob()`` helpers.
 

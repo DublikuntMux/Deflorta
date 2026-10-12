@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use oxc::ast::ast::{
-    Argument, ArrayExpressionElement, BindingPattern, CallExpression, Expression,
-    IdentifierReference, NewExpression, ObjectExpression, ObjectPropertyKind,
-    StaticMemberExpression, TaggedTemplateExpression, VariableDeclarator,
+    Argument, BindingPattern, CallExpression, Expression, IdentifierReference, NewExpression,
+    ObjectExpression, ObjectPropertyKind, StaticMemberExpression, TaggedTemplateExpression,
+    VariableDeclarator,
 };
 use oxc::ast_visit::{Visit, walk};
 use oxc::semantic::SymbolId;
@@ -287,16 +287,8 @@ impl<'a> Analyzer<'_, 'a> {
             let Some(choice) = element.as_expression() else {
                 continue;
             };
-            match choice {
-                Expression::ArrayExpression(pair) => {
-                    self.text(
-                        pair.elements
-                            .first()
-                            .and_then(ArrayExpressionElement::as_expression),
-                    );
-                }
-                Expression::ObjectExpression(object) => self.text(property(object, "text")),
-                other => self.text(Some(other)),
+            if let Expression::ObjectExpression(object) = choice {
+                self.text(property(object, "label"));
             }
         }
     }

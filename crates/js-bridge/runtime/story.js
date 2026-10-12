@@ -560,13 +560,6 @@ export function pause(seconds) {
   );
 }
 
-function normalizeChoice(choice) {
-  if (typeof choice === "string") return { text: choice, value: choice };
-  if (Array.isArray(choice))
-    return { text: choice[0], value: choice[1] ?? choice[0] };
-  return { value: choice.text, ...choice };
-}
-
 export async function menu(prompt, choices, options = {}) {
   if (Array.isArray(prompt)) {
     options = choices ?? {};
@@ -574,9 +567,7 @@ export async function menu(prompt, choices, options = {}) {
     prompt = null;
   }
   const nvl = options.nvl ?? scene.nvl.length > 0;
-  const items = choices
-    .map(normalizeChoice)
-    .filter((c) => c.if === undefined || c.if);
+  const items = choices.filter((c) => c.if === undefined || c.if);
   if (prompt) {
     history.push({
       who: null,
@@ -591,7 +582,7 @@ export async function menu(prompt, choices, options = {}) {
     (pending) => {
       skipToggled = false;
       const choiceItems = items.map((c, i) => ({
-        text: c.text,
+        text: c.label,
         select: () => pending.resolve(i),
       }));
       if (nvl) {
@@ -628,12 +619,12 @@ export async function menu(prompt, choices, options = {}) {
     );
   history.push({
     who: null,
-    what: `» ${items[index].text}`,
+    what: `» ${items[index].label}`,
     choice: true,
     root: run.root?.id,
     index: run.count - 1,
   });
-  return items[index].value;
+  return items[index].action;
 }
 
 export function prompt(

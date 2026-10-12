@@ -1,4 +1,4 @@
-import { configure, native } from "deflorta/core";
+import { configure, native, storage } from "deflorta/core";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -14,6 +14,23 @@ function rejects(fn, message) {
   throw new Error(`expected exception: ${message}`);
 }
 
+for (const api of [native, ...Object.values(native).filter(value => typeof value === "object"), storage]) {
+  assert(Object.isFrozen(api), "API object is mutable");
+  assert(!Reflect.set(api, "added", true), "API accepts new properties");
+  for (const key of Object.keys(api)) {
+    const original = api[key];
+    assert(!Reflect.set(api, key, () => {}), `API allows replacing ${key}`);
+    assert(!Reflect.deleteProperty(api, key), `API allows deleting ${key}`);
+    assert(api[key] === original, `API changed ${key}`);
+  }
+}
+try {
+  native.audio.voice = () => {};
+  throw new Error("native method assignment succeeded");
+} catch (error) {
+  assert(error instanceof TypeError, "native method assignment must throw TypeError");
+}
+
 configure({
   id: "bridge-test",
   title: "Привіт 🌸",
@@ -23,11 +40,21 @@ configure({
 rejects(() => native.connect(null, () => {}), "expects two functions");
 rejects(() => native.ui.commit({ children: [{ style: { opacity: "bad" } }] }), "children[0].style.opacity");
 rejects(() => native.ui.commit({ get text() { throw new Error("getter failed"); } }), "getter failed");
+rejects(() => native.ui.commit({ style: { padding: [8, 12] } }), "style.padding");
+rejects(() => native.ui.commit({ style: { margin: [1, 2, 3, 4] } }), "style.margin");
+rejects(() => native.ui.commit({ anchor: [0.5, 1] }), "anchor");
+rejects(() => native.ui.commit({ transform: { steps: [{ set: { crop: [0, 0, 1, 1] } }] } }), "transform");
 
 let tree = Object.create({ text: "inherited text" });
 Object.assign(tree, {
   key: "bridge-first",
-  style: { opacity: undefined },
+  style: {
+    opacity: undefined,
+    padding: { top: 8, right: 12, bottom: 8, left: 12 },
+    margin: { bottom: -4 },
+  },
+  anchor: { x: 0.5, y: 1 },
+  transform: { steps: [{ set: { crop: { x: 0.1, y: 0.2, width: 0.6, height: 0.7 } } }] },
   value: { "0": "numeric key", "ключ": "значення", items: [1, undefined, Infinity] },
   onClick: () => native.audio.voice("first"),
   focusable: false, autofocus: true, live: true, modal: true, label: "Accessible tree",

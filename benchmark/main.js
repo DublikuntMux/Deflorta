@@ -17,7 +17,7 @@ const number = value => value == null ? "—" : value.toFixed(1);
 
 function Button({ children, onPress, disabled = false, selected = false, style }) {
   return <Pressable onPress={onPress} disabled={disabled} style={{
-    padding: [7, 12], radius: 5, borderWidth: 1,
+    padding: { top: 7, right: 12, bottom: 7, left: 12 }, radius: 5, borderWidth: 1,
     borderColor: selected ? palette.accent : palette.line,
     background: selected ? "#285773" : "#223c54", ...style,
   }} hover={{ background: "#35647b", borderColor: palette.accent }}>
@@ -31,7 +31,7 @@ function Results() {
     <Text style={{ fontSize: 13, color: palette.muted }}>
       Presentation FPS and interval percentiles. Lower frame times are better.
     </Text>
-    <View style={{ flexDirection: "row", padding: [8, 4], background: "#29435a" }}>
+    <View style={{ flexDirection: "row", padding: { top: 8, right: 4, bottom: 8, left: 4 }, background: "#29435a" }}>
       {["Scene", "FPS", "1% low", "p95 ms", "p99 ms", ">33 ms"].map((title, i) =>
         <Text key={title} style={{ width: i === 0 ? 270 : 95, fontSize: 14 }}>{title}</Text>)}
     </View>
@@ -40,7 +40,7 @@ function Results() {
         Run a scene to measure it. Run the suite to compare every workload.
       </Text>}
       {bench.results.map((result, i) => <View key={`${result.scene}-${i}`} style={{
-        flexDirection: "row", padding: [5, 4], background: i % 2 ? "#233b51" : "#1b3146",
+        flexDirection: "row", padding: { top: 5, right: 4, bottom: 5, left: 4 }, background: i % 2 ? "#233b51" : "#1b3146",
       }}>
         <Text style={{ width: 270, fontSize: 14 }}>{result.name} / {result.scale}×</Text>
         {result.error ? <Text style={{ fontSize: 13, color: "#f2b66a" }}>{result.error}</Text>
@@ -85,10 +85,10 @@ function Lab() {
     </View>
 
     <View style={{ ...positioned(28, 138, 350, 466), gap: 3, flexDirection: "column" }}>
-      <Text style={{ fontSize: 15, color: palette.muted, margin: [0, 0, 8, 0] }}>Choose a workload</Text>
+      <Text style={{ fontSize: 15, color: palette.muted, margin: { bottom: 8 } }}>Choose a workload</Text>
       {scenes.map((item, index) => <Pressable key={item.id} disabled={running()}
         onPress={() => select(index)} style={{ flexDirection: "row", justifyContent: "space-between",
-          padding: [5, 12], radius: 4, borderWidth: 1,
+          padding: { top: 5, right: 12, bottom: 5, left: 12 }, radius: 4, borderWidth: 1,
           borderColor: index === bench.selected ? palette.accent : "#35516c66",
           background: index === bench.selected ? "#285773" : "#1e3449",
         }} hover={{ background: "#335773", borderColor: palette.accent }}>

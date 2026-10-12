@@ -90,8 +90,8 @@ pub struct NodeDesc {
     /// Image shown while hovered or focused (image buttons).
     pub hover_src: Option<String>,
     pub fit: Fit,
-    /// Fraction of the element's size placed at its layout position, e.g. [0.5, 1] for bottom-center.
-    pub anchor: Option<[f32; 2]>,
+    /// Fraction of the element's size placed at its layout position.
+    pub anchor: Option<Anchor>,
     pub enter: Option<AnimDesc>,
     pub exit: Option<AnimDesc>,
     pub r#move: Option<AnimDesc>,
@@ -424,9 +424,51 @@ pub struct TransformProps {
     pub opacity: Option<f32>,
     pub scale: Option<f32>,
     pub rotate: Option<f32>,
-    /// Fractional crop rectangle [x, y, w, h] of an image.
-    pub crop: Option<[f32; 4]>,
+    /// Fractional crop rectangle of an image.
+    pub crop: Option<Crop>,
 }
+
+/// Fraction of each axis placed at the element's layout position.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Anchor {
+    pub x: f32,
+    pub y: f32,
+}
+
+/// Fractional image crop bounds.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Crop {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+// Untagged struct variants accept maps only, unlike derived struct deserializers
+// which also accept positional sequences.
+macro_rules! deserialize_object {
+    ($name:ident { $($field:ident),+ }) => {
+        impl<'de> Deserialize<'de> for $name {
+            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                #[derive(Deserialize)]
+                #[serde(untagged)]
+                enum Object {
+                    Fields { $( $field: f32 ),+ },
+                }
+                let Object::Fields { $( $field ),+ } = Object::deserialize(d)?;
+                Ok(Self { $( $field ),+ })
+            }
+        }
+    };
+}
+
+deserialize_object!(Anchor { x, y });
+deserialize_object!(Crop {
+    x,
+    y,
+    width,
+    height
+});
 
 #[derive(Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(untagged)]
@@ -498,13 +540,21 @@ impl<'de> Deserialize<'de> for Dim {
     }
 }
 
-/// Box edges: a number, [vertical, horizontal] or [top, right, bottom, left].
+/// Box edges: a number for all sides or named sides (missing sides are zero).
 #[derive(Deserialize, Clone, Copy, Debug)]
 #[serde(untagged)]
 pub enum Edges {
     All(f32),
-    Two([f32; 2]),
-    Four([f32; 4]),
+    Sides {
+        #[serde(default)]
+        top: f32,
+        #[serde(default)]
+        right: f32,
+        #[serde(default)]
+        bottom: f32,
+        #[serde(default)]
+        left: f32,
+    },
 }
 
 impl Edges {
@@ -512,8 +562,12 @@ impl Edges {
     pub const fn trbl(self) -> [f32; 4] {
         match self {
             Self::All(v) => [v; 4],
-            Self::Two([v, h]) => [v, h, v, h],
-            Self::Four(e) => e,
+            Self::Sides {
+                top,
+                right,
+                bottom,
+                left,
+            } => [top, right, bottom, left],
         }
     }
 }
@@ -697,6 +751,63 @@ pub struct Style {
     pub italic: Option<bool>,
     pub text_align: Option<TextAlign>,
     pub text_shadow: Option<Shadow>,
+}
+
+#[cfg(test)]
+mod object_geometry_tests {
+    use super::{Anchor, Crop, Edges, NodeDesc, TransformProps};
+    use serde_json::json;
+
+    #[test]
+    fn named_geometry_preserves_axis_and_side_order() {
+        let node: NodeDesc = serde_json::from_value(json!({
+            "anchor": { "x": 0.5, "y": 1.0 },
+            "style": { "padding": { "top": 1, "right": 2, "bottom": 3, "left": 4 } }
+        }))
+        .unwrap();
+        assert_eq!(node.anchor, Some(Anchor { x: 0.5, y: 1.0 }));
+        assert_eq!(node.style.padding.unwrap().trbl(), [1.0, 2.0, 3.0, 4.0]);
+        let props: TransformProps = serde_json::from_value(json!({
+            "crop": { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4 }
+        }))
+        .unwrap();
+        assert_eq!(
+            props.crop,
+            Some(Crop {
+                x: 0.1,
+                y: 0.2,
+                width: 0.3,
+                height: 0.4
+            })
+        );
+    }
+
+    #[test]
+    fn edges_allow_uniform_values_and_default_missing_sides_to_zero() {
+        for (value, expected) in [
+            (json!(7), [7.0; 4]),
+            (json!({ "right": 2, "left": 4 }), [0.0, 2.0, 0.0, 4.0]),
+            (json!({}), [0.0; 4]),
+        ] {
+            assert_eq!(
+                serde_json::from_value::<Edges>(value).unwrap().trbl(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn positional_arrays_and_incomplete_rectangles_are_rejected() {
+        for value in [json!([1, 2]), json!([1, 2, 3, 4])] {
+            assert!(serde_json::from_value::<Edges>(value).is_err());
+        }
+        for anchor in [json!([0.5, 1]), json!({ "x": 0.5 }), json!({ "y": 1 })] {
+            assert!(serde_json::from_value::<NodeDesc>(json!({ "anchor": anchor })).is_err());
+        }
+        for crop in [json!([0, 0, 1, 1]), json!({ "x": 0, "y": 0, "width": 1 })] {
+            assert!(serde_json::from_value::<TransformProps>(json!({ "crop": crop })).is_err());
+        }
+    }
 }
 
 #[cfg(test)]

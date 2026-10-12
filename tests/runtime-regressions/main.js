@@ -1,12 +1,27 @@
 import {
-  _, advance, configure, endGame, inGame, label, loadGame, menu, newGame,
+  _, actions, advance, at, center, config, configure, endGame, FILL, inGame, keymap,
+  label, left, loadGame, menu, music, newGame, offscreenleft, offscreenright, right,
   nvlClear, nvlNarrator, on, persistent, prefs, prompt, saveGame, saveInfo, savePrefs,
-  rollback, say, setLanguage, store, toggleSkip, translations,
+  rollback, say, setLanguage, sound, store, theme, toggleSkip, translations, truecenter,
 } from "deflorta";
 import { native, reportError, storage } from "deflorta/core";
 import { hideScreen, isShown, screen, screenProps, showScreen } from "deflorta/ui";
 
 configure({ id: "runtime-regressions", autosave: false, textSpeed: 0 });
+
+for (const api of [music, sound, left, center, right, truecenter, offscreenleft, offscreenright, FILL]) {
+  if (!Object.isFrozen(api) || Reflect.set(api, "added", true))
+    throw new Error("engine API or constant is mutable");
+  for (const key of Object.keys(api)) {
+    if (Reflect.set(api, key, null) || Reflect.deleteProperty(api, key))
+      throw new Error(`engine API or constant can change: ${key}`);
+  }
+}
+for (const object of [store, persistent, prefs, theme, keymap, actions, config, at(0.5)]) {
+  if (!Reflect.set(object, "_freezeProbe", true) || object._freezeProbe !== true)
+    throw new Error("customizable engine state was frozen");
+  delete object._freezeProbe;
+}
 
 translations("uk", { Hello: "Привіт", Question: "Питання", Left: "Ліворуч", Right: "Праворуч", Wait: "Wait{nw}" });
 setLanguage("uk");
@@ -31,12 +46,23 @@ label("start", async () => {
 });
 label("translated", async () => { await say("Hello"); });
 label("choices", async () => {
-  store.choice = await menu("Question", [["Left", "left"], ["Right", "right"]]);
+  store.choice = await menu("Question", [
+    { label: "Hidden", action: "hidden", if: false },
+    { label: "Left", action: "left" },
+    { label: "Right", action: "right", if: true },
+  ]);
+  await say("first");
+});
+label("choicesNoPrompt", async () => {
+  store.choice = await menu([{ label: "Left", action: false }], { nvl: false });
   await say("first");
 });
 label("nvlChoices", async () => {
   await nvlNarrator("Page");
-  store.choice = await menu("Question", [["Left", "left"], ["Right", "right"]]);
+  store.choice = await menu("Question", [
+    { label: "Left", action: "left" },
+    { label: "Right", action: "right" },
+  ]);
   nvlClear();
   await say("first");
 });
@@ -71,7 +97,7 @@ on("quit", () => {
 
 function action(key) {
   switch (key) {
-    case "start": case "translated": case "choices": case "nvlChoices": case "input": case "noWait": case "repeated": case "translatedNoWait":
+    case "start": case "translated": case "choices": case "choicesNoPrompt": case "nvlChoices": case "input": case "noWait": case "repeated": case "translatedNoWait":
       newGame(key);
       break;
     case "auto": prefs.autoForward = true; savePrefs(); break;
@@ -111,7 +137,7 @@ function action(key) {
 
 // Keep test controls above modal screens and outside game-state replacement.
 // This exercises the normal native key-routing path without bypassing modals.
-const keys = ["start", "translated", "choices", "nvlChoices", "input", "noWait", "repeated", "translatedNoWait",
+const keys = ["start", "translated", "choices", "choicesNoPrompt", "nvlChoices", "input", "noWait", "repeated", "translatedNoWait",
   "auto", "stop-auto", "skip", "stop-skip", "advance-test", "rollback-test",
   "save", "load", "end", "error-test", "uk", "source", "game_menu", "history",
   "confirm", "close-game_menu", "close-history", "close-confirm", "prepare-quit", "quit-test", "state"];

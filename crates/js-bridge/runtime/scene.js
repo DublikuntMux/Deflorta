@@ -78,12 +78,12 @@ function layeredSources(def, attrs) {
   return sources;
 }
 
-export const left = { xalign: 0.2, yalign: 1 };
-export const center = { xalign: 0.5, yalign: 1 };
-export const right = { xalign: 0.8, yalign: 1 };
-export const truecenter = { xalign: 0.5, yalign: 0.5 };
-export const offscreenleft = { xalign: -0.3, yalign: 1 };
-export const offscreenright = { xalign: 1.3, yalign: 1 };
+export const left = Object.freeze({ xalign: 0.2, yalign: 1 });
+export const center = Object.freeze({ xalign: 0.5, yalign: 1 });
+export const right = Object.freeze({ xalign: 0.8, yalign: 1 });
+export const truecenter = Object.freeze({ xalign: 0.5, yalign: 0.5 });
+export const offscreenleft = Object.freeze({ xalign: -0.3, yalign: 1 });
+export const offscreenright = Object.freeze({ xalign: 1.3, yalign: 1 });
 export const at = (xalign, yalign = 1, extra = {}) => ({
   xalign,
   yalign,
@@ -294,7 +294,7 @@ function renderSprite(s) {
   const at = s.at;
   const props = {
     key,
-    anchor: [at.xalign, at.yalign],
+    anchor: { x: at.xalign, y: at.yalign },
     enter: pendingEnters.get(key),
     move: pendingMoves.get(key),
     transform: s.transform ?? undefined,
@@ -372,7 +372,7 @@ onFlush(() => {
   musicFade = { fadeIn: 0, fadeOut: 0 };
 });
 
-export const music = {
+export const music = Object.freeze({
   play(file, { loop = true, fadeIn = 0, fadeOut = 0.5, volume = 1 } = {}) {
     scene.music = { file, loop, volume };
     musicFade = { fadeIn, fadeOut };
@@ -381,10 +381,10 @@ export const music = {
     scene.music = null;
     musicFade = { fadeIn: 0, fadeOut };
   },
-};
+});
 
-export const sound = {
+export const sound = Object.freeze({
   play(file, { volume = 1 } = {}) {
     if (!isReplaying()) native.audio.sound(file, volume);
   },
-};
+});

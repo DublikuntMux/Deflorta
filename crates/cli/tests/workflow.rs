@@ -802,7 +802,8 @@ const guide = speaker("Guide");
 label("start", async () => {
   await guide`Hello!`;
   await line("Narration");
-  await menu("Choose", [["Left", 1], { text: "Right", value: 2 }]);
+  await menu("Choose", [{ label: "Left", action: "left-action" }, { label: "Right", action: "right-action" }]);
+  await menu([{ label: "No prompt", action: "no-prompt-action" }]);
   tr("Explicit");
 });
 "#,
@@ -824,6 +825,7 @@ label("start", async () => {
         "Choose",
         "Left",
         "Right",
+        "No prompt",
         "Explicit",
         "Start",
     ] {
@@ -831,6 +833,9 @@ label("start", async () => {
             table().as_object().unwrap().contains_key(key),
             "missing {key}"
         );
+    }
+    for action in ["left-action", "right-action", "no-prompt-action"] {
+        assert!(table().get(action).is_none(), "translated action {action}");
     }
     let missing = success(&cli(["translate", "missing", "uk", "-p", project.path()]));
     assert!(missing.contains("\"Narration\""));

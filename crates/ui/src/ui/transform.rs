@@ -150,7 +150,7 @@ impl Values {
             self.rotate = lerp(self.rotate, v, t);
         }
         if let Some(c) = props.crop {
-            for (cur, target) in self.crop.iter_mut().zip(c) {
+            for (cur, target) in self.crop.iter_mut().zip([c.x, c.y, c.width, c.height]) {
                 *cur = lerp(*cur, target, t);
             }
         }
@@ -332,6 +332,19 @@ mod tests {
         assert!(evaluate(&steps, 3.5, &mut v));
         assert_eq!(v.x, 0.0);
         assert_eq!(duration(&steps), Some(3.0));
+    }
+
+    #[test]
+    fn named_crop_sets_and_tweens_each_coordinate() {
+        let steps = program(
+            r#"{"steps":[{"set":{"crop":{"x":0,"y":0.25,"width":1,"height":0.5}}},{"dur":2,"ease":"linear","to":{"crop":{"x":0.5,"y":0.75,"width":0.5,"height":0.25}}}]}"#,
+        );
+        let mut values = Values::default();
+        assert!(!evaluate(&steps, 1.0, &mut values));
+        assert_eq!(values.crop, [0.25, 0.5, 0.75, 0.375]);
+        let mut values = Values::default();
+        assert!(evaluate(&steps, 2.0, &mut values));
+        assert_eq!(values.crop, [0.5, 0.75, 0.5, 0.25]);
     }
 
     #[test]

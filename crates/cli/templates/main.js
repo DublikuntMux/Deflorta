@@ -38,7 +38,7 @@ function Visits() {
         position: "absolute",
         top: 20,
         right: 20,
-        padding: [8, 16],
+        padding: { top: 8, right: 16, bottom: 8, left: 16 },
       }}
     >
       <Text>{expanded ? `Visits: ${store.visits}` : "Show visits"}</Text>
@@ -53,8 +53,8 @@ label("start", async () => {
   await guide("Edit {b}main.js{/b} to write your story.");
 
   const answer = await menu("Where to next?", [
-    ["Tell me more", "more"],
-    ["That's enough for now", "done"],
+    { label: "Tell me more", action: "more" },
+    { label: "That's enough for now", action: "done" },
   ]);
   if (answer === "more") jump("more");
   await guide("See you soon!");

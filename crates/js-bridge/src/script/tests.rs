@@ -320,6 +320,8 @@ fn check_active_translations(host: &mut ScriptHost) {
     let tree = committed_tree(&commands);
     let text = tree_text(tree);
     assert!(text.contains("Питання") && text.contains("Ліворуч"));
+    assert!(!text.contains("Hidden"));
+    assert!(keyed_node(tree, "choice-2").is_none());
     let choice = keyed_node(tree, "choice-0").unwrap().on_click.unwrap();
     host.dispatch(&Event::Click {
         handler: Some(choice),
@@ -329,6 +331,24 @@ fn check_active_translations(host: &mut ScriptHost) {
     .unwrap();
     drop(ScriptHost::take_commands());
     assert_eq!(runtime_state(host)["choice"], "left");
+    runtime_key(host, "save");
+    runtime_key(host, "end");
+    runtime_key(host, "load");
+    assert_eq!(runtime_state(host)["choice"], "left");
+
+    let commands = runtime_key(host, "choicesNoPrompt");
+    let tree = committed_tree(&commands);
+    assert!(tree_text(tree).contains("Ліворуч"));
+    assert_eq!(runtime_state(host)["line"], serde_json::Value::Null);
+    let choice = keyed_node(tree, "choice-0").unwrap().on_click.unwrap();
+    host.dispatch(&Event::Click {
+        handler: Some(choice),
+        button: "left",
+        revealing: false,
+    })
+    .unwrap();
+    drop(ScriptHost::take_commands());
+    assert_eq!(runtime_state(host)["choice"], false);
 
     runtime_key(host, "nvlChoices");
     runtime_key(host, "advance-test");
@@ -683,6 +703,20 @@ fn direct_bridge_preserves_values_and_committed_callbacks() {
 }
 
 fn check_grouped_properties(tree: &NodeDesc) {
+    assert_eq!(tree.style.padding.unwrap().trbl(), [8.0, 12.0, 8.0, 12.0]);
+    assert_eq!(tree.style.margin.unwrap().trbl(), [0.0, 0.0, -4.0, 0.0]);
+    let anchor = tree.anchor.unwrap();
+    assert_eq!((anchor.x, anchor.y), (0.5, 1.0));
+    let deflorta_common::desc::TransformStep::Set { set } =
+        &tree.transform.as_ref().unwrap().steps[0]
+    else {
+        panic!("expected a crop transform");
+    };
+    let crop = set.crop.unwrap();
+    assert_eq!(
+        (crop.x, crop.y, crop.width, crop.height),
+        (0.1, 0.2, 0.6, 0.7)
+    );
     assert!(!tree.is_focusable());
     assert!(tree.focus.autofocus && tree.accessibility.live && tree.accessibility.modal);
     assert_eq!(tree.accessibility.label.as_deref(), Some("Accessible tree"));

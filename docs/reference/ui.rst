@@ -118,8 +118,10 @@ Common element props
    * - ``transform``
      - ATL-style animation program.
 
-Images accept ``fit: "fill" | "cover" | "contain"`` and ``anchor: [x, y]``;
-``[0.5, 1]`` is bottom center. ``alt`` names the image or its action;
+Images accept ``fit: "fill" | "cover" | "contain"`` and
+``anchor: { x, y }``; ``{ x: 0.5, y: 1 }`` is bottom center. Transform programs
+crop images with ``crop: { x, y, width, height }`` in fractional units.
+``alt`` names the image or its action;
 ``alt: ""`` marks it decorative.
 
 Text accepts ``cps`` and ``tooltipText: true``. The latter displays the native
@@ -130,8 +132,10 @@ Style properties
 ----------------
 
 Sizes are pixels or percentages such as ``"50%"`` where supported by the
-declarations. Padding and margin accept a number, ``[vertical, horizontal]``,
-or ``[top, right, bottom, left]``. Colors use ``#rgb``, ``#rgba``,
+declarations. Padding and margin accept a number or an object with named
+``top``, ``right``, ``bottom``, and ``left`` sides. For example,
+``padding: { top: 8, right: 16, bottom: 8, left: 16 }``; omitted sides are zero.
+Colors use ``#rgb``, ``#rgba``,
 ``#rrggbb``, or ``#rrggbbaa``.
 
 .. list-table::

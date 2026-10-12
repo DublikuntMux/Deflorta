@@ -27,8 +27,8 @@ as an awaited tagged template. Use ``say(text)`` for narration.
    label("start", async () => {
      await eileen`Hi there! {w}Nice to {b}meet{/b} you.`;
      const answer = await menu("Well?", [
-       ["Hello!", "hi"],
-       ["...", "silent"],
+       { label: "Hello!", action: "hi" },
+       { label: "...", action: "silent" },
      ]);
      if (answer === "hi") store.trust += 1;
      jump("next");
@@ -38,8 +38,10 @@ as an awaited tagged template. Use ``say(text)`` for narration.
      await say(store.trust ? "You made a friend." : "A quiet beginning.");
    });
 
-Menu entries can also be plain strings or objects with ``text``, ``value``, and
-``if`` fields. ``prompt(question, options)`` asks for text input.
+Menu choices must be objects with ``label`` and ``action`` fields. ``menu``
+returns the selected choice's ``action``; an optional ``if`` field controls
+whether the choice is visible. ``prompt(question, options)`` asks for text
+input.
 ``pause(seconds)`` waits for time; ``pause()`` waits for a click.
 
 Keep story state in store

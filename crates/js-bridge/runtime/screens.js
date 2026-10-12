@@ -104,7 +104,7 @@ screen(
         right: 80,
         bottom: 40,
         minHeight: 180,
-        padding: [20, 34],
+        padding: { top: 20, right: 34, bottom: 20, left: 34 },
         gap: 8,
         flexDirection: "column",
         background: theme.panel,
@@ -132,7 +132,7 @@ screen(
       style={{
         ...FILL,
         bottom: 40,
-        padding: [48, 120],
+        padding: { top: 48, right: 120, bottom: 48, left: 120 },
         gap: 18,
         flexDirection: "column",
         background: "#05060ad0",
@@ -159,14 +159,14 @@ screen(
         <View
           key="nvl-choices"
           enter={{ dur: 0.2, opacity: 0 }}
-          style={{ flexDirection: "column", gap: 4, margin: [6, -16, 0, -16] }}
+          style={{ flexDirection: "column", gap: 4, margin: { top: 6, right: -16, left: -16 } }}
         >
           {items.map((item, i) => (
             <Button
               key={`nvl-choice-${i}`}
               onPress={item.select}
               style={{
-                padding: [6, 16],
+                padding: { top: 6, right: 16, bottom: 6, left: 16 },
                 justifyContent: "flex-start",
                 background: "#00000000",
                 color: theme.accent,
@@ -190,7 +190,7 @@ function QuickButton({ children, onPress, active = false }) {
       onPress={onPress}
       focusable={false}
       style={{
-        padding: [3, 10],
+        padding: { top: 3, right: 10, bottom: 3, left: 10 },
         radius: 6,
         color: active ? theme.accent : "#ffffffaa",
       }}
@@ -269,7 +269,7 @@ screen(
           onPress={item.select}
           style={{
             width: 640,
-            padding: [14, 24],
+            padding: { top: 14, right: 24, bottom: 14, left: 24 },
             background: "#141724e6",
             borderWidth: 1,
             borderColor: "#ffffff26",
@@ -356,7 +356,7 @@ screen(
       enter={{ dur: 0.2, opacity: 0 }}
       style={{
         ...FILL,
-        padding: [50, 140],
+        padding: { top: 50, right: 140, bottom: 50, left: 140 },
         gap: 20,
         flexDirection: "column",
         background: theme.menuBackground,
@@ -377,7 +377,7 @@ screen(
       <ScrollView
         key="history-scroll"
         startAtEnd
-        style={{ flexGrow: 1, flexShrink: 1, gap: 14, padding: [0, 16, 0, 0] }}
+        style={{ flexGrow: 1, flexShrink: 1, gap: 14, padding: { right: 16 } }}
       >
         {history.length === 0 && (
           <Text style={{ color: theme.mutedText }}>{_("Nothing yet.")}</Text>
@@ -393,7 +393,7 @@ screen(
             style={{
               flexDirection: "column",
               gap: 2,
-              padding: [8, 12],
+              padding: { top: 8, right: 12, bottom: 8, left: 12 },
               radius: 8,
               flexShrink: 0,
             }}
@@ -421,7 +421,7 @@ screen(
             {entry.voice && (
               <View
                 onPress={() => native.audio.voice(entry.voice)}
-                style={{ padding: [2, 8], radius: 6, alignSelf: "flex-start" }}
+                style={{ padding: { top: 2, right: 8, bottom: 2, left: 8 }, radius: 6, alignSelf: "flex-start" }}
                 hover={{ background: "#ffffff20" }}
               >
                 <Text style={{ fontSize: 15, color: theme.mutedText }}>
@@ -456,7 +456,7 @@ function MenuButton(props) {
       {...props}
       style={{
         width: 280,
-        padding: [12, 20],
+        padding: { top: 12, right: 20, bottom: 12, left: 20 },
         background: "#00000000",
         justifyContent: "flex-start",
         radius: 10,
@@ -490,7 +490,7 @@ screen(
             top: 0,
             bottom: 0,
             width: 460,
-            padding: [80, 64],
+            padding: { top: 80, right: 64, bottom: 80, left: 64 },
             gap: 6,
             flexDirection: "column",
             justifyContent: "flex-end",
@@ -502,7 +502,7 @@ screen(
               fontSize: 52,
               fontWeight: 700,
               color: "#ffffff",
-              margin: [0, 0, 36, 0],
+              margin: { bottom: 36 },
             }}
           >
             {_(config.title)}
@@ -626,7 +626,7 @@ function SlotCard({ slot, mode }) {
             position: "absolute",
             right: 14,
             top: 14,
-            padding: [2, 9],
+            padding: { top: 2, right: 9, bottom: 2, left: 9 },
             radius: 6,
             background: "#00000088",
           }}
@@ -655,7 +655,7 @@ function SlotsPage({ mode }) {
       key={`page-${id}`}
       onPress={() => selectPage(id)}
       style={{
-        padding: [6, 14],
+        padding: { top: 6, right: 14, bottom: 6, left: 14 },
         background: page === id ? "#e8a8c840" : "#ffffff10",
         borderWidth: 1,
         borderColor: page === id ? theme.accent : "#ffffff1a",
@@ -683,6 +683,10 @@ function SlotsPage({ mode }) {
   );
 }
 
+/**
+ * @template T
+ * @param {{ label: string, options: import("deflorta").Choice<T>[], current: T, apply: (action: T) => void }} props
+ */
 function ChoiceRow({ label, options, current, apply }) {
   return (
     <View
@@ -696,13 +700,13 @@ function ChoiceRow({ label, options, current, apply }) {
       <Text style={{ width: 240, fontSize: 21, color: "#ffffffcc" }}>
         {label}
       </Text>
-      {options.map(([name, value]) => (
+      {options.map(({ label: name, action: value }) => (
         <Button
           key={name}
           onPress={() => apply(value)}
           label={`${label}: ${name}`}
           style={{
-            padding: [8, 18],
+            padding: { top: 8, right: 18, bottom: 8, left: 18 },
             background: value === current ? "#e8a8c840" : "#ffffff10",
             borderWidth: 1,
             borderColor: value === current ? theme.accent : "#ffffff1a",
@@ -766,8 +770,8 @@ function PrefsPage() {
         <ChoiceRow
           label={_("Display")}
           options={[
-            [_("Window"), false],
-            [_("Fullscreen"), true],
+            { label: _("Window"), action: false },
+            { label: _("Fullscreen"), action: true },
           ]}
           current={prefs.fullscreen}
           apply={setPref("fullscreen")}
@@ -776,7 +780,7 @@ function PrefsPage() {
       {languages.length > 1 && (
         <ChoiceRow
           label={_("Language")}
-          options={languages.map((l) => [l.name, l.id ?? null])}
+          options={languages.map((l) => ({ label: l.name, action: l.id ?? null }))}
           current={prefs.language}
           apply={setLanguage}
         />
@@ -793,8 +797,8 @@ function PrefsPage() {
       <ChoiceRow
         label={_("Auto-forward")}
         options={[
-          [_("Off"), false],
-          [_("On"), true],
+          { label: _("Off"), action: false },
+          { label: _("On"), action: true },
         ]}
         current={prefs.autoForward}
         apply={setPref("autoForward")}
@@ -811,8 +815,8 @@ function PrefsPage() {
       <ChoiceRow
         label={_("Self-voicing")}
         options={[
-          [_("Off"), false],
-          [_("On"), true],
+          { label: _("Off"), action: false },
+          { label: _("On"), action: true },
         ]}
         current={prefs.selfVoicing}
         apply={setPref("selfVoicing")}
@@ -820,8 +824,8 @@ function PrefsPage() {
       <ChoiceRow
         label={_("Skip")}
         options={[
-          [_("Seen text"), false],
-          [_("All text"), true],
+          { label: _("Seen text"), action: false },
+          { label: _("All text"), action: true },
         ]}
         current={prefs.skipUnseen}
         apply={setPref("skipUnseen")}
@@ -856,8 +860,8 @@ function PrefsPage() {
       <ChoiceRow
         label={_("Voice")}
         options={[
-          [_("Stop at next line"), false],
-          [_("Keep playing"), true],
+          { label: _("Stop at next line"), action: false },
+          { label: _("Keep playing"), action: true },
         ]}
         current={prefs.voiceSustain}
         apply={setPref("voiceSustain")}
@@ -871,7 +875,7 @@ function NavButton({ children, active = false, ...props }) {
     <Button
       {...props}
       style={{
-        padding: [10, 22],
+        padding: { top: 10, right: 22, bottom: 10, left: 22 },
         background: active ? "#e8a8c833" : "#00000000",
         justifyContent: "flex-start",
       }}
@@ -920,7 +924,7 @@ screen(
           style={{
             width: 300,
             flexShrink: 0,
-            padding: [70, 30],
+            padding: { top: 70, right: 30, bottom: 70, left: 30 },
             gap: 4,
             flexDirection: "column",
             background: "#ffffff08",
@@ -979,7 +983,7 @@ screen(
           style={{
             flexGrow: 1,
             flexShrink: 1,
-            padding: [60, 50, 40, 50],
+            padding: { top: 60, right: 50, bottom: 40, left: 50 },
             gap: 24,
             flexDirection: "column",
           }}
@@ -1084,7 +1088,7 @@ screen(
         tooltipText
         style={{
           maxWidth: 800,
-          padding: [6, 14],
+          padding: { top: 6, right: 14, bottom: 6, left: 14 },
           radius: 8,
           background: "#000000cc",
           fontSize: 17,
